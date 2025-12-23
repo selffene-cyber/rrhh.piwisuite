@@ -692,7 +692,8 @@ export default function HomePage() {
           </div>
         </div>
         {monthlyData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300} style={{ minHeight: '250px' }}>
+          <div style={{ width: '100%', height: '300px', minHeight: '250px' }}>
+            <ResponsiveContainer width="100%" height="100%">
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
@@ -731,6 +732,7 @@ export default function HomePage() {
               />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
             No hay datos de liquidaciones para mostrar
