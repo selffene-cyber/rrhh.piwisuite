@@ -1,6 +1,7 @@
 'use client'
 
-import { Document, Page, Text, View, StyleSheet, PDFViewer } from '@react-pdf/renderer'
+import { useRef } from 'react'
+import { Document, Page, Text, View, StyleSheet, PDFViewer, pdf } from '@react-pdf/renderer'
 import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 
@@ -116,25 +117,15 @@ interface PayrollPDFProps {
   vacations?: any[] | null
 }
 
-export default function PayrollPDF({ slip, company, vacations }: PayrollPDFProps) {
+// Componente interno para el Document (necesario para usar pdf())
+const PayrollDocument = ({ slip, company, vacations, generateFileName }: any) => {
   const taxableItems = slip.payroll_items?.filter((item: any) => item.type === 'taxable_earning') || []
   const nonTaxableItems = slip.payroll_items?.filter((item: any) => item.type === 'non_taxable_earning') || []
   const legalDeductions = slip.payroll_items?.filter((item: any) => item.type === 'legal_deduction') || []
   const otherDeductions = slip.payroll_items?.filter((item: any) => item.type === 'other_deduction') || []
 
-  // Generar nombre del archivo: LIQUIDACIÓN-{RUT}-{MES}-{AÑO}
-  const generateFileName = () => {
-    const rut = slip.employees?.rut || 'SIN-RUT'
-    const month = slip.payroll_periods?.month || new Date().getMonth() + 1
-    const year = slip.payroll_periods?.year || new Date().getFullYear()
-    const monthAbbr = MONTHS[month - 1]?.substring(0, 3) || 'XXX'
-    return `LIQUIDACIÓN-${rut}-${monthAbbr}-${year}`
-  }
-
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
-      <PDFViewer width="100%" height="100%">
-        <Document title={generateFileName()}>
+    <Document title={generateFileName()}>
           <Page size="A4" style={styles.page}>
             {/* Encabezado */}
             <View style={styles.header}>
@@ -492,6 +483,81 @@ export default function PayrollPDF({ slip, company, vacations }: PayrollPDFProps
             </View>
           </Page>
         </Document>
+  )
+}
+
+export default function PayrollPDF({ slip, company, vacations }: PayrollPDFProps) {
+  // Generar nombre del archivo: LIQUIDACIÓN-{RUT}-{MES}-{AÑO}
+  const generateFileName = () => {
+    const rut = slip.employees?.rut || 'SIN-RUT'
+    const month = slip.payroll_periods?.month || new Date().getMonth() + 1
+    const year = slip.payroll_periods?.year || new Date().getFullYear()
+    const monthAbbr = MONTHS[month - 1]?.substring(0, 3) || 'XXX'
+    return `LIQUIDACIÓN-${rut}-${monthAbbr}-${year}`
+  }
+
+  const handleDownload = async () => {
+    try {
+      const fileName = generateFileName()
+      const blob = await pdf(
+        <PayrollDocument 
+          slip={slip} 
+          company={company} 
+          vacations={vacations} 
+          generateFileName={generateFileName}
+        />
+      ).toBlob()
+      
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileName}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error al descargar PDF:', error)
+      alert('Error al descargar el PDF')
+    }
+  }
+
+  return (
+    <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+      <div style={{ 
+        position: 'absolute', 
+        top: '10px', 
+        right: '10px', 
+        zIndex: 1000,
+        padding: '8px 16px',
+        background: '#2563eb',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}>
+        <button 
+          onClick={handleDownload}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          Descargar PDF
+        </button>
+      </div>
+      <PDFViewer width="100%" height="100%">
+        <PayrollDocument 
+          slip={slip} 
+          company={company} 
+          vacations={vacations} 
+          generateFileName={generateFileName}
+        />
       </PDFViewer>
     </div>
   )
