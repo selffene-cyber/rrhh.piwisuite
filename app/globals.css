@@ -349,6 +349,15 @@ table tr:last-child td {
     grid-template-columns: 1fr !important;
     gap: 16px !important;
   }
+
+  /* Ajustar tamaños de fuente en cards de proyección */
+  .card p[style*="font-size: 36px"] {
+    font-size: 28px !important;
+  }
+
+  .card p[style*="font-size: 14px"] {
+    font-size: 12px !important;
+  }
 }
 
 /* Ajustes adicionales para responsive */

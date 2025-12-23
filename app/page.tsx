@@ -692,7 +692,7 @@ export default function HomePage() {
           </div>
         </div>
         {monthlyData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={300} style={{ minHeight: '250px' }}>
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
@@ -766,8 +766,14 @@ export default function HomePage() {
           borderRadius: '12px',
           border: '2px solid #f59e0b'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}>
+            <div style={{ flex: '1', minWidth: '200px' }}>
               <p style={{ fontSize: '14px', color: '#92400e', marginBottom: '8px', fontWeight: '500' }}>
                 Sueldos Líquidos
               </p>
@@ -788,7 +794,8 @@ export default function HomePage() {
               justifyContent: 'center',
               fontSize: '32px',
               fontWeight: 'bold',
-              color: '#78350f'
+              color: '#78350f',
+              flexShrink: 0
             }}>
               $
             </div>
@@ -824,8 +831,14 @@ export default function HomePage() {
           borderRadius: '12px',
           border: '2px solid #ef4444'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}>
+            <div style={{ flex: '1', minWidth: '200px' }}>
               <p style={{ fontSize: '14px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
                 Total Imposiciones Proyectadas
               </p>
@@ -846,7 +859,8 @@ export default function HomePage() {
               justifyContent: 'center',
               fontSize: '32px',
               fontWeight: 'bold',
-              color: '#7f1d1d'
+              color: '#7f1d1d',
+              flexShrink: 0
             }}>
               $
             </div>
