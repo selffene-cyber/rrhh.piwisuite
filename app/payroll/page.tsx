@@ -101,7 +101,14 @@ export default function PayrollPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
         <h1>Liquidaciones de Sueldo</h1>
         <Link href="/payroll/new">
           <button>Nueva Liquidación</button>
@@ -110,7 +117,7 @@ export default function PayrollPage() {
 
       <div className="card">
         <h2>Filtros</h2>
-        <div className="form-row">
+        <div className="form-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           <div className="form-group">
             <label>Año</label>
             <select
@@ -172,79 +179,144 @@ export default function PayrollPage() {
             )}
           </p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Trabajador</th>
-                  <th>RUT</th>
-                  <th>Período</th>
-                  <th>Días Trabajados</th>
-                  <th>Líquido a Pagar</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payrollSlips.map((slip: any) => (
-                  <tr key={slip.id}>
-                    <td>{slip.employees?.full_name || '-'}</td>
-                    <td>{slip.employees?.rut || '-'}</td>
-                    <td>
+          <>
+            {/* Tabla Desktop */}
+            <div className="table-mobile-hidden">
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Trabajador</th>
+                      <th>RUT</th>
+                      <th>Período</th>
+                      <th>Días Trabajados</th>
+                      <th>Líquido a Pagar</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payrollSlips.map((slip: any) => (
+                      <tr key={slip.id}>
+                        <td>{slip.employees?.full_name || '-'}</td>
+                        <td>{slip.employees?.rut || '-'}</td>
+                        <td>
+                          {slip.payroll_periods ? 
+                            formatMonthYear(slip.payroll_periods.year, slip.payroll_periods.month) : 
+                            '-'
+                          }
+                        </td>
+                        <td>{slip.days_worked}</td>
+                        <td>${slip.net_pay.toLocaleString('es-CL')}</td>
+                        <td>
+                          <span className={`badge ${slip.status}`}>
+                            {slip.status === 'draft' ? 'Borrador' : slip.status === 'issued' ? 'Emitida' : 'Enviada'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <Link href={`/payroll/${slip.id}`}>
+                              <button 
+                                style={{ 
+                                  padding: '6px 10px', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  border: '1px solid #d1d5db',
+                                  background: '#fff',
+                                  borderRadius: '4px'
+                                }}
+                                title="Ver"
+                              >
+                                <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
+                              </button>
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(slip.id, slip.status)}
+                              style={{ 
+                                padding: '6px 10px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                border: '1px solid #d1d5db',
+                                background: '#fff',
+                                borderRadius: '4px'
+                              }}
+                              title="Eliminar liquidación"
+                            >
+                              <FaTrash style={{ fontSize: '14px', color: '#ef4444' }} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Cards Mobile */}
+            <div className="table-mobile-card">
+              {payrollSlips.map((slip: any) => (
+                <div key={slip.id} className="mobile-card">
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Trabajador</span>
+                    <span className="mobile-card-value" style={{ fontWeight: '600' }}>
+                      {slip.employees?.full_name || '-'}
+                    </span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">RUT</span>
+                    <span className="mobile-card-value">{slip.employees?.rut || '-'}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Período</span>
+                    <span className="mobile-card-value">
                       {slip.payroll_periods ? 
                         formatMonthYear(slip.payroll_periods.year, slip.payroll_periods.month) : 
                         '-'
                       }
-                    </td>
-                    <td>{slip.days_worked}</td>
-                    <td>${slip.net_pay.toLocaleString('es-CL')}</td>
-                  <td>
-                    <span className={`badge ${slip.status}`}>
-                      {slip.status === 'draft' ? 'Borrador' : slip.status === 'issued' ? 'Emitida' : 'Enviada'}
                     </span>
-                  </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <Link href={`/payroll/${slip.id}`}>
-                          <button 
-                            style={{ 
-                              padding: '6px 10px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              border: '1px solid #d1d5db',
-                              background: '#fff',
-                              borderRadius: '4px'
-                            }}
-                            title="Ver"
-                          >
-                            <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
-                          </button>
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(slip.id, slip.status)}
-                          style={{ 
-                            padding: '6px 10px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            border: '1px solid #d1d5db',
-                            background: '#fff',
-                            borderRadius: '4px'
-                          }}
-                          title="Eliminar liquidación"
-                        >
-                          <FaTrash style={{ fontSize: '14px', color: '#ef4444' }} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Días Trabajados</span>
+                    <span className="mobile-card-value">{slip.days_worked}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Líquido a Pagar</span>
+                    <span className="mobile-card-value" style={{ fontWeight: '600', color: '#059669' }}>
+                      ${slip.net_pay.toLocaleString('es-CL')}
+                    </span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Estado</span>
+                    <span className="mobile-card-value">
+                      <span className={`badge ${slip.status}`}>
+                        {slip.status === 'draft' ? 'Borrador' : slip.status === 'issued' ? 'Emitida' : 'Enviada'}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="mobile-card-actions">
+                    <Link href={`/payroll/${slip.id}`} style={{ flex: 1 }}>
+                      <button style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+                        <FaEye style={{ marginRight: '6px' }} />
+                        Ver
+                      </button>
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(slip.id, slip.status)}
+                      className="danger"
+                      style={{ padding: '8px', fontSize: '14px' }}
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

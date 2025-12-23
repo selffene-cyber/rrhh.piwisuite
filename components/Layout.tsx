@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes } from 'react-icons/fa'
 import './Layout.css'
 
 // Componente de icono de pingüino en estilo de líneas
@@ -45,6 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const hasLoaded = useRef(false)
 
   // Si estamos en login, no hacer nada - SALIR INMEDIATAMENTE
@@ -153,10 +154,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     )
   }
 
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false)
+  }
+
   return (
     <div className="layout-modern">
+      {/* Mobile Menu Toggle */}
+      <button 
+        className="mobile-menu-toggle"
+        onClick={toggleMobileMenu}
+        aria-label="Toggle menu"
+      >
+        {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+      </button>
+
+      {/* Mobile Menu Overlay */}
+      <div 
+        className={`mobile-menu-overlay ${mobileMenuOpen ? 'active' : ''}`}
+        onClick={closeMobileMenu}
+      />
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon-collapsed">
             <PenguinIcon size={32} />
@@ -178,6 +202,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
                 title={item.label}
+                onClick={closeMobileMenu}
               >
                 <Icon size={20} />
                 <span className="sidebar-nav-label">{item.label}</span>

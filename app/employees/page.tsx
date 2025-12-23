@@ -90,9 +90,20 @@ export default function EmployeesPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
         <h1>Trabajadores</h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '8px',
+          flexWrap: 'wrap'
+        }}>
           <button onClick={loadEmployees} className="secondary" style={{ padding: '8px 16px' }}>
             Actualizar
           </button>
@@ -125,91 +136,161 @@ export default function EmployeesPage() {
             <p style={{ marginBottom: '16px', color: '#6b7280' }}>
               Total: {employees.length} trabajador{employees.length !== 1 ? 'es' : ''}
             </p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th style={{ minWidth: '120px', whiteSpace: 'nowrap' }}>RUT</th>
-                  <th>Cargo</th>
-                  <th>AFP</th>
-                  <th>Sistema de Salud</th>
-                  <th>Sueldo Base</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map((employee: Employee) => (
-                  <tr key={employee.id}>
-                    <td>{employee.full_name}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{employee.rut}</td>
-                    <td>{employee.position}</td>
-                    <td>{employee.afp}</td>
-                    <td>{employee.health_system}</td>
-                    <td>${employee.base_salary.toLocaleString('es-CL')}</td>
-                    <td>
+            
+            {/* Tabla Desktop */}
+            <div className="table-mobile-hidden">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th style={{ minWidth: '120px', whiteSpace: 'nowrap' }}>RUT</th>
+                    <th>Cargo</th>
+                    <th>AFP</th>
+                    <th>Sistema de Salud</th>
+                    <th>Sueldo Base</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((employee: Employee) => (
+                    <tr key={employee.id}>
+                      <td>{employee.full_name}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{employee.rut}</td>
+                      <td>{employee.position}</td>
+                      <td>{employee.afp}</td>
+                      <td>{employee.health_system}</td>
+                      <td>${employee.base_salary.toLocaleString('es-CL')}</td>
+                      <td>
+                        <span className={`badge ${employee.status}`}>
+                          {employee.status === 'active' ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <Link href={`/employees/${employee.id}`}>
+                            <button 
+                              style={{ 
+                                padding: '6px 10px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                border: '1px solid #d1d5db',
+                                background: '#fff',
+                                borderRadius: '4px'
+                              }}
+                              title="Ver"
+                            >
+                              <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
+                            </button>
+                          </Link>
+                          <Link href={`/employees/${employee.id}/edit`}>
+                            <button 
+                              style={{ 
+                                padding: '6px 10px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                border: '1px solid #d1d5db',
+                                background: '#fff',
+                                borderRadius: '4px'
+                              }}
+                              title="Editar"
+                            >
+                              <FaPencilAlt style={{ fontSize: '14px', color: '#f59e0b' }} />
+                            </button>
+                          </Link>
+                          <button 
+                            onClick={() => handleDelete(employee)}
+                            style={{ 
+                              padding: '6px 10px', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              border: '1px solid #d1d5db',
+                              background: '#fff',
+                              borderRadius: '4px'
+                            }}
+                            title="Eliminar"
+                          >
+                            <FaTrash style={{ fontSize: '14px', color: '#ef4444' }} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Cards Mobile */}
+            <div className="table-mobile-card">
+              {employees.map((employee: Employee) => (
+                <div key={employee.id} className="mobile-card">
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Nombre</span>
+                    <span className="mobile-card-value" style={{ fontWeight: '600' }}>
+                      {employee.full_name}
+                    </span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">RUT</span>
+                    <span className="mobile-card-value">{employee.rut}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Cargo</span>
+                    <span className="mobile-card-value">{employee.position || '-'}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">AFP</span>
+                    <span className="mobile-card-value">{employee.afp || '-'}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Sistema de Salud</span>
+                    <span className="mobile-card-value">{employee.health_system || '-'}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Sueldo Base</span>
+                    <span className="mobile-card-value">${employee.base_salary.toLocaleString('es-CL')}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Estado</span>
+                    <span className="mobile-card-value">
                       <span className={`badge ${employee.status}`}>
                         {employee.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <Link href={`/employees/${employee.id}`}>
-                          <button 
-                            style={{ 
-                              padding: '6px 10px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              border: '1px solid #d1d5db',
-                              background: '#fff',
-                              borderRadius: '4px'
-                            }}
-                            title="Ver"
-                          >
-                            <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
-                          </button>
-                        </Link>
-                        <Link href={`/employees/${employee.id}/edit`}>
-                          <button 
-                            style={{ 
-                              padding: '6px 10px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              border: '1px solid #d1d5db',
-                              background: '#fff',
-                              borderRadius: '4px'
-                            }}
-                            title="Editar"
-                          >
-                            <FaPencilAlt style={{ fontSize: '14px', color: '#f59e0b' }} />
-                          </button>
-                        </Link>
-                        <button 
-                          onClick={() => handleDelete(employee)}
-                          style={{ 
-                            padding: '6px 10px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            border: '1px solid #d1d5db',
-                            background: '#fff',
-                            borderRadius: '4px'
-                          }}
-                          title="Eliminar"
-                        >
-                          <FaTrash style={{ fontSize: '14px', color: '#ef4444' }} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                  </div>
+                  <div className="mobile-card-actions">
+                    <Link href={`/employees/${employee.id}`} style={{ flex: 1 }}>
+                      <button style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+                        <FaEye style={{ marginRight: '6px' }} />
+                        Ver
+                      </button>
+                    </Link>
+                    <Link href={`/employees/${employee.id}/edit`} style={{ flex: 1 }}>
+                      <button 
+                        className="secondary" 
+                        style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+                      >
+                        <FaPencilAlt style={{ marginRight: '6px' }} />
+                        Editar
+                      </button>
+                    </Link>
+                    <button 
+                      onClick={() => handleDelete(employee)}
+                      className="danger"
+                      style={{ padding: '8px', fontSize: '14px' }}
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>

@@ -261,3 +261,100 @@ table tr:last-child td {
   color: #065f46; /* green-800 */
 }
 
+/* Responsive Styles */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 24px !important;
+  }
+
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* Ocultar tablas en móvil, mostrar cards */
+  .table-mobile-hidden {
+    display: none;
+  }
+
+  .table-mobile-card {
+    display: block;
+  }
+
+  /* Cards responsive para tablas */
+  .mobile-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .mobile-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .mobile-card-row:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-card-label {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .mobile-card-value {
+    color: #111827;
+    font-size: 14px;
+    text-align: right;
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+}
+
+@media (min-width: 769px) {
+  .table-mobile-card {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 20px !important;
+  }
+
+  h2 {
+    font-size: 18px !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+
+/* Ajustes adicionales para responsive */
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+

@@ -64,7 +64,14 @@ export default function HomePage() {
       </div>
 
       {/* Cards de Estadísticas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+        gap: '24px', 
+        marginBottom: '32px'
+      }}
+      className="stats-grid"
+      >
         <div className="card" style={{ 
           background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
           color: 'white',
