@@ -30,10 +30,11 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copiar archivos necesarios
-# Copiar public (ahora existe con .gitkeep)
-COPY --from=builder /app/public ./public
+# Con output: 'standalone', Next.js crea todo en .next/standalone
+# Copiamos el contenido de standalone a la raíz
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 USER nextjs
 
@@ -42,6 +43,6 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Con output: 'standalone', el servidor está en .next/standalone/server.js
-CMD ["node", ".next/standalone/server.js"]
+# Con standalone, server.js está en la raíz después del COPY
+CMD ["node", "server.js"]
 
