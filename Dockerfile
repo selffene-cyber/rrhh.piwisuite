@@ -38,9 +38,11 @@ COPY --from=builder /app/public ./public
 
 USER nextjs
 
-EXPOSE 3000
+# Exponer el puerto (Easypanel lo mapea al 3002)
+EXPOSE 3002
 
-ENV PORT=3000
+# El puerto puede ser configurado por Easypanel (default 3002 para coincidir con Easypanel)
+ENV PORT=${PORT:-3002}
 ENV HOSTNAME="0.0.0.0"
 
 # Con standalone, server.js está en la raíz después del COPY

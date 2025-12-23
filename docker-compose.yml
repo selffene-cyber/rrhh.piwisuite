@@ -4,8 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
     # Los puertos se manejan automáticamente por Easypanel
+    # IMPORTANTE: El puerto interno debe coincidir con el configurado en Easypanel (3002)
     environment:
       - NODE_ENV=production
+      - PORT=3002
       - NEXT_PUBLIC_SUPABASE_URL=https://dyhucxrytuxjjecmgtsn.supabase.co
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5aHVjeHJ5dHV4amplY21ndHNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MDY4MjQsImV4cCI6MjA4MTk4MjgyNH0.6DgOlB8eMW_41CaRbtcpX-k6mDuvPHnfi32S8LXmeh8
       - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5aHVjeHJ5dHV4amplY21ndHNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjQwNjgyNCwiZXhwIjoyMDgxOTgyODI0fQ.CdFL7iwvkEubafVq-ereI0JdMYIf7Hqc71qWSBvtPfQ
