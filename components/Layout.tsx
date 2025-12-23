@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes } from 'react-icons/fa'
+import AlertFab from './AlertFab'
 import './Layout.css'
 
 // Componente de icono de pingüino en estilo de líneas
@@ -255,6 +256,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <main className="main-content-modern">
           {children}
         </main>
+
+        {/* Alert Fab - Botón flotante de alertas */}
+        <AlertFab />
       </div>
     </div>
   )
