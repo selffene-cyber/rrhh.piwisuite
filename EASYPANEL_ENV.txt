@@ -1,0 +1,17 @@
+# ============================================
+# Variables de Entorno para Easypanel
+# Copiar y pegar estas variables en Easypanel
+# ============================================
+
+# Entorno de ejecución
+NODE_ENV=production
+
+# Supabase Configuration
+# Dónde encontrarlas: Supabase Dashboard → Settings → API → Project API keys
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anon_aqui
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_aqui
+
+# Configuración del Sitio
+NEXT_PUBLIC_SITE_URL=https://rrhh.piwisuite.cl
+
