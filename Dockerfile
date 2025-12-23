@@ -42,5 +42,6 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+# Con output: 'standalone', el servidor está en .next/standalone/server.js
+CMD ["node", ".next/standalone/server.js"]
 
