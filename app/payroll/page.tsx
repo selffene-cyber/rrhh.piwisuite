@@ -59,8 +59,14 @@ export default function PayrollPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar esta liquidación? Esta acción no se puede deshacer.')) {
+  const handleDelete = async (id: string, status: string) => {
+    const slip = payrollSlips.find((s: any) => s.id === id)
+    const isIssued = status === 'issued' || status === 'sent'
+    const message = isIssued 
+      ? '¿Estás seguro de que deseas eliminar esta liquidación EMITIDA? Esta acción no se puede deshacer y la liquidación será eliminada permanentemente.'
+      : '¿Estás seguro de que deseas eliminar esta liquidación? Esta acción no se puede deshacer.'
+    
+    if (!confirm(message)) {
       return
     }
 
@@ -72,6 +78,7 @@ export default function PayrollPage() {
 
       if (error) throw error
 
+      alert('Liquidación eliminada correctamente')
       loadPayrollSlips()
     } catch (error: any) {
       alert('Error al eliminar liquidación: ' + error.message)
@@ -215,26 +222,22 @@ export default function PayrollPage() {
                             <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
                           </button>
                         </Link>
-                        {(slip.status === 'draft' || slip.status === 'issued') && (
-                          <button
-                            onClick={() => handleDelete(slip.id)}
-                            disabled={slip.status !== 'draft'}
-                            style={{ 
-                              padding: '6px 10px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              cursor: slip.status === 'draft' ? 'pointer' : 'not-allowed',
-                              border: '1px solid #d1d5db',
-                              background: '#fff',
-                              borderRadius: '4px',
-                              opacity: slip.status === 'draft' ? 1 : 0.5
-                            }}
-                            title={slip.status === 'issued' ? 'Solo se pueden eliminar liquidaciones en borrador' : 'Eliminar'}
-                          >
-                            <FaTrash style={{ fontSize: '14px', color: '#ef4444' }} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDelete(slip.id, slip.status)}
+                          style={{ 
+                            padding: '6px 10px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            border: '1px solid #d1d5db',
+                            background: '#fff',
+                            borderRadius: '4px'
+                          }}
+                          title="Eliminar liquidación"
+                        >
+                          <FaTrash style={{ fontSize: '14px', color: '#ef4444' }} />
+                        </button>
                       </div>
                     </td>
                   </tr>
