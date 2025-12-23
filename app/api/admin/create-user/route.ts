@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
           data: {
             full_name: full_name || '',
           },
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://rrhh.piwisuite.cl'}/login`,
         },
       })
 

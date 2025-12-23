@@ -135,6 +135,11 @@ Easypanel debería detectar automáticamente:
    - `https://rrhh.piwisuite.cl/login`
    - `https://rrhh.piwisuite.cl/**`
 
+### Configuración de Dominio en Easypanel
+- **URL Externa**: `https://rrhh.piwisuite.cl/`
+- **URL Interna**: `http://piwisuite_rrhhpiwisuite_app:3002/`
+- El puerto interno (3002) es manejado automáticamente por Easypanel
+
 ### RLS (Row Level Security)
 Asegúrate de que todas las políticas RLS estén activas y funcionando correctamente.
 
