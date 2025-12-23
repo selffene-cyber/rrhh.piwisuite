@@ -877,187 +877,241 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-            <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px', width: '50px' }}>
-                  #
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px', width: '250px' }}>
-                  Nombre
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px', width: '130px', whiteSpace: 'nowrap' }}>
-                  RUT
-                </th>
-                <th 
-                  style={{ 
-                    padding: '12px', 
-                    textAlign: 'left', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    width: '140px'
-                  }}
-                  onClick={() => handleSort('antiguedad')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    Antigüedad (días)
-                    {sortColumn === 'antiguedad' ? (
-                      sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
-                    ) : (
-                      <FaSort style={{ opacity: 0.3 }} />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  style={{ 
-                    padding: '12px', 
-                    textAlign: 'right', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    width: '160px'
-                  }}
-                  onClick={() => handleSort('liquidos')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                    Ingresos Líquidos
-                    {sortColumn === 'liquidos' ? (
-                      sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
-                    ) : (
-                      <FaSort style={{ opacity: 0.3 }} />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  style={{ 
-                    padding: '12px', 
-                    textAlign: 'center', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    width: '130px'
-                  }}
-                  onClick={() => handleSort('ausencia')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                    Días Ausencia
-                    {sortColumn === 'ausencia' ? (
-                      sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
-                    ) : (
-                      <FaSort style={{ opacity: 0.3 }} />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  style={{ 
-                    padding: '12px', 
-                    textAlign: 'center', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    width: '130px'
-                  }}
-                  onClick={() => handleSort('licencias')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                    Días Licencias
-                    {sortColumn === 'licencias' ? (
-                      sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
-                    ) : (
-                      <FaSort style={{ opacity: 0.3 }} />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  style={{ 
-                    padding: '12px', 
-                    textAlign: 'right', 
-                    fontWeight: '600', 
-                    color: '#374151', 
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    width: '140px'
-                  }}
-                  onClick={() => handleSort('prestamos')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                    Préstamos
-                    {sortColumn === 'prestamos' ? (
-                      sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
-                    ) : (
-                      <FaSort style={{ opacity: 0.3 }} />
-                    )}
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRanking.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
-                    Cargando datos...
-                  </td>
-                </tr>
-              ) : (
-                sortedRanking.map((emp, index) => (
-                  <tr 
-                    key={emp.id} 
+        {/* Tabla Desktop */}
+        <div className="table-mobile-hidden">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <thead>
+                <tr style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px', width: '50px' }}>
+                    #
+                  </th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px', width: '250px' }}>
+                    Nombre
+                  </th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px', width: '130px', whiteSpace: 'nowrap' }}>
+                    RUT
+                  </th>
+                  <th 
                     style={{ 
-                      borderBottom: '1px solid #e5e7eb',
-                      transition: 'background 0.2s'
+                      padding: '12px', 
+                      textAlign: 'left', 
+                      fontWeight: '600', 
+                      color: '#374151', 
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      width: '140px'
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f9fafb'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'white'
-                    }}
+                    onClick={() => handleSort('antiguedad')}
                   >
-                    <td style={{ padding: '12px', color: '#6b7280', fontSize: '14px' }}>
-                      {index + 1}
-                    </td>
-                    <td style={{ padding: '12px', fontWeight: '500', color: '#111827' }}>
-                      <Link 
-                        href={`/employees/${emp.id}`}
-                        style={{ color: '#2563eb', textDecoration: 'none' }}
-                      >
-                        {emp.nombre}
-                      </Link>
-                    </td>
-                    <td style={{ padding: '12px', color: '#6b7280', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                      {emp.rut}
-                    </td>
-                    <td style={{ padding: '12px', color: '#374151', fontSize: '14px' }}>
-                      {emp.antiguedad.toLocaleString('es-CL')}
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: '500', color: '#059669' }}>
-                      ${emp.totalLiquidos.toLocaleString('es-CL')}
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'center', color: '#374151', fontSize: '14px' }}>
-                      {emp.diasAusencia}
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'center', color: '#dc2626', fontSize: '14px' }}>
-                      {emp.diasLicencias}
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'right', color: '#7c3aed', fontSize: '14px' }}>
-                      {emp.totalPrestamos > 0 ? `$${emp.totalPrestamos.toLocaleString('es-CL')}` : '-'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Antigüedad (días)
+                      {sortColumn === 'antiguedad' ? (
+                        sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
+                      ) : (
+                        <FaSort style={{ opacity: 0.3 }} />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ 
+                      padding: '12px', 
+                      textAlign: 'right', 
+                      fontWeight: '600', 
+                      color: '#374151', 
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      width: '160px'
+                    }}
+                    onClick={() => handleSort('liquidos')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                      Ingresos Líquidos
+                      {sortColumn === 'liquidos' ? (
+                        sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
+                      ) : (
+                        <FaSort style={{ opacity: 0.3 }} />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ 
+                      padding: '12px', 
+                      textAlign: 'center', 
+                      fontWeight: '600', 
+                      color: '#374151', 
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      width: '130px'
+                    }}
+                    onClick={() => handleSort('ausencia')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                      Días Ausencia
+                      {sortColumn === 'ausencia' ? (
+                        sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
+                      ) : (
+                        <FaSort style={{ opacity: 0.3 }} />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ 
+                      padding: '12px', 
+                      textAlign: 'center', 
+                      fontWeight: '600', 
+                      color: '#374151', 
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      width: '130px'
+                    }}
+                    onClick={() => handleSort('licencias')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                      Días Licencias
+                      {sortColumn === 'licencias' ? (
+                        sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
+                      ) : (
+                        <FaSort style={{ opacity: 0.3 }} />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ 
+                      padding: '12px', 
+                      textAlign: 'right', 
+                      fontWeight: '600', 
+                      color: '#374151', 
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      width: '140px'
+                    }}
+                    onClick={() => handleSort('prestamos')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                      Préstamos
+                      {sortColumn === 'prestamos' ? (
+                        sortDirection === 'asc' ? <FaSortUp /> : <FaSortDown />
+                      ) : (
+                        <FaSort style={{ opacity: 0.3 }} />
+                      )}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRanking.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
+                      Cargando datos...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  sortedRanking.map((emp, index) => (
+                    <tr 
+                      key={emp.id} 
+                      style={{ 
+                        borderBottom: '1px solid #e5e7eb',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#f9fafb'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'white'
+                      }}
+                    >
+                      <td style={{ padding: '12px', color: '#6b7280', fontSize: '14px' }}>
+                        {index + 1}
+                      </td>
+                      <td style={{ padding: '12px', fontWeight: '500', color: '#111827' }}>
+                        <Link 
+                          href={`/employees/${emp.id}`}
+                          style={{ color: '#2563eb', textDecoration: 'none' }}
+                        >
+                          {emp.nombre}
+                        </Link>
+                      </td>
+                      <td style={{ padding: '12px', color: '#6b7280', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                        {emp.rut}
+                      </td>
+                      <td style={{ padding: '12px', color: '#374151', fontSize: '14px' }}>
+                        {emp.antiguedad.toLocaleString('es-CL')}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: '500', color: '#059669' }}>
+                        ${emp.totalLiquidos.toLocaleString('es-CL')}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center', color: '#374151', fontSize: '14px' }}>
+                        {emp.diasAusencia}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center', color: '#dc2626', fontSize: '14px' }}>
+                        {emp.diasLicencias}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'right', color: '#7c3aed', fontSize: '14px' }}>
+                        {emp.totalPrestamos > 0 ? `$${emp.totalPrestamos.toLocaleString('es-CL')}` : '-'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Cards Mobile */}
+        <div className="table-mobile-card">
+          {sortedRanking.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
+              Cargando datos...
+            </div>
+          ) : (
+            sortedRanking.map((emp, index) => (
+              <div key={emp.id} className="mobile-card">
+                <div className="mobile-card-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: '700', fontSize: '18px', color: '#8b5cf6' }}>#{index + 1}</span>
+                  <Link 
+                    href={`/employees/${emp.id}`}
+                    style={{ color: '#2563eb', textDecoration: 'none', fontWeight: '600' }}
+                  >
+                    {emp.nombre}
+                  </Link>
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">RUT</span>
+                  <span className="mobile-card-value">{emp.rut}</span>
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">Antigüedad (días)</span>
+                  <span className="mobile-card-value">{emp.antiguedad.toLocaleString('es-CL')}</span>
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">Ingresos Líquidos</span>
+                  <span className="mobile-card-value" style={{ fontWeight: '600', color: '#059669' }}>
+                    ${emp.totalLiquidos.toLocaleString('es-CL')}
+                  </span>
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">Días Ausencia</span>
+                  <span className="mobile-card-value">{emp.diasAusencia}</span>
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">Días Licencias</span>
+                  <span className="mobile-card-value" style={{ color: '#dc2626' }}>{emp.diasLicencias}</span>
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">Préstamos</span>
+                  <span className="mobile-card-value" style={{ color: '#7c3aed' }}>
+                    {emp.totalPrestamos > 0 ? `$${emp.totalPrestamos.toLocaleString('es-CL')}` : '-'}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
