@@ -35,9 +35,6 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copiar public si existe (opcional)
-COPY --from=builder /app/public* ./public/ 2>/dev/null || true
-
 USER nextjs
 
 EXPOSE 3000
