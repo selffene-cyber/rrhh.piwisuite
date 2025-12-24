@@ -11,7 +11,19 @@ const MONTH_NAMES = [
 ]
 
 export function formatDate(date: Date | string, formatStr: string = 'dd/MM/yyyy'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+  if (!date) return '-'
+  
+  let dateObj: Date
+  if (typeof date === 'string') {
+    // Parsear fecha sin problemas de zona horaria
+    // Si viene como "2024-12-01", crear Date directamente con año, mes, día
+    const dateStr = date.split('T')[0] // Quitar hora si existe
+    const [y, m, d] = dateStr.split('-').map(Number)
+    dateObj = new Date(y, m - 1, d) // Mes es 0-indexed
+  } else {
+    dateObj = date
+  }
+  
   return format(dateObj, formatStr)
 }
 

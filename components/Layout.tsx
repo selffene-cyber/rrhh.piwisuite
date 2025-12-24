@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp } from 'react-icons/fa'
 import AlertFab from './AlertFab'
 import './Layout.css'
 
@@ -47,6 +47,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [remuneracionesOpen, setRemuneracionesOpen] = useState(false)
   const hasLoaded = useRef(false)
 
   // Si estamos en login, no hacer nada - SALIR INMEDIATAMENTE
@@ -129,10 +130,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const navItems = [
+  // Verificar si estamos en una página de remuneraciones para mantener abierto el submenú
+  useEffect(() => {
+    if (pathname?.startsWith('/payroll') || pathname?.startsWith('/advances')) {
+      setRemuneracionesOpen(true)
+    }
+  }, [pathname])
+
+  const navItems: Array<{
+    href?: string
+    label: string
+    icon: any
+    subItems?: Array<{ href: string; label: string; icon: any }>
+  }> = [
     { href: '/', label: 'Inicio', icon: FaHome },
     { href: '/employees', label: 'Trabajadores', icon: FaUsers },
-    { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
+    {
+      label: 'Remuneraciones',
+      icon: FaMoneyBillWave,
+      subItems: [
+        { href: '/advances', label: 'Anticipos', icon: FaMoneyBillWave },
+        { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
+      ]
+    },
     { href: '/settings', label: 'Configuración', icon: FaCog },
   ]
 
@@ -194,13 +214,56 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const Icon = item.icon
+            
+            // Si tiene subitems, renderizar como menú desplegable
+            if (item.subItems) {
+              const isParentActive = item.subItems.some(subItem => 
+                pathname === subItem.href || pathname?.startsWith(subItem.href + '/')
+              )
+              
+              return (
+                <div key={item.label} className="sidebar-nav-group">
+                  <button
+                    className={`sidebar-nav-item ${isParentActive ? 'active' : ''}`}
+                    onClick={() => setRemuneracionesOpen(!remuneracionesOpen)}
+                    title={item.label}
+                  >
+                    <Icon size={20} />
+                    <span className="sidebar-nav-label">{item.label}</span>
+                    {remuneracionesOpen ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                  </button>
+                  {remuneracionesOpen && (
+                    <div className="sidebar-nav-subitems">
+                      {item.subItems.map((subItem) => {
+                        const SubIcon = subItem.icon
+                        const isSubActive = pathname === subItem.href || pathname?.startsWith(subItem.href + '/')
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={`sidebar-nav-item sidebar-nav-subitem ${isSubActive ? 'active' : ''}`}
+                            title={subItem.label}
+                            onClick={closeMobileMenu}
+                          >
+                            <SubIcon size={16} />
+                            <span className="sidebar-nav-label">{subItem.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            
+            // Item normal sin subitems
             const isActive = pathname === item.href || 
               (item.href === '/settings' && isSettingsPage) ||
               (item.href === '/admin/users' && isAdminPage)
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href!}
                 className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
                 title={item.label}
                 onClick={closeMobileMenu}

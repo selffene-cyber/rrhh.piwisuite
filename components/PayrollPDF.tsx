@@ -115,13 +115,36 @@ interface PayrollPDFProps {
   slip: any
   company: any
   vacations?: any[] | null
+  loanPayments?: any[]
 }
 
 // Componente interno para el Document (necesario para usar pdf())
-const PayrollDocument = ({ slip, company, vacations, generateFileName }: any) => {
+const PayrollDocument = ({ slip, company, vacations, loanPayments, generateFileName }: any) => {
   const taxableItems = slip.payroll_items?.filter((item: any) => item.type === 'taxable_earning') || []
   const nonTaxableItems = slip.payroll_items?.filter((item: any) => item.type === 'non_taxable_earning') || []
-  const legalDeductions = slip.payroll_items?.filter((item: any) => item.type === 'legal_deduction') || []
+  const allLegalDeductions = slip.payroll_items?.filter((item: any) => item.type === 'legal_deduction') || []
+  
+  // Combinar AFP 10% y AFP adicional en un solo concepto
+  const afp10Item = allLegalDeductions.find((item: any) => item.category === 'afp_10')
+  const afpAdditionalItem = allLegalDeductions.find((item: any) => item.category === 'afp_adicional')
+  const afpTotal = (afp10Item?.amount || 0) + (afpAdditionalItem?.amount || 0)
+  
+  // Filtrar descuentos legales excluyendo los dos conceptos de AFP separados
+  const legalDeductions = allLegalDeductions.filter((item: any) => 
+    item.category !== 'afp_10' && item.category !== 'afp_adicional'
+  )
+  
+  // Si hay AFP, agregar un solo concepto unificado
+  if (afpTotal > 0) {
+    legalDeductions.unshift({
+      id: 'afp_unified',
+      category: 'afp',
+      description: 'FONDO DE PENSIONES AFP',
+      amount: afpTotal,
+      type: 'legal_deduction'
+    })
+  }
+  
   const otherDeductions = slip.payroll_items?.filter((item: any) => item.type === 'other_deduction') || []
 
   return (
@@ -347,12 +370,37 @@ const PayrollDocument = ({ slip, company, vacations, generateFileName }: any) =>
                 </View>
 
                 <Text style={{ fontWeight: 'bold', marginTop: 5, fontSize: 8 }}>OTROS DESCUENTOS</Text>
-                {otherDeductions.map((item: any) => (
-                  <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
-                    <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
-                    <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
-                  </View>
-                ))}
+                {otherDeductions.map((item: any) => {
+                  // Si es un préstamo, mostrar con detalle
+                  if (item.category === 'prestamo' && loanPayments && loanPayments.length > 0) {
+                    const totalLoans = loanPayments.reduce((sum: number, lp: any) => sum + Number(lp.amount || 0), 0)
+                    return (
+                      <View key={item.id} style={{ marginBottom: 4 }}>
+                        <View style={[styles.row, { marginBottom: 2 }]}>
+                          <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>PRESTAMO:</Text>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontWeight: 'bold' }}>{formatCurrency(totalLoans)}</Text>
+                        </View>
+                        {loanPayments.map((lp: any, idx: number) => {
+                          const loan = lp.loans
+                          return (
+                            <View key={lp.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
+                              <Text style={{ width: '55%', fontSize: 6 }}>
+                                {loan?.loan_number || 'PT-XX'} - Cuota {lp.installment_number}/{loan?.installments || 0}
+                              </Text>
+                              <Text style={{ width: '45%', textAlign: 'right', fontSize: 6 }}>{formatCurrency(lp.amount || 0)}</Text>
+                            </View>
+                          )
+                        })}
+                      </View>
+                    )
+                  }
+                  return (
+                    <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
+                      <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
+                      <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
+                    </View>
+                  )
+                })}
                 {otherDeductions.length === 0 && (
                   <>
                     <View style={[styles.row, { marginBottom: 2 }]}>
@@ -414,8 +462,7 @@ const PayrollDocument = ({ slip, company, vacations, generateFileName }: any) =>
                   <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>BASE TRIBUTABLE:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
                     {formatCurrency(Math.max(0, slip.taxable_base - 
-                      (legalDeductions.find((d: any) => d.category === 'afp_10')?.amount || 0) - 
-                      (legalDeductions.find((d: any) => d.category === 'afp_adicional')?.amount || 0) - 
+                      (legalDeductions.find((d: any) => d.category === 'afp')?.amount || 0) - 
                       (legalDeductions.find((d: any) => d.category === 'cesantia')?.amount || 0)))}
                   </Text>
                 </View>
@@ -423,8 +470,8 @@ const PayrollDocument = ({ slip, company, vacations, generateFileName }: any) =>
                   <View style={[styles.row, { marginBottom: 3 }]}>
                     <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>
                       {slip.employees?.health_plan_percentage 
-                        ? `${7 + (slip.employees.health_plan_percentage || 0)}% ISAPRE:` 
-                        : '7% ISAPRE:'}
+                        ? `${slip.employees.health_plan_percentage || 0} UF ISAPRE:` 
+                        : 'ISAPRE:'}
                     </Text>
                     <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
                       {formatCurrency(legalDeductions.find((d: any) => d.category === 'salud')?.amount || slip.total_legal_deductions * 0.34)}
@@ -486,7 +533,7 @@ const PayrollDocument = ({ slip, company, vacations, generateFileName }: any) =>
   )
 }
 
-export default function PayrollPDF({ slip, company, vacations }: PayrollPDFProps) {
+export default function PayrollPDF({ slip, company, vacations, loanPayments = [] }: PayrollPDFProps) {
   // Generar nombre del archivo: LIQUIDACIÓN-{RUT}-{MES}-{AÑO}
   const generateFileName = () => {
     const rut = slip.employees?.rut || 'SIN-RUT'
@@ -504,6 +551,7 @@ export default function PayrollPDF({ slip, company, vacations }: PayrollPDFProps
           slip={slip} 
           company={company} 
           vacations={vacations} 
+          loanPayments={loanPayments}
           generateFileName={generateFileName}
         />
       ).toBlob()
@@ -556,6 +604,7 @@ export default function PayrollPDF({ slip, company, vacations }: PayrollPDFProps
           slip={slip} 
           company={company} 
           vacations={vacations} 
+          loanPayments={loanPayments}
           generateFileName={generateFileName}
         />
       </PDFViewer>

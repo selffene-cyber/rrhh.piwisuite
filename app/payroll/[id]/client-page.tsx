@@ -7,7 +7,7 @@ import { formatDate, formatMonthYear } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { useRouter, usePathname } from 'next/navigation'
 
-export default function PayrollDetailClient({ initialSlip, company, vacations }: { initialSlip: any, company: any, vacations?: any[] | null }) {
+export default function PayrollDetailClient({ initialSlip, company, vacations, advances, loanPayments }: { initialSlip: any, company: any, vacations?: any[] | null, advances?: any[], loanPayments?: any[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const [slip, setSlip] = useState(initialSlip)
@@ -166,6 +166,15 @@ export default function PayrollDetailClient({ initialSlip, company, vacations }:
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Liquidación de Sueldo</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <Link href={`/payroll/${slip.id}/edit`}>
+            <button style={{
+              background: '#f59e0b',
+              color: 'white',
+              border: '1px solid #f59e0b'
+            }}>
+              Editar
+            </button>
+          </Link>
           {slip.status === 'draft' && (
             <button onClick={handleIssue} disabled={loading}>
               {loading ? 'Emitiendo...' : 'Emitir Liquidación'}
@@ -214,7 +223,7 @@ export default function PayrollDetailClient({ initialSlip, company, vacations }:
               {slip.employees?.health_system} 
               {slip.employees?.health_plan ? ` - ${slip.employees.health_plan}` : ''}
               {slip.employees?.health_system === 'ISAPRE' && slip.employees?.health_plan_percentage 
-                ? ` (${slip.employees.health_plan_percentage}% adicional)` 
+                ? ` (${slip.employees.health_plan_percentage} UF)` 
                 : ''}
             </p>
           </div>
@@ -386,7 +395,62 @@ export default function PayrollDetailClient({ initialSlip, company, vacations }:
                   <td style={{ textAlign: 'right' }}>${item.amount.toLocaleString('es-CL')}</td>
                 </tr>
               ))}
-              {otherDeductions.length === 0 && (
+              {/* Mostrar anticipos descontados con detalle expandible */}
+              {advances && advances.length > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={2} style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
+                      <details style={{ cursor: 'pointer' }}>
+                        <summary style={{ fontWeight: '600', padding: '4px 0' }}>
+                          Anticipos ${advances.reduce((sum, adv) => sum + Number(adv.amount), 0).toLocaleString('es-CL')}
+                        </summary>
+                        <div style={{ marginTop: '8px', paddingLeft: '16px' }}>
+                          {advances.map((advance) => (
+                            <div key={advance.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#6b7280' }}>
+                              <span>
+                                {formatDate(advance.advance_date)} - Anticipo #{advance.id.substring(0, 8).toUpperCase()}
+                              </span>
+                              <span style={{ fontWeight: '600' }}>
+                                ${Number(advance.amount).toLocaleString('es-CL')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                </>
+              )}
+              {/* Mostrar préstamos descontados con detalle expandible */}
+              {loanPayments && loanPayments.length > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={2} style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
+                      <details style={{ cursor: 'pointer' }}>
+                        <summary style={{ fontWeight: '600', padding: '4px 0' }}>
+                          Préstamos ${loanPayments.reduce((sum, lp) => sum + Number(lp.amount), 0).toLocaleString('es-CL')}
+                        </summary>
+                        <div style={{ marginTop: '8px', paddingLeft: '16px' }}>
+                          {loanPayments.map((loanPayment) => {
+                            const loan = loanPayment.loans
+                            return (
+                              <div key={loanPayment.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#6b7280' }}>
+                                <span>
+                                  {loan?.loan_number || 'PT-XX'} - Cuota {loanPayment.installment_number} / {loan?.installments || 0}
+                                </span>
+                                <span style={{ fontWeight: '600' }}>
+                                  ${Number(loanPayment.amount).toLocaleString('es-CL')}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                </>
+              )}
+              {otherDeductions.length === 0 && (!advances || advances.length === 0) && (!loanPayments || loanPayments.length === 0) && (
                 <tr>
                   <td colSpan={2} style={{ textAlign: 'center', color: '#6b7280' }}>No hay otros descuentos</td>
                 </tr>

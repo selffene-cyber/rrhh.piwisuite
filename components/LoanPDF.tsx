@@ -15,13 +15,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderBottomWidth: 2,
     borderBottomColor: '#000',
-    paddingBottom: 10,
+    paddingBottom: 5,
   },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 5,
     textTransform: 'uppercase',
   },
   section: {
@@ -102,17 +102,36 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
         <Document title={generateFileName()}>
           <Page size="A4" style={styles.page}>
             {/* Paginador - esquina superior derecha */}
-            <Text
+            <View
               style={{
                 position: 'absolute',
                 top: 20,
                 right: 40,
                 fontSize: 9,
                 color: '#666',
+                alignItems: 'flex-end',
               }}
-              render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
               fixed
-            />
+            >
+              <Text
+                style={{
+                  fontSize: 9,
+                  color: '#666',
+                }}
+                render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+              />
+              {loan.loan_number && (
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: '#666',
+                    marginTop: 2,
+                  }}
+                >
+                  {loan.loan_number}
+                </Text>
+              )}
+            </View>
 
             {/* Encabezado */}
             <View style={styles.header}>
@@ -130,63 +149,79 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
 
             {/* Datos del trabajador */}
             <View style={styles.section}>
-              <View style={styles.row}>
-                <Text style={styles.label}>NOMBRE:</Text>
-                <Text style={styles.value}>{employee?.full_name || ''}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>RUT:</Text>
-                <Text style={styles.value}>{employee?.rut || ''}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>CARGO:</Text>
-                <Text style={styles.value}>{employee?.position || ''}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>FECHA DE INGRESO:</Text>
-                <Text style={styles.value}>
-                  {employee?.hire_date ? formatDate(employee.hire_date, 'dd/MM/yyyy') : ''}
-                </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                {/* Columna izquierda */}
+                <View style={{ width: '48%' }}>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>NOMBRE:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>{employee?.full_name || ''}</Text>
+                  </View>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>RUT:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>{employee?.rut || ''}</Text>
+                  </View>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>FECHA DE INGRESO:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>
+                      {employee?.hire_date ? formatDate(employee.hire_date, 'dd/MM/yyyy') : ''}
+                    </Text>
+                  </View>
+                </View>
+                {/* Columna derecha */}
+                <View style={{ width: '48%' }}>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8, width: '25%' }]}>CARGO:</Text>
+                    <Text style={[styles.value, { fontSize: 8, width: '75%' }]}>{employee?.position || ''}</Text>
+                  </View>
+                </View>
               </View>
             </View>
 
             {/* Datos del préstamo */}
             <View style={styles.section}>
-              <Text style={{ fontWeight: 'bold', marginBottom: 10, fontSize: 12 }}>
+              <Text style={{ fontWeight: 'bold', marginBottom: 8, fontSize: 11 }}>
                 TÉRMINOS DEL PRÉSTAMO
               </Text>
-              <View style={styles.row}>
-                <Text style={styles.label}>FECHA DEL PRÉSTAMO:</Text>
-                <Text style={styles.value}>{formatDate(loan.loan_date, 'dd/MM/yyyy')}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>MONTO SOLICITADO:</Text>
-                <Text style={styles.value}>{formatCurrency(loan.amount)}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>TASA DE INTERÉS:</Text>
-                <Text style={styles.value}>{loan.interest_rate}%</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>MONTO TOTAL A PAGAR:</Text>
-                <Text style={[styles.value, { fontWeight: 'bold', fontSize: 12 }]}>
-                  {formatCurrency(loan.total_amount)}
-                </Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>NÚMERO DE CUOTAS:</Text>
-                <Text style={styles.value}>{loan.installments}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>VALOR POR CUOTA:</Text>
-                <Text style={[styles.value, { fontWeight: 'bold' }]}>
-                  {formatCurrency(loan.installment_amount)}
-                </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                {/* Columna izquierda */}
+                <View style={{ width: '48%' }}>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>FECHA DEL PRÉSTAMO:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>{formatDate(loan.loan_date, 'dd/MM/yyyy')}</Text>
+                  </View>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>MONTO SOLICITADO:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>{formatCurrency(loan.amount)}</Text>
+                  </View>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>TASA DE INTERÉS:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>{loan.interest_rate}%</Text>
+                  </View>
+                </View>
+                {/* Columna derecha */}
+                <View style={{ width: '48%' }}>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>MONTO TOTAL A PAGAR:</Text>
+                    <Text style={[styles.value, { fontWeight: 'bold', fontSize: 8 }]}>
+                      {formatCurrency(loan.total_amount)}
+                    </Text>
+                  </View>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>VALOR POR CUOTA:</Text>
+                    <Text style={[styles.value, { fontWeight: 'bold', fontSize: 8 }]}>
+                      {formatCurrency(loan.installment_amount)}
+                    </Text>
+                  </View>
+                  <View style={[styles.row, { marginBottom: 4 }]}>
+                    <Text style={[styles.label, { fontSize: 8 }]}>NÚMERO DE CUOTAS:</Text>
+                    <Text style={[styles.value, { fontSize: 8 }]}>{loan.installments}</Text>
+                  </View>
+                </View>
               </View>
               {loan.description && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>DESCRIPCIÓN:</Text>
-                  <Text style={styles.value}>{loan.description}</Text>
+                <View style={[styles.row, { marginTop: 6 }]}>
+                  <Text style={[styles.label, { fontSize: 8 }]}>DESCRIPCIÓN:</Text>
+                  <Text style={[styles.value, { fontSize: 8 }]}>{loan.description}</Text>
                 </View>
               )}
             </View>
@@ -195,14 +230,24 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
             <View style={styles.table}>
               <View style={[styles.tableRow, styles.tableHeader]}>
                 <Text style={styles.tableCell}>Cuota</Text>
+                <Text style={styles.tableCell}>Período</Text>
                 <Text style={styles.tableCell}>Monto</Text>
                 <Text style={styles.tableCell}>Estado</Text>
               </View>
               {Array.from({ length: loan.installments }, (_, i) => i + 1).map((installment) => {
                 const isPaid = installment <= loan.paid_installments
+                // Calcular el período de cada cuota (mes siguiente al préstamo)
+                const loanDate = loan.loan_date ? new Date(loan.loan_date) : new Date()
+                const installmentDate = new Date(loanDate.getFullYear(), loanDate.getMonth() + installment, 1)
+                const installmentMonth = installmentDate.getMonth() + 1
+                const installmentYear = installmentDate.getFullYear()
+                const monthName = MONTHS[installmentMonth - 1]?.substring(0, 3).toUpperCase() || 'XXX'
+                const periodText = `${monthName}/${installmentYear}`
+                
                 return (
                   <View key={installment} style={styles.tableRow}>
                     <Text style={styles.tableCell}>{installment}</Text>
+                    <Text style={styles.tableCell}>{periodText}</Text>
                     <Text style={styles.tableCell}>{formatCurrency(loan.installment_amount)}</Text>
                     <Text style={styles.tableCell}>
                       {isPaid ? 'Pagada' : 'Pendiente'}

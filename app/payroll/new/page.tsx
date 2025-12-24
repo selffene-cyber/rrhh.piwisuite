@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
 import { getCurrentMonthYear } from '@/lib/utils/date'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
+import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 
 export default function NewPayrollPage() {
   const router = useRouter()
@@ -26,6 +27,7 @@ export default function NewPayrollPage() {
     bonuses: 0,
     overtime: 0,
     vacation: 0,
+    other_taxable_earnings: 0,
     transportation: 0,
     meal_allowance: 0,
     aguinaldo: 0,
@@ -37,6 +39,7 @@ export default function NewPayrollPage() {
   const [loansToPay, setLoansToPay] = useState<any[]>([])
   const [medicalLeaveDays, setMedicalLeaveDays] = useState(0)
   const [vacationDays, setVacationDays] = useState(0)
+  const [periodAdvances, setPeriodAdvances] = useState<any[]>([])
 
   useEffect(() => {
     loadEmployees()
@@ -191,6 +194,25 @@ export default function NewPayrollPage() {
     // Sumar préstamos manuales si los hay
     totalLoansAmount += formData.loans
 
+    // Obtener anticipos del período (firmados o pagados, no descontados aún)
+    const periodStr = `${formData.year}-${String(formData.month).padStart(2, '0')}`
+    const { data: periodAdvances } = await supabase
+      .from('advances')
+      .select('*')
+      .eq('employee_id', selectedEmployee.id)
+      .eq('period', periodStr)
+      .in('status', ['firmado', 'pagado'])
+      .is('payroll_slip_id', null) // Solo los que no han sido descontados
+
+    // Sumar anticipos del período
+    let totalAdvancesAmount = 0
+    if (periodAdvances && periodAdvances.length > 0) {
+      totalAdvancesAmount = periodAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0)
+    }
+
+    // Sumar anticipos manuales si los hay
+    totalAdvancesAmount += formData.advances
+
     // Obtener indicadores de Previred
     // IMPORTANTE: Los indicadores de Previred son del mes anterior
     // Ej: Para liquidaciones de Enero 2026, se usan indicadores de Diciembre 2025
@@ -214,20 +236,21 @@ export default function NewPayrollPage() {
         bonuses: formData.bonuses,
         overtime: formData.overtime,
         vacation: formData.vacation,
+        otherTaxableEarnings: formData.other_taxable_earnings,
         transportation: formData.transportation,
         mealAllowance: formData.meal_allowance,
         aguinaldo: formData.aguinaldo,
         loans: totalLoansAmount,
-        advances: formData.advances,
+        advances: totalAdvancesAmount,
       },
       indicators,
       formData.year,
       formData.month
     )
 
-    // Guardar información de préstamos para usar al guardar
+    // Guardar información de préstamos y anticipos para usar al guardar
     setLoansToPay(loansToPay)
-    setCalculation(result)
+    setCalculation({ ...result, periodAdvances: periodAdvances || [] })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -292,6 +315,24 @@ export default function NewPayrollPage() {
 
       if (slipError) throw slipError
 
+      // Marcar anticipos como descontados y linkearlos a la liquidación
+      if (calculation.periodAdvances && calculation.periodAdvances.length > 0) {
+        const advanceIds = calculation.periodAdvances.map((adv: any) => adv.id)
+        const { error: advancesError } = await supabase
+          .from('advances')
+          .update({
+            status: 'descontado',
+            payroll_slip_id: slip.id,
+            discounted_at: new Date().toISOString(),
+          })
+          .in('id', advanceIds)
+
+        if (advancesError) {
+          console.error('Error al actualizar anticipos:', advancesError)
+          // No lanzamos error, solo lo registramos
+        }
+      }
+
       // Crear ítems de liquidación
       console.log('Cálculo completo:', calculation)
       console.log('Descuentos legales:', calculation.legalDeductions)
@@ -312,19 +353,25 @@ export default function NewPayrollPage() {
         { type: 'taxable_earning', category: 'bonos', description: 'Bonos', amount: calculation.taxableEarnings.bonuses },
         { type: 'taxable_earning', category: 'horas_extras', description: 'Horas Extras', amount: calculation.taxableEarnings.overtime },
         { type: 'taxable_earning', category: 'vacaciones', description: 'Vacaciones', amount: calculation.taxableEarnings.vacation },
+        // Otros haberes imponibles
+        ...(calculation.taxableEarnings.otherTaxableEarnings && calculation.taxableEarnings.otherTaxableEarnings > 0 ? [{
+          type: 'taxable_earning' as const,
+          category: 'otros_imponibles',
+          description: 'Otros Haberes Imponibles',
+          amount: calculation.taxableEarnings.otherTaxableEarnings
+        }] : []),
         // Haberes no imponibles
         { type: 'non_taxable_earning', category: 'movilizacion', description: 'Movilización', amount: calculation.nonTaxableEarnings.transportation },
         { type: 'non_taxable_earning', category: 'colacion', description: 'Colación', amount: calculation.nonTaxableEarnings.mealAllowance },
         { type: 'non_taxable_earning', category: 'aguinaldo', description: 'Aguinaldo', amount: calculation.nonTaxableEarnings.aguinaldo },
         // Descuentos legales
-        { type: 'legal_deduction', category: 'afp_10', description: '10% Fondo de Pensiones AFP', amount: calculation.legalDeductions.afp10 },
-        { type: 'legal_deduction', category: 'afp_adicional', description: 'Adicional AFP de Cargo del Trabajador', amount: calculation.legalDeductions.afpAdditional },
+        { type: 'legal_deduction', category: 'afp', description: 'FONDO DE PENSIONES AFP', amount: calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional },
         // Salud: siempre se descuenta (7% para FONASA, 7% + plan para ISAPRE)
         { 
           type: 'legal_deduction', 
           category: 'salud', 
           description: selectedEmployee.health_system === 'ISAPRE' 
-            ? `7% + ${selectedEmployee.health_plan_percentage || 0}% Salud ISAPRE (${7 + (selectedEmployee.health_plan_percentage || 0)}% total)` 
+            ? `${selectedEmployee.health_plan_percentage || 0} UF Salud ISAPRE` 
             : '7% Salud FONASA', 
           amount: calculation.legalDeductions.health 
         },
@@ -497,26 +544,27 @@ export default function NewPayrollPage() {
         </div>
 
         <div className="card">
-          <h2>Haberes Adicionales</h2>
+          <h2>Haberes Imponibles Adicionales</h2>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>
+            Estos haberes son imponibles (se suman a la base para calcular AFP, salud, impuestos)
+          </p>
           <div className="form-row">
             <div className="form-group">
               <label>Bonos</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.bonuses}
-                onChange={(e) => setFormData({ ...formData, bonuses: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.bonuses)}
+                onChange={(e) => setFormData({ ...formData, bonuses: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
             <div className="form-group">
               <label>Horas Extras</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.overtime}
-                onChange={(e) => setFormData({ ...formData, overtime: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.overtime)}
+                onChange={(e) => setFormData({ ...formData, overtime: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
           </div>
@@ -524,44 +572,64 @@ export default function NewPayrollPage() {
             <div className="form-group">
               <label>Vacaciones</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.vacation}
-                onChange={(e) => setFormData({ ...formData, vacation: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.vacation)}
+                onChange={(e) => setFormData({ ...formData, vacation: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
             <div className="form-group">
+              <label>Otros Haberes Imponibles</label>
+              <input
+                type="text"
+                value={formatNumberForInput(formData.other_taxable_earnings)}
+                onChange={(e) => setFormData({ ...formData, other_taxable_earnings: parseFormattedNumber(e.target.value) })}
+                placeholder="Ej: Comisiones, Incentivos, etc."
+              />
+              <small style={{ fontSize: '11px', color: '#6b7280' }}>
+                Para otros conceptos imponibles no contemplados arriba
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2>Haberes No Imponibles</h2>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>
+            Estos haberes NO son imponibles (no se suman a la base para calcular AFP, salud, impuestos)
+          </p>
+          <div className="form-row">
+            <div className="form-group">
               <label>Movilización</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.transportation}
-                onChange={(e) => setFormData({ ...formData, transportation: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.transportation)}
+                onChange={(e) => setFormData({ ...formData, transportation: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
+              />
+            </div>
+            <div className="form-group">
+              <label>Colación</label>
+              <input
+                type="text"
+                value={formatNumberForInput(formData.meal_allowance)}
+                onChange={(e) => setFormData({ ...formData, meal_allowance: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Colación</label>
+              <label>Aguinaldo</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.meal_allowance}
-                onChange={(e) => setFormData({ ...formData, meal_allowance: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.aguinaldo)}
+                onChange={(e) => setFormData({ ...formData, aguinaldo: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
             <div className="form-group">
-              <label>Aguinaldo</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.aguinaldo}
-                onChange={(e) => setFormData({ ...formData, aguinaldo: parseFloat(e.target.value) || 0 })}
-              />
+              {/* Espacio vacío para mantener el layout */}
             </div>
           </div>
         </div>
@@ -572,21 +640,19 @@ export default function NewPayrollPage() {
             <div className="form-group">
               <label>Préstamos</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.loans}
-                onChange={(e) => setFormData({ ...formData, loans: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.loans)}
+                onChange={(e) => setFormData({ ...formData, loans: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
             <div className="form-group">
               <label>Anticipos</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.advances}
-                onChange={(e) => setFormData({ ...formData, advances: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formatNumberForInput(formData.advances)}
+                onChange={(e) => setFormData({ ...formData, advances: parseFormattedNumber(e.target.value) })}
+                placeholder="0"
               />
             </div>
           </div>

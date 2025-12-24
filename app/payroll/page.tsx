@@ -63,14 +63,48 @@ export default function PayrollPage() {
     const slip = payrollSlips.find((s: any) => s.id === id)
     const isIssued = status === 'issued' || status === 'sent'
     const message = isIssued 
-      ? '¿Estás seguro de que deseas eliminar esta liquidación EMITIDA? Esta acción no se puede deshacer y la liquidación será eliminada permanentemente.'
-      : '¿Estás seguro de que deseas eliminar esta liquidación? Esta acción no se puede deshacer.'
+      ? '¿Estás seguro de que deseas eliminar esta liquidación EMITIDA? Esta acción no se puede deshacer y la liquidación será eliminada permanentemente. Los anticipos vinculados volverán a estar disponibles.'
+      : '¿Estás seguro de que deseas eliminar esta liquidación? Esta acción no se puede deshacer. Los anticipos vinculados volverán a estar disponibles.'
     
     if (!confirm(message)) {
       return
     }
 
     try {
+      // Primero, restaurar los anticipos vinculados a esta liquidación
+      const { data: linkedAdvances, error: advancesError } = await supabase
+        .from('advances')
+        .select('id, status')
+        .eq('payroll_slip_id', id)
+
+      if (advancesError) {
+        console.error('Error al buscar anticipos vinculados:', advancesError)
+        // Continuar con la eliminación aunque falle esto
+      }
+
+      // Restaurar anticipos: cambiar de "descontado" a "pagado" y limpiar el vínculo
+      if (linkedAdvances && linkedAdvances.length > 0) {
+        const advanceIds = linkedAdvances.map(adv => adv.id)
+        const { error: updateAdvancesError } = await supabase
+          .from('advances')
+          .update({
+            status: 'pagado', // Restaurar a estado anterior (asumiendo que solo se descuentan anticipos pagados)
+            payroll_slip_id: null,
+            discounted_at: null,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', advanceIds)
+          .eq('status', 'descontado') // Solo actualizar los que están descontados
+
+        if (updateAdvancesError) {
+          console.error('Error al restaurar anticipos:', updateAdvancesError)
+          // Continuar con la eliminación aunque falle esto
+        } else {
+          console.log(`${linkedAdvances.length} anticipo(s) restaurado(s)`)
+        }
+      }
+
+      // Eliminar la liquidación
       const { error } = await supabase
         .from('payroll_slips')
         .delete()
@@ -78,7 +112,7 @@ export default function PayrollPage() {
 
       if (error) throw error
 
-      alert('Liquidación eliminada correctamente')
+      alert('Liquidación eliminada correctamente' + (linkedAdvances && linkedAdvances.length > 0 ? `. ${linkedAdvances.length} anticipo(s) restaurado(s).` : ''))
       loadPayrollSlips()
     } catch (error: any) {
       alert('Error al eliminar liquidación: ' + error.message)

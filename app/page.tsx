@@ -3,11 +3,20 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa'
+import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd } from 'react-icons/fa'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
+import { getAFPRate, getUnemploymentInsuranceEmployerRate, getSISRate } from '@/lib/services/previredAPI'
+
+// Función para formatear fecha en formato "24/DIC/2025"
+const formatDataDate = (year: number, month: number): string => {
+  const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']
+  const today = new Date()
+  const day = today.getDate()
+  return `${day}/${monthNames[month - 1]}/${year}`
+}
 
 export default function HomePage() {
   const [employeesCount, setEmployeesCount] = useState(0)
@@ -15,7 +24,31 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [projectedAmount, setProjectedAmount] = useState<number>(0)
-  const [projectedLegalDeductions, setProjectedLegalDeductions] = useState<number>(0)
+  const [projectedLegalDeductions, setProjectedLegalDeductions] = useState<{
+    afp: number
+    health: number
+    uniqueTax: number
+    unemploymentInsurance: number
+    total: number
+  }>({
+    afp: 0,
+    health: 0,
+    uniqueTax: 0,
+    unemploymentInsurance: 0,
+    total: 0
+  })
+  const [dataDates, setDataDates] = useState<{
+    afp: string
+    health: string
+    uniqueTax: string
+    unemploymentInsurance: string
+  }>({
+    afp: '',
+    health: '',
+    uniqueTax: '',
+    unemploymentInsurance: ''
+  })
+  const [projectedEmployerContributions, setProjectedEmployerContributions] = useState<number>(0)
   const [employeesRanking, setEmployeesRanking] = useState<any[]>([])
   const [sortColumn, setSortColumn] = useState<string>('antiguedad')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -151,13 +184,14 @@ export default function HomePage() {
       const { data: activeEmployees, error: employeesError } = await supabase
         .from('employees')
         .select(`
-          id, 
-          base_salary, 
-          transportation, 
+          id,
+          base_salary,
+          transportation,
           meal_allowance,
           afp,
           health_system,
           health_plan_percentage,
+          contract_type,
           requests_advance,
           advance_amount
         `)
@@ -165,7 +199,13 @@ export default function HomePage() {
 
       if (employeesError || !activeEmployees || activeEmployees.length === 0) {
         setProjectedAmount(0)
-        setProjectedLegalDeductions(0)
+        setProjectedLegalDeductions({
+          afp: 0,
+          health: 0,
+          uniqueTax: 0,
+          unemploymentInsurance: 0,
+          total: 0
+        })
         return
       }
 
@@ -235,7 +275,11 @@ export default function HomePage() {
 
       // Calcular pre-liquidación para cada trabajador
       let totalProjected = 0
-      let totalLegalDeductions = 0
+      let totalAFP = 0
+      let totalHealth = 0
+      let totalUniqueTax = 0
+      let totalUnemploymentInsurance = 0
+      let totalEmployerContributions = 0
 
       for (const employee of activeEmployees) {
         // Días trabajados: 30 menos vacaciones y licencias
@@ -283,15 +327,82 @@ export default function HomePage() {
         )
 
         totalProjected += calculation.netPay
-        totalLegalDeductions += calculation.legalDeductions.total
+        // Sumar cada concepto por separado (AFP incluye 10% + adicional)
+        totalAFP += (calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional)
+        totalHealth += calculation.legalDeductions.health
+        totalUniqueTax += calculation.legalDeductions.uniqueTax
+        totalUnemploymentInsurance += calculation.legalDeductions.unemploymentInsurance
+        
+        // Calcular aportes del empleador para este trabajador
+        // Usar la misma base imponible que se calculó en calculatePayroll
+        // La base imponible es: sueldo proporcional + gratificación mensual
+        const taxableBase = calculation.taxableBase
+        
+        // AFP empleador: 0.1%
+        const afpRates = getAFPRate(employee.afp || '', indicators)
+        const afpEmployer = taxableBase * (afpRates.empleador / 100)
+        
+        // SIS: 1.49%
+        const sisRate = getSISRate(indicators)
+        const sisEmployer = taxableBase * (sisRate / 100)
+        
+        // AFC: según tipo de contrato (2.40% indefinido, 3.00% plazo fijo)
+        const afcEmployerRate = getUnemploymentInsuranceEmployerRate(employee.contract_type, indicators)
+        const afcEmployer = taxableBase * (afcEmployerRate / 100)
+        
+        // Total aportes empleador para este trabajador
+        totalEmployerContributions += (afpEmployer + sisEmployer + afcEmployer)
+      }
+
+      const totalLegalDeductions = totalAFP + totalHealth + totalUniqueTax + totalUnemploymentInsurance
+
+      // Determinar qué mes se usó para el impuesto único (puede ser el mes siguiente o el actual)
+      // Intentar obtener tramos para ver qué mes se usó realmente
+      let taxMonthUsed = nextMonthNum
+      let taxYearUsed = nextYear
+      try {
+        const { getTaxBrackets } = await import('@/lib/services/taxBracketsScraper')
+        const bracketsNext = await getTaxBrackets(nextYear, nextMonthNum, 'MENSUAL')
+        if (!bracketsNext || bracketsNext.length === 0) {
+          const now = new Date()
+          const currentYear = now.getFullYear()
+          const currentMonth = now.getMonth() + 1
+          const bracketsCurrent = await getTaxBrackets(currentYear, currentMonth, 'MENSUAL')
+          if (bracketsCurrent && bracketsCurrent.length > 0) {
+            taxMonthUsed = currentMonth
+            taxYearUsed = currentYear
+          }
+        }
+      } catch (error) {
+        console.warn('Error al determinar mes de tramos:', error)
       }
 
       setProjectedAmount(Math.round(totalProjected))
-      setProjectedLegalDeductions(Math.round(totalLegalDeductions))
+      setProjectedLegalDeductions({
+        afp: Math.round(totalAFP),
+        health: Math.round(totalHealth),
+        uniqueTax: Math.round(totalUniqueTax),
+        unemploymentInsurance: Math.round(totalUnemploymentInsurance),
+        total: Math.round(totalLegalDeductions)
+      })
+      setDataDates({
+        afp: formatDataDate(indicatorYear, indicatorMonth),
+        health: formatDataDate(indicatorYear, indicatorMonth),
+        uniqueTax: formatDataDate(taxYearUsed, taxMonthUsed),
+        unemploymentInsurance: formatDataDate(indicatorYear, indicatorMonth)
+      })
+      setProjectedEmployerContributions(Math.round(totalEmployerContributions))
     } catch (error) {
       console.error('Error al calcular proyección:', error)
       setProjectedAmount(0)
-      setProjectedLegalDeductions(0)
+      setProjectedLegalDeductions({
+        afp: 0,
+        health: 0,
+        uniqueTax: 0,
+        unemploymentInsurance: 0,
+        total: 0
+      })
+      setProjectedEmployerContributions(0)
     }
   }
 
@@ -511,7 +622,9 @@ export default function HomePage() {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = '#2563eb'
@@ -538,7 +651,7 @@ export default function HomePage() {
               </div>
               <div>
                 <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Gestionar Trabajadores</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver y editar trabajadores</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver y editar</div>
               </div>
             </div>
           </Link>
@@ -553,7 +666,9 @@ export default function HomePage() {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = '#2563eb'
@@ -580,7 +695,7 @@ export default function HomePage() {
               </div>
               <div>
                 <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Ver Liquidaciones</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Historial de liquidaciones</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Historial</div>
               </div>
             </div>
           </Link>
@@ -595,7 +710,9 @@ export default function HomePage() {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = '#2563eb'
@@ -622,7 +739,51 @@ export default function HomePage() {
               </div>
               <div>
                 <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Nueva Liquidación</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Crear nueva liquidación</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Crear liquidación</div>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/vacations" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#2563eb'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(37, 99, 235, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#fef3c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#f59e0b'
+              }}>
+                <FaUmbrellaBeach size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Gestionar Vacaciones</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver vacaciones</div>
               </div>
             </div>
           </Link>
@@ -637,7 +798,9 @@ export default function HomePage() {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = '#2563eb'
@@ -664,7 +827,96 @@ export default function HomePage() {
               </div>
               <div>
                 <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Configuración</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ajustes del sistema</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ajustes sistema</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+        {/* Segunda fila - Anticipos y Préstamos */}
+        <div style={{ display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
+          <Link href="/advances" style={{ textDecoration: 'none', width: '200px' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#f59e0b'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(245, 158, 11, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#fef3c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#f59e0b'
+              }}>
+                <FaMoneyBillWave size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Gestionar Anticipos</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver anticipos</div>
+              </div>
+            </div>
+          </Link>
+          <Link href="/loans" style={{ textDecoration: 'none', width: '200px' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#8b5cf6'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(139, 92, 246, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#f3e8ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#8b5cf6'
+              }}>
+                <FaHandHoldingUsd size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Gestionar Préstamos</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver préstamos</div>
               </div>
             </div>
           </Link>
@@ -807,7 +1059,7 @@ export default function HomePage() {
 
       {/* Imposiciones y Leyes Sociales */}
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
           <div style={{
             width: '48px',
             height: '48px',
@@ -823,50 +1075,173 @@ export default function HomePage() {
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Imposiciones y Leyes Sociales</h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-              Total proyectado en descuentos legales (AFP, Salud, Impuestos, Seguro de Cesantía)
+              Descuentos legales proyectados por concepto
             </p>
           </div>
         </div>
-        <div style={{
-          padding: '24px',
-          background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-          borderRadius: '12px',
-          border: '2px solid #ef4444'
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '16px' 
         }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '16px'
+          {/* Card AFP */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            borderRadius: '12px',
+            border: '2px solid #3b82f6'
           }}>
-            <div style={{ flex: '1', minWidth: '200px' }}>
-              <p style={{ fontSize: '14px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
-                Total Imposiciones Proyectadas
-              </p>
-              <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
-                ${projectedLegalDeductions.toLocaleString('es-CL')}
-              </p>
-              <p style={{ fontSize: '12px', color: '#991b1b', marginTop: '8px' }}>
-                * Incluye: AFP, Salud/ISAPRE, Impuesto Único, Seguro de Cesantía (sin préstamos ni anticipos)
-              </p>
-            </div>
+            <p style={{ fontSize: '12px', color: '#1e40af', marginBottom: '8px', fontWeight: '500' }}>
+              FONDO DE PENSIONES AFP
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#1e3a8a', margin: 0, marginBottom: '12px' }}>
+              ${projectedLegalDeductions.afp.toLocaleString('es-CL')}
+            </p>
             <div style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '32px',
-              fontWeight: 'bold',
-              color: '#7f1d1d',
-              flexShrink: 0
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#1e40af'
             }}>
-              $
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: AFP</p>
+              <p style={{ margin: '2px 0' }}>Vía: Previred</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.afp || 'Cargando...'}
+              </p>
             </div>
           </div>
+
+          {/* Card Salud/ISAPRE */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            borderRadius: '12px',
+            border: '2px solid #10b981'
+          }}>
+            <p style={{ fontSize: '12px', color: '#065f46', marginBottom: '8px', fontWeight: '500' }}>
+              SALUD / ISAPRE
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#064e3b', margin: 0, marginBottom: '12px' }}>
+              ${projectedLegalDeductions.health.toLocaleString('es-CL')}
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#065f46'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: Fonasa / Isapre</p>
+              <p style={{ margin: '2px 0' }}>Vía: Previred</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.health || 'Cargando...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card Impuesto Único */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '12px',
+            border: '2px solid #f59e0b'
+          }}>
+            <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px', fontWeight: '500' }}>
+              IMPUESTO ÚNICO
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#78350f', margin: 0, marginBottom: '12px' }}>
+              ${projectedLegalDeductions.uniqueTax.toLocaleString('es-CL')}
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#92400e'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: SII</p>
+              <p style={{ margin: '2px 0' }}>Vía: F29</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.uniqueTax || 'Cargando...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card Seguro de Cesantía */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
+            borderRadius: '12px',
+            border: '2px solid #ec4899'
+          }}>
+            <p style={{ fontSize: '12px', color: '#9f1239', marginBottom: '8px', fontWeight: '500' }}>
+              SEGURO DE CESANTÍA
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#831843', margin: 0, marginBottom: '12px' }}>
+              ${projectedLegalDeductions.unemploymentInsurance.toLocaleString('es-CL')}
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#9f1239'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: AFC</p>
+              <p style={{ margin: '2px 0' }}>Vía: Previred</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.unemploymentInsurance || 'Cargando...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card Total */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+            borderRadius: '12px',
+            border: '2px solid #ef4444'
+          }}>
+            <p style={{ fontSize: '12px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
+              TOTAL IMPOSICIONES
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#7f1d1d', margin: 0, marginBottom: '16px' }}>
+              ${projectedLegalDeductions.total.toLocaleString('es-CL')}
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.6)',
+              borderRadius: '8px',
+              border: '1px solid rgba(239, 68, 68, 0.3)'
+            }}>
+              <p style={{ fontSize: '10px', color: '#991b1b', marginBottom: '6px', fontWeight: '600' }}>
+                Monto Incluido Aportes del Empleador:
+              </p>
+              <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
+                ${(projectedLegalDeductions.total + projectedEmployerContributions).toLocaleString('es-CL')}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div style={{
+          marginTop: '16px',
+          padding: '12px',
+          background: '#f9fafb',
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: 0, marginBottom: '8px' }}>
+            * Proyección basada en trabajadores activos del mes siguiente (sin préstamos ni anticipos)
+          </p>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
+            * El total de imposiciones con aporte de empleador incluye: Imposiciones del trabajador (AFP, Salud/ISAPRE, Impuesto Único, Seguro de Cesantía) + Aportes del empleador (AFP, SIS, AFC según tipo de contrato). Todos los valores se obtienen de los indicadores actualizados de Previred.
+          </p>
         </div>
       </div>
 

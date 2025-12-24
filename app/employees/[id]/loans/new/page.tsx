@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
+import DateInput from '@/components/DateInput'
 
 export default function NewLoanPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -40,7 +42,7 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
   }
 
   const calculateLoan = () => {
-    const amount = parseFloat(formData.amount) || 0
+    const amount = parseFormattedNumber(formData.amount) || 0
     const interestRate = parseFloat(formData.interest_rate) || 0
     const installments = parseInt(formData.installments) || 1
 
@@ -66,7 +68,7 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
     setSaving(true)
 
     try {
-      const amount = parseFloat(formData.amount)
+      const amount = parseFormattedNumber(formData.amount)
       const interestRate = parseFloat(formData.interest_rate)
       const installments = parseInt(formData.installments)
 
@@ -82,6 +84,21 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
 
       const { totalAmount, installmentAmount } = calculateLoan()
 
+      // Generar ID correlativo PT-##
+      const { data: lastLoan } = await supabase
+        .from('loans')
+        .select('loan_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      let loanNumber = 'PT-01'
+      if (lastLoan?.loan_number) {
+        const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
+        const newNumber = lastNumber + 1
+        loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
+      }
+
       const { error } = await supabase
         .from('loans')
         .insert({
@@ -95,6 +112,7 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
           loan_date: formData.loan_date,
           description: formData.description || null,
           status: 'active',
+          loan_number: loanNumber,
         })
 
       if (error) throw error
@@ -128,13 +146,16 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
           <div className="form-group">
             <label>Monto del Préstamo *</label>
             <input
-              type="number"
+              type="text"
               required
-              min="1"
-              step="1"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              placeholder="Ej: 500000"
+              value={formData.amount ? formatNumberForInput(parseFormattedNumber(formData.amount) || 0) : ''}
+              onChange={(e) => {
+                const numericValue = parseFormattedNumber(e.target.value)
+                if (!isNaN(numericValue)) {
+                  setFormData({ ...formData, amount: numericValue.toString() })
+                }
+              }}
+              placeholder="Ej: 500.000"
             />
           </div>
 
@@ -169,11 +190,10 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
 
           <div className="form-group">
             <label>Fecha del Préstamo *</label>
-            <input
-              type="date"
-              required
+            <DateInput
               value={formData.loan_date}
-              onChange={(e) => setFormData({ ...formData, loan_date: e.target.value })}
+              onChange={(value) => setFormData({ ...formData, loan_date: value })}
+              required
             />
           </div>
 
@@ -194,11 +214,11 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
               <div className="form-row">
                 <div className="form-group">
                   <label>Monto Solicitado</label>
-                  <p>${parseFloat(formData.amount || '0').toLocaleString('es-CL')}</p>
+                  <p>${(parseFormattedNumber(formData.amount) || 0).toLocaleString('es-CL')}</p>
                 </div>
                 <div className="form-group">
                   <label>Interés ({formData.interest_rate}%)</label>
-                  <p>${(totalAmount - parseFloat(formData.amount || '0')).toLocaleString('es-CL')}</p>
+                  <p>${(totalAmount - (parseFormattedNumber(formData.amount) || 0)).toLocaleString('es-CL')}</p>
                 </div>
               </div>
               <div className="form-row">

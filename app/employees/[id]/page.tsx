@@ -132,7 +132,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
               {employee.health_system} 
               {employee.health_plan ? ` - ${employee.health_plan}` : ''}
               {employee.health_system === 'ISAPRE' && employee.health_plan_percentage 
-                ? ` (${employee.health_plan_percentage}% adicional)` 
+                ? ` (${employee.health_plan_percentage} UF)` 
                 : ''}
             </p>
           </div>

@@ -29,18 +29,52 @@ export interface PreviredIndicators {
   APVTopeAnuUF: string
   APVTopeMensPesos: string
   APVTopeAnuPesos: string
-  DepConvenTopeAnuUF: string
-  DepConvenTopeAnuPesos: string
-  // Tasas AFP por nombre
+  DepConvenTopeAnuUF?: string
+  DepConvenTopeAnuPesos?: string
+  DepConvenidoUF?: string
+  DepConvenidoPesos?: string
+  // SIS (Seguro de Invalidez y Sobrevivencia) - viene como string "1,49"
+  TasaSIS?: string
+  // AFC (Seguro de Cesantía) - tasas del empleador
+  AFCCpiEmpleador?: string // Contrato plazo indefinido (ej: "2,4")
+  AFCCpfEmpleador?: string // Contrato plazo fijo (ej: "3,0")
+  AFCTcpEmpleador?: string // Contrato temporal (ej: "3,0")
+  // AFC - tasas del trabajador
+  AFCCpiTrabajador?: string // Contrato plazo indefinido (ej: "0,6")
+  AFCCpfTrabajador?: string // Contrato plazo fijo (ej: "0")
+  AFCTcpTrabajador?: string // Contrato temporal (ej: "0")
+  // Tasas AFP - formato de la API (vienen como strings con formato chileno)
+  AFPCapitalTasaDepTrab?: string // Trabajador
+  AFPCapitalTasaDepAPagar?: string // Total
+  AFPCapitalTasaInd?: string // Independiente
+  AFPCuprumTasaDepTrab?: string
+  AFPCuprumTasaDepAPagar?: string
+  AFPCuprumTasaInd?: string
+  AFPHabitatTasaDepTrab?: string
+  AFPHabitatTasaDepAPagar?: string
+  AFPHabitatTasaInd?: string
+  AFPPlanVitalTasaDepTrab?: string
+  AFPPlanVitalTasaDepAPagar?: string
+  AFPPlanVitalTasaInd?: string
+  AFPProVidaTasaDepTrab?: string
+  AFPProVidaTasaDepAPagar?: string
+  AFPProVidaTasaInd?: string
+  AFPModeloTasaDepTrab?: string
+  AFPModeloTasaDepAPagar?: string
+  AFPModeloTasaInd?: string
+  AFPUnoTasaDepTrab?: string
+  AFPUnoTasaDepAPagar?: string
+  AFPUnoTasaInd?: string
+  // Formato estructurado (para compatibilidad con código existente)
   AFP?: {
     [key: string]: {
       trabajador: number // Porcentaje cargo del trabajador
-      empleador: number // Porcentaje cargo del empleador
+      empleador: number // Porcentaje cargo del empleador (0.1%)
       total: number // Total a pagar
       independientes: number // Para independientes (incluye SIS)
     }
   }
-  // Seguro de Cesantía
+  // Seguro de Cesantía (formato estructurado para compatibilidad)
   SeguroCesantia?: {
     plazoIndefinido: {
       empleador: number
@@ -51,19 +85,30 @@ export interface PreviredIndicators {
       trabajador: number
     }
   }
-  // Salud
-  Salud?: {
-    isapre: number // 7% generalmente
-    fonasa: number // 0% para trabajador
-  }
-  // Impuesto único (tabla progresiva)
-  ImpuestoUnico?: {
-    tramos: Array<{
-      desde: number
-      hasta: number | null
-      porcentaje: number
-    }>
-  }
+  // Otros campos de la API
+  ExpVida?: string
+  Dist7PorcCCAF?: string
+  Dist7PorcFonasa?: string
+  TrabPesadoEmpl?: string
+  TrabPesadoCalif?: string
+  TrabPesadoTrabaj?: string
+  TrabMenosPesadoEmpl?: string
+  TrabMenosPesadoCalif?: string
+  TrabMenosPesadoTrabaj?: string
+  AFamTramoADesde?: string
+  AFamTramoAHasta?: string
+  AFamTramoAMonto?: string
+  AFamTramoBDesde?: string
+  AFamTramoBHasta?: string
+  AFamTramoBMonto?: string
+  AFamTramoCDesde?: string
+  AFamTramoCHasta?: string
+  AFamTramoCMonto?: string
+  AFamTramoDDesde?: string
+  AFamTramoDHasta?: string
+  AFamTramoDMonto?: string
+  AFCCpi11Empleador?: string
+  AFCCpi11Trabajador?: string
 }
 
 /**
@@ -118,13 +163,60 @@ export async function getCurrentMonthIndicators(): Promise<PreviredIndicators | 
  * Nota: La API de Gael Cloud no siempre incluye las tasas por AFP,
  * por lo que se usan valores por defecto basados en los indicadores de Previred
  */
+/**
+ * Función helper para parsear números chilenos (puntos para miles, coma para decimales)
+ */
+function parseChileanNumber(str: string | undefined): number {
+  if (!str) return 0
+  return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+}
+
 export function getAFPRate(afpName: string, indicators: PreviredIndicators | null): {
   trabajador: number
   empleador: number
   total: number
 } {
+  const afpUpper = afpName.toUpperCase()
+  
+  // Mapeo de nombres de AFP a campos de la API
+  const afpFieldMap: { [key: string]: { trabajador: string; total: string } } = {
+    'CAPITAL': { trabajador: 'AFPCapitalTasaDepTrab', total: 'AFPCapitalTasaDepAPagar' },
+    'CUPRUM': { trabajador: 'AFPCuprumTasaDepTrab', total: 'AFPCuprumTasaDepAPagar' },
+    'HABITAT': { trabajador: 'AFPHabitatTasaDepTrab', total: 'AFPHabitatTasaDepAPagar' },
+    'PLANVITAL': { trabajador: 'AFPPlanVitalTasaDepTrab', total: 'AFPPlanVitalTasaDepAPagar' },
+    'PROVIDA': { trabajador: 'AFPProVidaTasaDepTrab', total: 'AFPProVidaTasaDepAPagar' },
+    'MODELO': { trabajador: 'AFPModeloTasaDepTrab', total: 'AFPModeloTasaDepAPagar' },
+    'UNO': { trabajador: 'AFPUnoTasaDepTrab', total: 'AFPUnoTasaDepAPagar' },
+  }
+
+  const fieldMap = afpFieldMap[afpUpper]
+  
+  // Si la API tiene datos específicos, usarlos
+  if (indicators && fieldMap) {
+    const trabajador = parseChileanNumber((indicators as any)[fieldMap.trabajador])
+    const total = parseChileanNumber((indicators as any)[fieldMap.total])
+    
+    if (trabajador > 0 && total > 0) {
+      // El empleador siempre paga 0.1% según normativa
+      const empleador = 0.1
+      return {
+        trabajador,
+        empleador,
+        total,
+      }
+    }
+  }
+
+  // Si la API tiene formato estructurado (compatibilidad)
+  if (indicators?.AFP && indicators.AFP[afpUpper]) {
+    return {
+      trabajador: indicators.AFP[afpUpper].trabajador,
+      empleador: indicators.AFP[afpUpper].empleador,
+      total: indicators.AFP[afpUpper].total,
+    }
+  }
+
   // Valores por defecto basados en Previred (Diciembre 2025)
-  // Estos valores pueden cambiar mes a mes
   const defaultRates: { [key: string]: { trabajador: number; empleador: number; total: number } } = {
     'CAPITAL': { trabajador: 11.44, empleador: 0.1, total: 11.54 },
     'CUPRUM': { trabajador: 11.44, empleador: 0.1, total: 11.54 },
@@ -135,27 +227,73 @@ export function getAFPRate(afpName: string, indicators: PreviredIndicators | nul
     'UNO': { trabajador: 10.46, empleador: 0.1, total: 10.56 },
   }
 
-  const afpUpper = afpName.toUpperCase()
-  
-  // Si la API tiene datos específicos, usarlos
-  if (indicators?.AFP && indicators.AFP[afpUpper]) {
-    return {
-      trabajador: indicators.AFP[afpUpper].trabajador,
-      empleador: indicators.AFP[afpUpper].empleador,
-      total: indicators.AFP[afpUpper].total,
-    }
-  }
-
   // Usar valores por defecto
   return defaultRates[afpUpper] || defaultRates['PROVIDA']
 }
 
 /**
- * Obtiene la tasa de seguro de cesantía
+ * Obtiene la tasa de seguro de cesantía del trabajador
  */
 export function getUnemploymentInsuranceRate(indicators: PreviredIndicators | null): number {
   // Tasa fija del trabajador: 0.6% para contrato plazo indefinido
   return 0.6
+}
+
+/**
+ * Obtiene la tasa de seguro de cesantía del empleador según tipo de contrato
+ */
+export function getUnemploymentInsuranceEmployerRate(
+  contractType: string | null | undefined,
+  indicators: PreviredIndicators | null
+): number {
+  // Si la API tiene datos específicos, usarlos
+  if (indicators) {
+    if (contractType === 'plazo_fijo') {
+      // AFCCpfEmpleador para contrato plazo fijo
+      const tasa = parseChileanNumber(indicators.AFCCpfEmpleador)
+      if (tasa > 0) return tasa
+    } else if (contractType === 'otro') {
+      // AFCTcpEmpleador para contrato temporal
+      const tasa = parseChileanNumber(indicators.AFCTcpEmpleador)
+      if (tasa > 0) return tasa
+    } else {
+      // AFCCpiEmpleador para contrato plazo indefinido (por defecto)
+      const tasa = parseChileanNumber(indicators.AFCCpiEmpleador)
+      if (tasa > 0) return tasa
+    }
+  }
+  
+  // Si hay indicadores con formato estructurado (compatibilidad)
+  if (indicators?.SeguroCesantia) {
+    if (contractType === 'plazo_fijo') {
+      return indicators.SeguroCesantia.plazoFijo?.empleador || 3.0
+    } else {
+      // Indefinido o por defecto
+      return indicators.SeguroCesantia.plazoIndefinido?.empleador || 2.4
+    }
+  }
+  
+  // Valores por defecto si no hay indicadores
+  if (contractType === 'plazo_fijo') {
+    return 3.0 // 3.00% para plazo fijo
+  }
+  return 2.4 // 2.40% para indefinido
+}
+
+/**
+ * Obtiene la tasa de SIS (Seguro de Invalidez y Sobrevivencia) del empleador
+ */
+export function getSISRate(indicators: PreviredIndicators | null): number {
+  // Si la API proporciona el valor de SIS como "TasaSIS" (viene como string "1,49")
+  if (indicators?.TasaSIS) {
+    const tasa = parseChileanNumber(indicators.TasaSIS)
+    if (tasa > 0) return tasa
+  }
+  
+  // Valor por defecto según normativa vigente (1.49% desde octubre 2025)
+  // Este valor puede cambiar según la normativa, por lo que es importante
+  // que la API lo proporcione cuando esté disponible
+  return 1.49
 }
 
 /**

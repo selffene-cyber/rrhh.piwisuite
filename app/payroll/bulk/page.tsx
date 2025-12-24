@@ -239,13 +239,12 @@ export default function BulkPayrollPage() {
             { type: 'non_taxable_earning', category: 'colacion', description: 'Colación', amount: calculation.nonTaxableEarnings.mealAllowance },
             { type: 'non_taxable_earning', category: 'aguinaldo', description: 'Aguinaldo', amount: calculation.nonTaxableEarnings.aguinaldo },
             // Descuentos legales
-            { type: 'legal_deduction', category: 'afp_10', description: '10% Fondo de Pensiones AFP', amount: calculation.legalDeductions.afp10 },
-            { type: 'legal_deduction', category: 'afp_adicional', description: 'Adicional AFP de Cargo del Trabajador', amount: calculation.legalDeductions.afpAdditional },
+            { type: 'legal_deduction', category: 'afp', description: 'FONDO DE PENSIONES AFP', amount: calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional },
             { 
               type: 'legal_deduction', 
               category: 'salud', 
               description: employee.health_system === 'ISAPRE' 
-                ? `7% + ${employee.health_plan_percentage || 0}% Salud ISAPRE (${7 + (employee.health_plan_percentage || 0)}% total)` 
+                ? `${employee.health_plan_percentage || 0} UF Salud ISAPRE` 
                 : '7% Salud FONASA', 
               amount: calculation.legalDeductions.health 
             },

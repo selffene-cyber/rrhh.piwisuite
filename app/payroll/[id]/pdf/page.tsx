@@ -53,7 +53,18 @@ export default function PayrollPDFPage({ params }: { params: { id: string } }) {
         periodVacations = vacations
       }
 
+      // Obtener préstamos descontados en esta liquidación
+      const { data: loanPayments } = await supabase
+        .from('loan_payments')
+        .select(`
+          *,
+          loans (*)
+        `)
+        .eq('payroll_slip_id', slipData.id)
+        .order('installment_number', { ascending: true })
+
       setCompany(companyData)
+      setSlip({ ...slipData, loanPayments: loanPayments || [] })
     } catch (error: any) {
       console.error('Error loading data:', error)
     } finally {
@@ -65,6 +76,6 @@ export default function PayrollPDFPage({ params }: { params: { id: string } }) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando...</div>
   }
 
-  return <PayrollPDF slip={slip} company={company} vacations={vacations} />
+  return <PayrollPDF slip={slip} company={company} vacations={vacations} loanPayments={slip?.loanPayments || []} />
 }
 

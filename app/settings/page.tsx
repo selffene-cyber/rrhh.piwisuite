@@ -91,9 +91,12 @@ export default function SettingsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Configuración</h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Link href="/settings/indicators">
             <button>Indicadores Previsionales</button>
+          </Link>
+          <Link href="/settings/tax-brackets">
+            <button>Impuesto Único</button>
           </Link>
         </div>
       </div>

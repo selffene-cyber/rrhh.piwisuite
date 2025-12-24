@@ -45,5 +45,22 @@ export default async function PayrollDetailPage({ params }: { params: { id: stri
     periodVacations = vacations
   }
 
-  return <PayrollDetailClient initialSlip={slip} company={company} vacations={periodVacations} />
+  // Obtener anticipos descontados en esta liquidación
+  const { data: advances } = await supabase
+    .from('advances')
+    .select('*')
+    .eq('payroll_slip_id', slip.id)
+    .order('advance_date', { ascending: true })
+
+  // Obtener préstamos descontados en esta liquidación
+  const { data: loanPayments } = await supabase
+    .from('loan_payments')
+    .select(`
+      *,
+      loans (*)
+    `)
+    .eq('payroll_slip_id', slip.id)
+    .order('installment_number', { ascending: true })
+
+  return <PayrollDetailClient initialSlip={slip} company={company} vacations={periodVacations} advances={advances || []} loanPayments={loanPayments || []} />
 }

@@ -22,11 +22,12 @@ export type PayrollCalculationInput = {
   daysLeave: number
   afp: string
   healthSystem: string
-  healthPlanPercentage?: number // Porcentaje adicional del plan ISAPRE (solo para ISAPRE)
-  // Haberes adicionales
+  healthPlanPercentage?: number // Monto del plan ISAPRE en UF (Unidades de Fomento). Se multiplicará por el valor de UF del día al calcular la liquidación.
+  // Haberes imponibles adicionales
   bonuses?: number
   overtime?: number
   vacation?: number
+  otherTaxableEarnings?: number // Otros haberes imponibles (opcional)
   // Haberes no imponibles
   transportation?: number
   mealAllowance?: number
@@ -44,6 +45,7 @@ export type PayrollCalculationResult = {
     monthlyGratification: number
     overtime: number
     vacation: number
+    otherTaxableEarnings?: number
     total: number
   }
   nonTaxableEarnings: {

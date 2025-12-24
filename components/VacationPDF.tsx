@@ -230,6 +230,12 @@ export default function VacationPDF({ vacation, employee, company }: VacationPDF
                 <Text style={styles.infoLabel}>Días Hábiles:</Text>
                 <Text style={styles.infoValue}>{vacation.days_count} días</Text>
               </View>
+              {vacation.period_year && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Período de Vacaciones:</Text>
+                  <Text style={styles.infoValue}>Año {vacation.period_year}</Text>
+                </View>
+              )}
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Fecha de Solicitud:</Text>
                 <Text style={styles.infoValue}>

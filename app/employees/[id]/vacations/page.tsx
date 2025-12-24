@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { useRouter } from 'next/navigation'
 import { calculateAccumulatedVacations, calculateBusinessDays, calculateAvailableVacations } from '@/lib/services/vacationCalculator'
+import { assignVacationDays, syncVacationPeriods, getVacationSummary, hasCompletedOneYear, getVacationPeriods } from '@/lib/services/vacationPeriods'
 
 const VACATION_STATUSES = [
   { value: 'solicitada', label: 'Solicitada' },
@@ -51,9 +52,17 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
       if (empData) {
         setEmployee(empData)
         
-        // Calcular vacaciones acumuladas
-        const accumulated = calculateAccumulatedVacations(empData.hire_date)
-        setVacationStats(prev => ({ ...prev, accumulated }))
+        // Sincronizar períodos de vacaciones
+        await syncVacationPeriods(empData.id, empData.hire_date)
+        
+        // Obtener resumen de vacaciones (usando cálculo por años de servicio)
+        const summary = await getVacationSummary(empData.id, empData.hire_date)
+        
+        setVacationStats({
+          accumulated: summary.totalAccumulated,
+          used: summary.totalUsed,
+          available: summary.totalAvailable,
+        })
       }
 
       // Cargar vacaciones
@@ -65,18 +74,6 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
 
       if (error) throw error
       setVacations(vacationsData || [])
-
-      // Calcular días usados
-      const usedDays = vacationsData
-        ?.filter((v: any) => v.status === 'aprobada' || v.status === 'tomada')
-        .reduce((sum: number, v: any) => sum + v.days_count, 0) || 0
-
-      const available = calculateAvailableVacations(vacationStats.accumulated, usedDays)
-      setVacationStats(prev => ({
-        accumulated: prev.accumulated,
-        used: usedDays,
-        available,
-      }))
     } catch (error: any) {
       alert('Error al cargar vacaciones: ' + error.message)
     } finally {
@@ -118,13 +115,42 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
         return
       }
 
-      // Validar que tenga días disponibles
+      // Determinar el año del período (usar el año de la fecha de inicio)
+      const startDate = new Date(formData.start_date)
+      const periodYear = startDate.getFullYear()
+
+      // Verificar si ha cumplido 1 año de servicio
+      const hasCompletedYear = employee ? hasCompletedOneYear(employee.hire_date) : false
+      
+      // Si se aprueba o toma, asignar días al período
+      let assignedPeriod = null
       if (formData.status === 'aprobada' || formData.status === 'tomada') {
-        if (formData.days_count > vacationStats.available) {
-          alert(`No tiene suficientes días disponibles. Disponible: ${vacationStats.available.toFixed(2)} días`)
+        // Obtener resumen actualizado para validar
+        const summary = await getVacationSummary(params.id, employee?.hire_date)
+        
+        // Alerta informativa si no ha cumplido 1 año pero se otorgan vacaciones
+        if (!hasCompletedYear && formData.days_count > 0) {
+          const confirmMessage = `⚠️ INFORMACIÓN IMPORTANTE:\n\n` +
+            `El trabajador aún no ha cumplido 1 año de servicio (ingreso: ${formatDate(employee?.hire_date)}).\n\n` +
+            `Según el Código del Trabajo, el derecho completo a vacaciones se consolida al cumplir 1 año.\n\n` +
+            `Sin embargo, puede otorgar vacaciones por mutuo acuerdo antes de cumplir el año.\n\n` +
+            `¿Desea continuar con la aprobación de estas vacaciones?`
+          
+          if (!confirm(confirmMessage)) {
+            setSaving(false)
+            return
+          }
+        }
+        
+        // Validar que tenga días disponibles (permitir negativos para períodos futuros o mutuo acuerdo)
+        if (formData.days_count > summary.totalAvailable && periodYear <= new Date().getFullYear() && hasCompletedYear) {
+          alert(`No tiene suficientes días disponibles. Disponible: ${summary.totalAvailable.toFixed(2)} días`)
           setSaving(false)
           return
         }
+        
+        // Asignar días al período (siempre al más antiguo primero)
+        assignedPeriod = await assignVacationDays(params.id, formData.days_count, periodYear)
       }
 
       const { error } = await supabase
@@ -140,6 +166,7 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
           approval_date: (formData.status === 'aprobada' || formData.status === 'tomada') 
             ? new Date().toISOString().split('T')[0] 
             : null,
+          period_year: assignedPeriod ? assignedPeriod.period_year : periodYear, // Asignar período
         })
 
       if (error) throw error
@@ -166,18 +193,43 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
       const vacation = vacations.find((v: any) => v.id === vacationId)
       if (!vacation) return
 
-      // Validar días disponibles si se aprueba o toma
-      if ((newStatus === 'aprobada' || newStatus === 'tomada') && vacation.status !== 'aprobada' && vacation.status !== 'tomada') {
-        const currentUsed = vacations
-          .filter((v: any) => (v.status === 'aprobada' || v.status === 'tomada') && v.id !== vacationId)
-          .reduce((sum: number, v: any) => sum + v.days_count, 0)
+      const wasApprovedOrTaken = vacation.status === 'aprobada' || vacation.status === 'tomada'
+      const willBeApprovedOrTaken = newStatus === 'aprobada' || newStatus === 'tomada'
+
+      // Si estaba aprobada/tomada y ahora no, revertir días
+      if (wasApprovedOrTaken && !willBeApprovedOrTaken) {
+        const periodYear = vacation.period_year || new Date(vacation.start_date).getFullYear()
+        await assignVacationDays(params.id, -vacation.days_count, periodYear)
+      }
+
+      // Si no estaba aprobada/tomada y ahora sí, asignar días
+      if (!wasApprovedOrTaken && willBeApprovedOrTaken) {
+        const summary = await getVacationSummary(params.id, employee?.hire_date)
+        const periodYear = vacation.period_year || new Date(vacation.start_date).getFullYear()
         
-        const available = calculateAvailableVacations(vacationStats.accumulated, currentUsed)
+        // Verificar si ha cumplido 1 año de servicio
+        const hasCompletedYear = employee ? hasCompletedOneYear(employee.hire_date) : false
         
-        if (vacation.days_count > available) {
-          alert(`No tiene suficientes días disponibles. Disponible: ${available.toFixed(2)} días`)
+        // Alerta informativa si no ha cumplido 1 año pero se otorgan vacaciones
+        if (!hasCompletedYear && vacation.days_count > 0) {
+          const confirmMessage = `⚠️ INFORMACIÓN IMPORTANTE:\n\n` +
+            `El trabajador aún no ha cumplido 1 año de servicio (ingreso: ${formatDate(employee?.hire_date)}).\n\n` +
+            `Según el Código del Trabajo, el derecho completo a vacaciones se consolida al cumplir 1 año.\n\n` +
+            `Sin embargo, puede otorgar vacaciones por mutuo acuerdo antes de cumplir el año.\n\n` +
+            `¿Desea continuar con la aprobación de estas vacaciones?`
+          
+          if (!confirm(confirmMessage)) {
+            return
+          }
+        }
+        
+        // Validar días disponibles (permitir negativos para períodos futuros o mutuo acuerdo)
+        if (vacation.days_count > summary.totalAvailable && periodYear <= new Date().getFullYear() && hasCompletedYear) {
+          alert(`No tiene suficientes días disponibles. Disponible: ${summary.totalAvailable.toFixed(2)} días`)
           return
         }
+        
+        await assignVacationDays(params.id, vacation.days_count, periodYear)
       }
 
       const updateData: any = {
@@ -186,6 +238,10 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
 
       if (newStatus === 'aprobada' || newStatus === 'tomada') {
         updateData.approval_date = new Date().toISOString().split('T')[0]
+        // Asegurar que tenga period_year
+        if (!vacation.period_year) {
+          updateData.period_year = new Date(vacation.start_date).getFullYear()
+        }
       }
 
       const { error } = await supabase
@@ -260,11 +316,22 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
           </div>
           <div className="form-group">
             <label>Días Disponibles</label>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#059669' }}>
+            <p style={{ fontSize: '24px', fontWeight: 'bold', color: vacationStats.available >= 0 ? '#059669' : '#dc2626' }}>
               {vacationStats.available.toFixed(2)} días
             </p>
+            {vacationStats.available < 0 && (
+              <small style={{ color: '#dc2626', fontSize: '12px' }}>
+                (Días de períodos futuros)
+              </small>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Períodos de vacaciones */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h2 style={{ marginBottom: '16px' }}>Períodos de Vacaciones</h2>
+        <VacationPeriodsDisplay employeeId={params.id} />
       </div>
 
       {showForm && (
@@ -378,6 +445,7 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
                 <th>Fecha Término</th>
                 <th>Días</th>
                 <th>Estado</th>
+                <th>Período</th>
                 <th>Fecha Solicitud</th>
                 <th>Acciones</th>
               </tr>
@@ -392,6 +460,15 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
                     <span className={`badge ${vacation.status}`}>
                       {VACATION_STATUSES.find(s => s.value === vacation.status)?.label || vacation.status}
                     </span>
+                  </td>
+                  <td>
+                    {vacation.period_year ? (
+                      <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                        Período {vacation.period_year}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>-</span>
+                    )}
                   </td>
                   <td>{formatDate(vacation.request_date)}</td>
                   <td>
@@ -447,6 +524,69 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
         )}
       </div>
     </div>
+  )
+}
+
+// Componente para mostrar períodos de vacaciones
+function VacationPeriodsDisplay({ employeeId }: { employeeId: string }) {
+  const [periods, setPeriods] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadPeriods()
+  }, [employeeId])
+
+  const loadPeriods = async () => {
+    try {
+      const periodsData = await getVacationPeriods(employeeId)
+      setPeriods(periodsData)
+    } catch (error: any) {
+      console.error('Error al cargar períodos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return <p style={{ color: '#6b7280' }}>Cargando períodos...</p>
+  }
+
+  if (periods.length === 0) {
+    return <p style={{ color: '#6b7280' }}>No hay períodos de vacaciones registrados.</p>
+  }
+
+  return (
+    <table style={{ width: '100%' }}>
+      <thead>
+        <tr>
+          <th style={{ textAlign: 'left', padding: '12px' }}>Año</th>
+          <th style={{ textAlign: 'right', padding: '12px' }}>Acumulado</th>
+          <th style={{ textAlign: 'right', padding: '12px' }}>Usado</th>
+          <th style={{ textAlign: 'right', padding: '12px' }}>Disponible</th>
+        </tr>
+      </thead>
+      <tbody>
+        {periods.map((period: any) => (
+          <tr key={period.id}>
+            <td style={{ padding: '12px', fontWeight: '500' }}>{period.period_year}</td>
+            <td style={{ padding: '12px', textAlign: 'right', color: '#0369a1' }}>
+              {period.accumulated_days.toFixed(2)} días
+            </td>
+            <td style={{ padding: '12px', textAlign: 'right', color: '#dc2626' }}>
+              {period.used_days} días
+            </td>
+            <td style={{ 
+              padding: '12px', 
+              textAlign: 'right', 
+              fontWeight: 'bold',
+              color: period.available_days >= 0 ? '#059669' : '#dc2626' 
+            }}>
+              {period.available_days.toFixed(2)} días
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 

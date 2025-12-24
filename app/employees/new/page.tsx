@@ -362,19 +362,19 @@ export default function NewEmployeePage() {
           </div>
           {formData.health_system === 'ISAPRE' && (
             <div className="form-group">
-              <label>Porcentaje del Plan ISAPRE *</label>
+              <label>Monto del Plan ISAPRE (UF) *</label>
               <input
                 type="number"
                 required
                 min="0"
                 max="20"
-                step="0.1"
+                step="0.01"
                 value={formData.health_plan_percentage}
                 onChange={(e) => setFormData({ ...formData, health_plan_percentage: e.target.value })}
-                placeholder="Ej: 2.5 (para 2.5% adicional)"
+                placeholder="Ej: 2.4 (para 2.4 UF)"
               />
               <small style={{ color: '#6b7280', fontSize: '12px' }}>
-                Porcentaje adicional del plan ISAPRE. Se sumará al 7% base. Ejemplo: si el plan es 2.5%, ingresa 2.5
+                Monto del plan ISAPRE en Unidades de Fomento (UF). Se calculará automáticamente al momento de la liquidación multiplicando este valor por el valor de UF del día. Ejemplo: si el plan es 2.4 UF, ingresa 2.4
               </small>
             </div>
           )}
