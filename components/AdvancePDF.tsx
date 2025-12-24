@@ -106,8 +106,21 @@ export function AdvancePDF({ advance, company, employee }: AdvancePDFProps) {
   const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
+    <Page size="A4" style={styles.page}>
+      {/* ID del anticipo y paginador en esquina superior derecha */}
+      <View style={{ position: 'absolute', top: 20, right: 40 }}>
+        <Text
+          style={{ fontSize: 9, color: '#666', textAlign: 'right' }}
+          render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+          fixed
+        />
+        {advance.advance_number && (
+          <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2 }} fixed>
+            ID Anticipo: {advance.advance_number}
+          </Text>
+        )}
+      </View>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.companyInfo}>{company?.name || 'EMPRESA'}</Text>
@@ -173,15 +186,27 @@ export function AdvancePDF({ advance, company, employee }: AdvancePDFProps) {
           </View>
         </View>
       </Page>
-    </Document>
   )
 }
 
 export default function AdvancePDFViewer({ advance, company, employee }: AdvancePDFProps) {
+  // Generar nombre del archivo: ANTICIPO-{RUT TRABAJADOR}-{FECHA MES-AÑO}-{ID}
+  const generateFileName = () => {
+    const rut = employee?.rut || 'SIN-RUT'
+    const advanceDate = new Date(advance.advance_date)
+    const month = advanceDate.getMonth() + 1
+    const year = advanceDate.getFullYear()
+    const monthAbbr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'][month - 1] || 'XXX'
+    const advanceId = advance.advance_number || advance.id.substring(0, 8).toUpperCase()
+    return `ANTICIPO-${rut}-${monthAbbr}-${year}-${advanceId}`
+  }
+
   return (
     <div style={{ width: '100%', height: '100vh' }}>
       <PDFViewer width="100%" height="100%">
-        <AdvancePDF advance={advance} company={company} employee={employee} />
+        <Document title={generateFileName()}>
+          <AdvancePDF advance={advance} company={company} employee={employee} />
+        </Document>
       </PDFViewer>
     </div>
   )

@@ -116,10 +116,11 @@ interface PayrollPDFProps {
   company: any
   vacations?: any[] | null
   loanPayments?: any[]
+  advances?: any[]
 }
 
 // Componente interno para el Document (necesario para usar pdf())
-const PayrollDocument = ({ slip, company, vacations, loanPayments, generateFileName }: any) => {
+const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, generateFileName }: any) => {
   const taxableItems = slip.payroll_items?.filter((item: any) => item.type === 'taxable_earning') || []
   const nonTaxableItems = slip.payroll_items?.filter((item: any) => item.type === 'non_taxable_earning') || []
   const allLegalDeductions = slip.payroll_items?.filter((item: any) => item.type === 'legal_deduction') || []
@@ -394,6 +395,26 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, generateFileN
                       </View>
                     )
                   }
+                  // Si es un anticipo, mostrar con detalle
+                  if (item.category === 'anticipo' && advances && advances.length > 0) {
+                    const totalAdvances = advances.reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
+                    return (
+                      <View key={item.id} style={{ marginBottom: 4 }}>
+                        <View style={[styles.row, { marginBottom: 2 }]}>
+                          <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>ANTICIPO:</Text>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontWeight: 'bold' }}>{formatCurrency(totalAdvances)}</Text>
+                        </View>
+                        {advances.map((adv: any, idx: number) => (
+                          <View key={adv.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
+                            <Text style={{ width: '55%', fontSize: 6 }}>
+                              {adv.advance_number || `ANT-${adv.id.substring(0, 8).toUpperCase()}`} - {formatDate(adv.advance_date)}
+                            </Text>
+                            <Text style={{ width: '45%', textAlign: 'right', fontSize: 6 }}>{formatCurrency(adv.amount || 0)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )
+                  }
                   return (
                     <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
                       <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
@@ -533,7 +554,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, generateFileN
   )
 }
 
-export default function PayrollPDF({ slip, company, vacations, loanPayments = [] }: PayrollPDFProps) {
+export default function PayrollPDF({ slip, company, vacations, loanPayments = [], advances = [] }: PayrollPDFProps) {
   // Generar nombre del archivo: LIQUIDACIÓN-{RUT}-{MES}-{AÑO}
   const generateFileName = () => {
     const rut = slip.employees?.rut || 'SIN-RUT'
@@ -552,6 +573,7 @@ export default function PayrollPDF({ slip, company, vacations, loanPayments = []
           company={company} 
           vacations={vacations} 
           loanPayments={loanPayments}
+          advances={advances}
           generateFileName={generateFileName}
         />
       ).toBlob()
@@ -605,6 +627,7 @@ export default function PayrollPDF({ slip, company, vacations, loanPayments = []
           company={company} 
           vacations={vacations} 
           loanPayments={loanPayments}
+          advances={advances}
           generateFileName={generateFileName}
         />
       </PDFViewer>

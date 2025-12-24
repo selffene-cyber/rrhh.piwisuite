@@ -450,7 +450,7 @@ export default function AdvancesPage() {
                 <tr key={advance.id}>
                   <td>
                     <code style={{ fontSize: '11px', background: '#f3f4f6', padding: '4px 8px', borderRadius: '4px' }}>
-                      {advance.id.substring(0, 8).toUpperCase()}
+                      {advance.advance_number || advance.id.substring(0, 8).toUpperCase()}
                     </code>
                   </td>
                   <td>
@@ -480,7 +480,7 @@ export default function AdvancesPage() {
                           <FaFilePdf size={14} /> PDF
                         </button>
                       </Link>
-                      {advance.status === 'borrador' && (
+                      {(advance.status === 'borrador' || advance.status === 'emitido') && (
                         <Link href={`/advances/${advance.id}/edit`}>
                           <button style={{ padding: '6px 12px', fontSize: '12px' }} className="secondary">
                             <FaEdit size={14} />

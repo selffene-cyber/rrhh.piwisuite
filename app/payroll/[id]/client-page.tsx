@@ -408,7 +408,7 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
                           {advances.map((advance) => (
                             <div key={advance.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#6b7280' }}>
                               <span>
-                                {formatDate(advance.advance_date)} - Anticipo #{advance.id.substring(0, 8).toUpperCase()}
+                                {formatDate(advance.advance_date)} - {advance.advance_number || `Anticipo #${advance.id.substring(0, 8).toUpperCase()}`}
                               </span>
                               <span style={{ fontWeight: '600' }}>
                                 ${Number(advance.amount).toLocaleString('es-CL')}

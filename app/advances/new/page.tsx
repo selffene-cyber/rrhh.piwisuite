@@ -108,6 +108,21 @@ export default function NewAdvancePage() {
       // Obtener usuario actual
       const { data: { user } } = await supabase.auth.getUser()
 
+      // Generar ID correlativo ANT-##
+      const { data: lastAdvance } = await supabase
+        .from('advances')
+        .select('advance_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      let advanceNumber = 'ANT-01'
+      if (lastAdvance?.advance_number) {
+        const lastNumber = parseInt(lastAdvance.advance_number.replace('ANT-', ''))
+        const newNumber = lastNumber + 1
+        advanceNumber = `ANT-${String(newNumber).padStart(2, '0')}`
+      }
+
       const { data, error } = await supabase
         .from('advances')
         .insert({
@@ -119,6 +134,7 @@ export default function NewAdvancePage() {
           reason: formData.reason || null,
           payment_method: formData.payment_method,
           status: 'borrador',
+          advance_number: advanceNumber,
           created_by: user?.id,
         })
         .select()

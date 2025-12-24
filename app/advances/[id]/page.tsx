@@ -109,7 +109,7 @@ export default function AdvanceDetailPage() {
               <FaFilePdf size={16} /> Ver PDF
             </button>
           </Link>
-          {advance.status === 'borrador' && (
+          {(advance.status === 'borrador' || advance.status === 'emitido') && (
             <Link href={`/advances/${advance.id}/edit`}>
               <button className="secondary">
                 <FaEdit size={16} /> Editar
@@ -127,7 +127,9 @@ export default function AdvanceDetailPage() {
         <div className="form-row">
           <div className="form-group">
             <label>ID</label>
-            <p><code>{advance.id}</code></p>
+            <p><code style={{ fontSize: '13px', background: '#f3f4f6', padding: '4px 8px', borderRadius: '4px' }}>
+              {advance.advance_number || advance.id.substring(0, 8).toUpperCase()}
+            </code></p>
           </div>
           <div className="form-group">
             <label>Estado</label>

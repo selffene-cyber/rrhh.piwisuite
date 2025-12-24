@@ -63,8 +63,15 @@ export default function PayrollPDFPage({ params }: { params: { id: string } }) {
         .eq('payroll_slip_id', slipData.id)
         .order('installment_number', { ascending: true })
 
+      // Obtener anticipos descontados en esta liquidación
+      const { data: advances } = await supabase
+        .from('advances')
+        .select('*')
+        .eq('payroll_slip_id', slipData.id)
+        .order('advance_date', { ascending: true })
+
       setCompany(companyData)
-      setSlip({ ...slipData, loanPayments: loanPayments || [] })
+      setSlip({ ...slipData, loanPayments: loanPayments || [], advances: advances || [] })
     } catch (error: any) {
       console.error('Error loading data:', error)
     } finally {
@@ -76,6 +83,6 @@ export default function PayrollPDFPage({ params }: { params: { id: string } }) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando...</div>
   }
 
-  return <PayrollPDF slip={slip} company={company} vacations={vacations} loanPayments={slip?.loanPayments || []} />
+  return <PayrollPDF slip={slip} company={company} vacations={vacations} loanPayments={slip?.loanPayments || []} advances={slip?.advances || []} />
 }
 

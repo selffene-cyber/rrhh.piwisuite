@@ -321,7 +321,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </main>
 
         {/* Alert Fab - Botón flotante de alertas */}
-        <AlertFab />
+        {/* <AlertFab /> */}
+        {/* Desactivado temporalmente - genera demasiadas alertas sin sentido */}
       </div>
     </div>
   )

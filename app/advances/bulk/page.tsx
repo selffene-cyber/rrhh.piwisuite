@@ -166,20 +166,38 @@ export default function BulkAdvancesPage() {
         }
       }
 
-      // Preparar datos para insertar
+      // Obtener último número de anticipo para generar correlativos
+      const { data: lastAdvance } = await supabase
+        .from('advances')
+        .select('advance_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      let nextNumber = 1
+      if (lastAdvance?.advance_number) {
+        const lastNumber = parseInt(lastAdvance.advance_number.replace('ANT-', ''))
+        nextNumber = lastNumber + 1
+      }
+
+      // Preparar datos para insertar con números correlativos
       const advancesToInsert = advanceItems
         .filter(item => item.amount && parseFormattedNumber(item.amount) > 0)
-        .map(item => ({
-          employee_id: item.employee_id,
-          company_id: companyId,
-          period: formData.period,
-          advance_date: formData.advance_date,
-          amount: Math.ceil(parseFormattedNumber(item.amount)),
-          reason: item.reason || null,
-          payment_method: item.payment_method,
-          status: 'borrador',
-          created_by: user?.id,
-        }))
+        .map((item, index) => {
+          const advanceNumber = `ANT-${String(nextNumber + index).padStart(2, '0')}`
+          return {
+            employee_id: item.employee_id,
+            company_id: companyId,
+            period: formData.period,
+            advance_date: formData.advance_date,
+            amount: Math.ceil(parseFormattedNumber(item.amount)),
+            reason: item.reason || null,
+            payment_method: item.payment_method,
+            status: 'borrador',
+            advance_number: advanceNumber,
+            created_by: user?.id,
+          }
+        })
 
       if (advancesToInsert.length === 0) {
         alert('No hay anticipos válidos para guardar')
