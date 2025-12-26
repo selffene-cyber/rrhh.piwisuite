@@ -100,7 +100,7 @@ export function generateContractText(contract: any, employee: any, company: any)
   
   if (scheduleText.includes(';')) {
     // Horarios separados
-    const [mondayThursday, friday] = scheduleText.split(';').map(s => s.trim())
+    const [mondayThursday, friday] = scheduleText.split(';').map((s: string) => s.trim())
     const fridayTimeMatch = friday.match(/(\d{1,2}:\d{2})\s*a\s*(\d{1,2}:\d{2})/i)
     if (fridayTimeMatch) {
       scheduleText = `${mondayThursday}, y ${friday}`
