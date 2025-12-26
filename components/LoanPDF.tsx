@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginBottom: 5,
     textTransform: 'uppercase',
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   },
   label: {
     width: '40%',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
   },
   value: {
     width: '60%',
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     backgroundColor: '#f0f0f0',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
   },
   tableCell: {
     flex: 1,
@@ -179,7 +179,7 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
 
             {/* Datos del préstamo */}
             <View style={styles.section}>
-              <Text style={{ fontWeight: 'bold', marginBottom: 8, fontSize: 11 }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold', marginBottom: 8, fontSize: 11 }}>
                 TÉRMINOS DEL PRÉSTAMO
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -202,13 +202,13 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
                 <View style={{ width: '48%' }}>
                   <View style={[styles.row, { marginBottom: 4 }]}>
                     <Text style={[styles.label, { fontSize: 8 }]}>MONTO TOTAL A PAGAR:</Text>
-                    <Text style={[styles.value, { fontWeight: 'bold', fontSize: 8 }]}>
+                    <Text style={[styles.value, { fontFamily: 'Helvetica-Bold', fontSize: 8 }]}>
                       {formatCurrency(loan.total_amount)}
                     </Text>
                   </View>
                   <View style={[styles.row, { marginBottom: 4 }]}>
                     <Text style={[styles.label, { fontSize: 8 }]}>VALOR POR CUOTA:</Text>
-                    <Text style={[styles.value, { fontWeight: 'bold', fontSize: 8 }]}>
+                    <Text style={[styles.value, { fontFamily: 'Helvetica-Bold', fontSize: 8 }]}>
                       {formatCurrency(loan.installment_amount)}
                     </Text>
                   </View>

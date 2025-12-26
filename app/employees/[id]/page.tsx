@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/utils/date'
 import { notFound } from 'next/navigation'
+import ContractsHistory from './contracts-history'
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServerClient()
@@ -86,6 +87,29 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         <div className="form-group">
           <label>Correo Electrónico</label>
           <p>{employee.email || '-'}</p>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Datos Bancarios</h2>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Banco</label>
+            <p>{employee.bank_name || '-'}</p>
+          </div>
+          <div className="form-group">
+            <label>Tipo de Cuenta</label>
+            <p>
+              {employee.account_type === 'corriente' ? 'Cuenta Corriente' :
+               employee.account_type === 'ahorro' ? 'Cuenta de Ahorro' :
+               employee.account_type === 'vista' ? 'Cuenta Vista' :
+               employee.account_type || '-'}
+            </p>
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Número de Cuenta</label>
+          <p>{employee.account_number || '-'}</p>
         </div>
       </div>
 
@@ -253,6 +277,16 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
             <button className="secondary">Ver Historial de Préstamos</button>
           </Link>
         </div>
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2>Contratos y Anexos</h2>
+          <Link href={`/contracts/new?employee_id=${params.id}`}>
+            <button>Nuevo Contrato</button>
+          </Link>
+        </div>
+        <ContractsHistory employeeId={params.id} />
       </div>
 
       <div className="card">

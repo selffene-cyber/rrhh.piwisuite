@@ -18,7 +18,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginBottom: 20,
     textTransform: 'uppercase',
@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   },
   label: {
     width: '35%',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 9,
   },
   value: {
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     marginBottom: 5,
   },
   amountWords: {

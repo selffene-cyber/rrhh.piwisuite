@@ -13,7 +13,11 @@ export default function SettingsPage() {
     rut: '',
     address: '',
     city: '',
+    logo_url: '',
   })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   useEffect(() => {
     loadCompany()
@@ -38,7 +42,11 @@ export default function SettingsPage() {
           rut: data.rut || '',
           address: data.address || '',
           city: data.city || '',
+          logo_url: data.logo_url || '',
         })
+        if (data.logo_url) {
+          setLogoPreview(data.logo_url)
+        }
       }
     } catch (error: any) {
       alert('Error al cargar configuración: ' + error.message)
@@ -47,11 +55,151 @@ export default function SettingsPage() {
     }
   }
 
+  const handleLogoUpload = async (file: File) => {
+    setUploadingLogo(true)
+    try {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen')
+        setUploadingLogo(false)
+        return
+      }
+
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('El archivo es demasiado grande. Máximo 5MB')
+        setUploadingLogo(false)
+        return
+      }
+
+      // Generar nombre único para el archivo
+      const fileExt = file.name.split('.').pop()
+      const fileName = `logo-${Date.now()}.${fileExt}`
+      const filePath = `company-logos/${fileName}`
+
+      // Subir archivo a Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (uploadError) {
+        // Si el bucket no existe, intentar crearlo
+        if (uploadError.message.includes('Bucket not found')) {
+          alert('El bucket de almacenamiento no está configurado. Por favor, crea un bucket llamado "company-assets" en Supabase Storage con acceso público.')
+          setUploadingLogo(false)
+          return
+        }
+        throw uploadError
+      }
+
+      // Obtener URL pública del archivo
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-assets')
+        .getPublicUrl(filePath)
+
+      // Actualizar logo_url en la base de datos
+      const { data: existing } = await supabase
+        .from('companies')
+        .select('id')
+        .limit(1)
+        .single()
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('companies')
+          .update({ logo_url: publicUrl })
+          .eq('id', existing.id)
+
+        if (updateError) throw updateError
+      } else {
+        // Si no existe empresa, crear con logo
+        const { error: insertError } = await supabase
+          .from('companies')
+          .insert({ ...formData, logo_url: publicUrl })
+
+        if (insertError) throw insertError
+      }
+
+      setFormData((prev) => ({ ...prev, logo_url: publicUrl }))
+      setLogoPreview(publicUrl)
+      setLogoFile(null)
+      alert('Logo subido correctamente')
+    } catch (error: any) {
+      console.error('Error al subir logo:', error)
+      alert('Error al subir logo: ' + error.message)
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setLogoFile(file)
+      // Crear preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveLogo = async () => {
+    if (!confirm('¿Estás seguro de eliminar el logo?')) {
+      return
+    }
+
+    try {
+      // Eliminar archivo del storage si existe
+      if (formData.logo_url) {
+        const urlParts = formData.logo_url.split('/')
+        const fileName = urlParts[urlParts.length - 1]
+        const filePath = `company-logos/${fileName}`
+
+        await supabase.storage
+          .from('company-assets')
+          .remove([filePath])
+      }
+
+      // Actualizar en base de datos
+      const { data: existing } = await supabase
+        .from('companies')
+        .select('id')
+        .limit(1)
+        .single()
+
+      if (existing) {
+        const { error } = await supabase
+          .from('companies')
+          .update({ logo_url: null })
+          .eq('id', existing.id)
+
+        if (error) throw error
+      }
+
+      setFormData((prev) => ({ ...prev, logo_url: '' }))
+      setLogoPreview(null)
+      setLogoFile(null)
+      alert('Logo eliminado correctamente')
+    } catch (error: any) {
+      alert('Error al eliminar logo: ' + error.message)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
 
     try {
+      // Si hay un archivo nuevo, subirlo primero
+      if (logoFile) {
+        await handleLogoUpload(logoFile)
+      }
+
       // Intentar actualizar primero
       const { data: existing } = await supabase
         .from('companies')
@@ -62,7 +210,14 @@ export default function SettingsPage() {
       if (existing) {
         const { error } = await supabase
           .from('companies')
-          .update(formData)
+          .update({
+            name: formData.name,
+            employer_name: formData.employer_name,
+            rut: formData.rut,
+            address: formData.address,
+            city: formData.city,
+            logo_url: formData.logo_url,
+          })
           .eq('id', existing.id)
 
         if (error) throw error
@@ -70,12 +225,20 @@ export default function SettingsPage() {
         // Si no existe, crear
         const { error } = await supabase
           .from('companies')
-          .insert(formData)
+          .insert({
+            name: formData.name,
+            employer_name: formData.employer_name,
+            rut: formData.rut,
+            address: formData.address,
+            city: formData.city,
+            logo_url: formData.logo_url,
+          })
 
         if (error) throw error
       }
 
       alert('Configuración guardada correctamente')
+      setLogoFile(null)
     } catch (error: any) {
       alert('Error al guardar configuración: ' + error.message)
     } finally {
@@ -104,8 +267,123 @@ export default function SettingsPage() {
       <div className="card">
         <h2>Configuración de Empresa</h2>
         <p style={{ marginBottom: '24px', color: '#6b7280' }}>
-          Estos datos aparecerán automáticamente en el encabezado de cada liquidación de sueldo.
+          Estos datos aparecerán automáticamente en el encabezado de cada liquidación de sueldo y documentos.
         </p>
+
+        {/* Sección de Logo */}
+        <div style={{ marginBottom: '32px', padding: '20px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Logo de la Empresa</h3>
+          <p style={{ marginBottom: '16px', color: '#6b7280', fontSize: '14px' }}>
+            El logo aparecerá en los documentos generados (contratos, liquidaciones, etc.)
+          </p>
+          
+          {logoPreview && (
+            <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ 
+                width: '150px', 
+                height: '150px', 
+                border: '2px solid #e5e7eb', 
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'white',
+                padding: '8px'
+              }}>
+                <img 
+                  src={logoPreview} 
+                  alt="Logo de la empresa" 
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '100%', 
+                    objectFit: 'contain' 
+                  }} 
+                />
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  style={{
+                    background: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Eliminar Logo
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+              {logoPreview ? 'Cambiar Logo' : 'Subir Logo'}
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLogoChange}
+              disabled={uploadingLogo}
+              style={{
+                marginBottom: '8px',
+                padding: '8px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                width: '100%',
+                maxWidth: '400px'
+              }}
+            />
+            {logoFile && !logoPreview?.includes('supabase') && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => handleLogoUpload(logoFile)}
+                  disabled={uploadingLogo}
+                  style={{
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: uploadingLogo ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    opacity: uploadingLogo ? 0.6 : 1
+                  }}
+                >
+                  {uploadingLogo ? 'Subiendo...' : 'Subir Logo'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogoFile(null)
+                    setLogoPreview(formData.logo_url || null)
+                  }}
+                  disabled={uploadingLogo}
+                  style={{
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: uploadingLogo ? 'not-allowed' : 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+            <small style={{ display: 'block', color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
+              Formatos aceptados: JPG, PNG, GIF. Tamaño máximo: 5MB
+            </small>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Razón Social *</label>
@@ -168,4 +446,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-

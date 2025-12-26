@@ -14,7 +14,7 @@ const styles = StyleSheet.create({
   },
   companyName: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     marginBottom: 5,
   },
   companyInfo: {
@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginTop: 30,
     marginBottom: 30,
@@ -152,19 +152,19 @@ export default function CertificatePDF({ employee, company, issueDate, purpose }
             <View style={styles.body}>
               <Text style={styles.paragraph}>
                 Por medio del presente documento, {company?.name || 'la empresa'} certifica que{' '}
-                <Text style={{ fontWeight: 'bold' }}>{employee.full_name || ''}</Text>, 
-                RUT <Text style={{ fontWeight: 'bold' }}>{employee.rut || ''}</Text>, 
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.full_name || ''}</Text>, 
+                RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.rut || ''}</Text>, 
                 se encuentra trabajando en esta empresa desde el día{' '}
-                <Text style={{ fontWeight: 'bold' }}>
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>
                   {formatDateReadable(employee.hire_date)}
                 </Text>, 
-                desempeñando el cargo de <Text style={{ fontWeight: 'bold' }}>{employee.position || ''}</Text>, 
-                bajo un contrato de tipo <Text style={{ fontWeight: 'bold' }}>{getContractTypeText()}</Text>.
+                desempeñando el cargo de <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.position || ''}</Text>, 
+                bajo un contrato de tipo <Text style={{ fontFamily: 'Helvetica-Bold' }}>{getContractTypeText()}</Text>.
               </Text>
 
               <Text style={styles.paragraph}>
                 A la fecha de emisión de este certificado ({formatDateReadable(issueDate)}), 
-                el trabajador cuenta con una antigüedad de <Text style={{ fontWeight: 'bold' }}>{formatAntiguedad()}</Text>{' '}
+                el trabajador cuenta con una antigüedad de <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatAntiguedad()}</Text>{' '}
                 en la empresa.
               </Text>
 

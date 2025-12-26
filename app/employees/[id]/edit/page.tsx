@@ -16,6 +16,9 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     address: '',
     phone: '',
     email: '',
+    bank_name: '',
+    account_type: '',
+    account_number: '',
     hire_date: '',
     position: '',
     cost_center: '',
@@ -56,6 +59,9 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           address: data.address || '',
           phone: data.phone || '',
           email: data.email || '',
+          bank_name: data.bank_name || '',
+          account_type: data.account_type || '',
+          account_number: data.account_number || '',
           hire_date: data.hire_date,
           position: data.position,
           cost_center: data.cost_center || '',
@@ -212,6 +218,43 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
+          </div>
+
+          <h2 style={{ marginTop: '32px' }}>Datos Bancarios</h2>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Banco</label>
+              <input
+                type="text"
+                value={formData.bank_name}
+                onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                placeholder="Ej: Banco de Chile"
+              />
+            </div>
+            <div className="form-group">
+              <label>Tipo de Cuenta</label>
+              <select
+                value={formData.account_type}
+                onChange={(e) => setFormData({ ...formData, account_type: e.target.value })}
+              >
+                <option value="">Selecciona...</option>
+                <option value="corriente">Cuenta Corriente</option>
+                <option value="ahorro">Cuenta de Ahorro</option>
+                <option value="vista">Cuenta Vista</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Número de Cuenta</label>
+            <input
+              type="text"
+              value={formData.account_number}
+              onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+              placeholder="Ej: 12345678-9"
+            />
+            <small style={{ color: '#6b7280', fontSize: '12px' }}>
+              Esta información aparecerá en los contratos y liquidaciones
+            </small>
           </div>
 
           <h2 style={{ marginTop: '32px' }}>Datos Laborales</h2>

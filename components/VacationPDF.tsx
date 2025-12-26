@@ -17,7 +17,7 @@ const styles = StyleSheet.create({
   },
   companyName: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginBottom: 5,
   },
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 30,
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
   },
   label: {
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     marginBottom: 5,
   },
   infoRow: {
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     width: '40%',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
   },
   infoValue: {
     width: '60%',
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statusText: {
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 12,
   },
 })

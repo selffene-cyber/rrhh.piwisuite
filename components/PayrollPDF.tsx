@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     marginBottom: 15,
     textTransform: 'uppercase',
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   label: {
     width: '35%',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 8,
   },
   value: {
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   },
   labelTwoCol: {
     width: '48%',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 8,
   },
   valueTwoCol: {
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     backgroundColor: '#f0f0f0',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
   },
   tableCell: {
     flex: 1,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 2,
     borderTopColor: '#000',
-    fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
   },
   summary: {
     marginTop: 20,
@@ -203,8 +203,8 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                   </View>
                   <View style={styles.row}>
                     <View style={{ width: '48%' }}>
-                      <Text style={{ fontSize: 8, fontWeight: 'bold' }}>DIAS</Text>
-                      <Text style={{ fontSize: 8, fontWeight: 'bold' }}>TRABAJADOS:</Text>
+                      <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>DIAS</Text>
+                      <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>TRABAJADOS:</Text>
                     </View>
                     <Text style={{ width: '48%', fontSize: 8 }}>{slip.days_worked}</Text>
                   </View>
@@ -227,8 +227,8 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     return (
                       <View style={styles.row}>
                         <View style={{ width: '48%' }}>
-                          <Text style={{ fontSize: 8, fontWeight: 'bold' }}>DIAS</Text>
-                          <Text style={{ fontSize: 8, fontWeight: 'bold' }}>VACACIONES:</Text>
+                          <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>DIAS</Text>
+                          <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>VACACIONES:</Text>
                         </View>
                         <Text style={{ width: '48%', fontSize: 8 }}>{vacationDays}</Text>
                       </View>
@@ -251,11 +251,11 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
             <View style={{ flexDirection: 'row', marginTop: 15, gap: 8 }}>
               {/* Columna 1: HABERES */}
               <View style={{ width: '32%' }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 8, fontSize: 10, textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#000', paddingBottom: 3 }}>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginBottom: 8, fontSize: 10, textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#000', paddingBottom: 3 }}>
                   HABERES
                 </Text>
                 
-                <Text style={{ fontWeight: 'bold', marginTop: 8, fontSize: 8 }}>HABERES IMPONIBLES</Text>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 8, fontSize: 8 }}>HABERES IMPONIBLES</Text>
                 {taxableItems.map((item: any) => {
                   const description = item.description.toUpperCase()
                   // Detectar si contiene "DÍAS TRABAJADOS" o "DIAS TRABAJADOS" y dividirlo manualmente
@@ -288,7 +288,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     </View>
                   )
                 })}
-                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontWeight: 'bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
+                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
                   <View style={{ width: '55%' }}>
                     <Text style={{ fontSize: 7 }}>TOTAL HABERES</Text>
                     <Text style={{ fontSize: 7 }}>IMPONIBLES:</Text>
@@ -296,7 +296,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.total_taxable_earnings)}</Text>
                 </View>
 
-                <Text style={{ fontWeight: 'bold', marginTop: 5, fontSize: 8 }}>HABERES NO IMPONIBLES</Text>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 5, fontSize: 8 }}>HABERES NO IMPONIBLES</Text>
                 {nonTaxableItems.map((item: any) => (
                   <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
                     <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
@@ -315,7 +315,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     </View>
                   </>
                 )}
-                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontWeight: 'bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
+                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
                   <View style={{ width: '55%' }}>
                     <Text style={{ fontSize: 7 }}>TOTAL HABERES NO</Text>
                     <Text style={{ fontSize: 7 }}>IMPONIBLES:</Text>
@@ -323,7 +323,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.total_non_taxable_earnings)}</Text>
                 </View>
 
-                <View style={[styles.row, { marginTop: 5, fontWeight: 'bold', borderTopWidth: 2, borderTopColor: '#000', paddingTop: 5 }]}>
+                <View style={[styles.row, { marginTop: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 2, borderTopColor: '#000', paddingTop: 5 }]}>
                   <Text style={{ width: '55%', fontSize: 8 }}>TOTAL HABERES:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 8 }}>{formatCurrency(slip.total_earnings)}</Text>
                 </View>
@@ -331,11 +331,11 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
 
               {/* Columna 2: DESCUENTOS */}
               <View style={{ width: '32%' }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 8, fontSize: 10, textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#000', paddingBottom: 3 }}>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginBottom: 8, fontSize: 10, textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#000', paddingBottom: 3 }}>
                   DESCUENTOS
                 </Text>
                 
-                <Text style={{ fontWeight: 'bold', marginTop: 8, fontSize: 8 }}>DESCUENTOS LEGALES</Text>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 8, fontSize: 8 }}>DESCUENTOS LEGALES</Text>
                 {legalDeductions.length > 0 ? (
                   legalDeductions.map((item: any) => (
                     <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
@@ -365,12 +365,12 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     </View>
                   </>
                 )}
-                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontWeight: 'bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
+                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
                   <Text style={{ width: '55%', fontSize: 7 }}>DESCUENTOS LEGALES:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.total_legal_deductions)}</Text>
                 </View>
 
-                <Text style={{ fontWeight: 'bold', marginTop: 5, fontSize: 8 }}>OTROS DESCUENTOS</Text>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 5, fontSize: 8 }}>OTROS DESCUENTOS</Text>
                 {otherDeductions.map((item: any) => {
                   // Si es un préstamo, mostrar con detalle
                   if (item.category === 'prestamo' && loanPayments && loanPayments.length > 0) {
@@ -378,8 +378,8 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     return (
                       <View key={item.id} style={{ marginBottom: 4 }}>
                         <View style={[styles.row, { marginBottom: 2 }]}>
-                          <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>PRESTAMO:</Text>
-                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontWeight: 'bold' }}>{formatCurrency(totalLoans)}</Text>
+                          <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>PRESTAMO:</Text>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>{formatCurrency(totalLoans)}</Text>
                         </View>
                         {loanPayments.map((lp: any, idx: number) => {
                           const loan = lp.loans
@@ -401,8 +401,8 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     return (
                       <View key={item.id} style={{ marginBottom: 4 }}>
                         <View style={[styles.row, { marginBottom: 2 }]}>
-                          <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>ANTICIPO:</Text>
-                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontWeight: 'bold' }}>{formatCurrency(totalAdvances)}</Text>
+                          <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>ANTICIPO:</Text>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>{formatCurrency(totalAdvances)}</Text>
                         </View>
                         {advances.map((adv: any, idx: number) => (
                           <View key={adv.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
@@ -434,7 +434,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                     </View>
                   </>
                 )}
-                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontWeight: 'bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
+                <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
                   <View style={{ width: '55%' }}>
                     <Text style={{ fontSize: 7 }}>TOTAL OTROS</Text>
                     <Text style={{ fontSize: 7 }}>DESCUENTOS:</Text>
@@ -442,7 +442,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.total_other_deductions)}</Text>
                 </View>
 
-                <View style={[styles.row, { marginTop: 5, fontWeight: 'bold', borderTopWidth: 2, borderTopColor: '#000', paddingTop: 5 }]}>
+                <View style={[styles.row, { marginTop: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 2, borderTopColor: '#000', paddingTop: 5 }]}>
                   <Text style={{ width: '55%', fontSize: 8 }}>TOTAL DESCUENTOS:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 8 }}>{formatCurrency(slip.total_deductions)}</Text>
                 </View>
@@ -450,37 +450,37 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
 
               {/* Columna 3: INFORMACION */}
               <View style={{ width: '32%' }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 8, fontSize: 10, textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#000', paddingBottom: 3 }}>
+                <Text style={{ fontFamily: 'Helvetica-Bold', marginBottom: 8, fontSize: 10, textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#000', paddingBottom: 3 }}>
                   INFORMACION
                 </Text>
                 
                 <View style={[styles.row, { marginBottom: 3 }]}>
                   <View style={{ width: '55%' }}>
-                    <Text style={{ fontSize: 7, fontWeight: 'bold' }}>SUELDO BASE</Text>
-                    <Text style={{ fontSize: 7, fontWeight: 'bold' }}>PACTADO:</Text>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>SUELDO BASE</Text>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>PACTADO:</Text>
                   </View>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.base_salary)}</Text>
                 </View>
                 <View style={[styles.row, { marginBottom: 3 }]}>
                   <View style={{ width: '55%' }}>
-                    <Text style={{ fontSize: 7, fontWeight: 'bold' }}>SUELDO LIQUIDO</Text>
-                    <Text style={{ fontSize: 7, fontWeight: 'bold' }}>PACTADO:</Text>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>SUELDO LIQUIDO</Text>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>PACTADO:</Text>
                   </View>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.net_pay)}</Text>
                 </View>
                 <View style={[styles.row, { marginBottom: 3 }]}>
                   <View style={{ width: '55%' }}>
-                    <Text style={{ fontSize: 7, fontWeight: 'bold' }}>DIAS</Text>
-                    <Text style={{ fontSize: 7, fontWeight: 'bold' }}>TRABAJADOS:</Text>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>DIAS</Text>
+                    <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>TRABAJADOS:</Text>
                   </View>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{slip.days_worked}</Text>
                 </View>
                 <View style={[styles.row, { marginBottom: 3 }]}>
-                  <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>BASE IMPONIBLE:</Text>
+                  <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>BASE IMPONIBLE:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.taxable_base)}</Text>
                 </View>
                 <View style={[styles.row, { marginBottom: 3 }]}>
-                  <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>BASE TRIBUTABLE:</Text>
+                  <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>BASE TRIBUTABLE:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
                     {formatCurrency(Math.max(0, slip.taxable_base - 
                       (legalDeductions.find((d: any) => d.category === 'afp')?.amount || 0) - 
@@ -489,7 +489,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                 </View>
                 {slip.employees?.health_system === 'ISAPRE' && (
                   <View style={[styles.row, { marginBottom: 3 }]}>
-                    <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>
+                    <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>
                       {slip.employees?.health_plan_percentage 
                         ? `${slip.employees.health_plan_percentage || 0} UF ISAPRE:` 
                         : 'ISAPRE:'}
@@ -500,7 +500,7 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                   </View>
                 )}
                 <View style={[styles.row, { marginBottom: 3 }]}>
-                  <Text style={{ width: '55%', fontSize: 7, fontWeight: 'bold' }}>SEGURO DE CESANTIA EMPRESA:</Text>
+                  <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>SEGURO DE CESANTIA EMPRESA:</Text>
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
                     {formatCurrency((slip.taxable_base * 0.024) || 0)}
                   </Text>
@@ -511,16 +511,16 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
             {/* Resumen - Líquido a Pagar */}
             <View style={{ marginTop: 15, padding: 10, borderWidth: 2, borderColor: '#000' }}>
               <View style={[styles.row, { marginBottom: 3 }]}>
-                <Text style={{ width: '50%', fontWeight: 'bold', fontSize: 9 }}>PRE LIQUIDO A PAGO:</Text>
+                <Text style={{ width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 9 }}>PRE LIQUIDO A PAGO:</Text>
                 <Text style={{ width: '50%', textAlign: 'right', fontSize: 9 }}>{formatCurrency(slip.net_pay)}</Text>
               </View>
               <View style={[styles.row, { marginBottom: 3 }]}>
-                <Text style={{ width: '50%', fontWeight: 'bold', fontSize: 9 }}>LIQUIDO A PAGAR REMUNERACION:</Text>
+                <Text style={{ width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 9 }}>LIQUIDO A PAGAR REMUNERACION:</Text>
                 <Text style={{ width: '50%', textAlign: 'right', fontSize: 9 }}>{formatCurrency(slip.net_pay)}</Text>
               </View>
               <View style={[styles.row, { marginTop: 5, borderTopWidth: 1, borderTopColor: '#000', paddingTop: 5 }]}>
-                <Text style={{ width: '50%', fontWeight: 'bold', fontSize: 10 }}>SALDO LIQUIDO A PAGAR....$:</Text>
-                <Text style={{ width: '50%', textAlign: 'right', fontWeight: 'bold', fontSize: 10 }}>{formatCurrency(slip.net_pay)}</Text>
+                <Text style={{ width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 10 }}>SALDO LIQUIDO A PAGAR....$:</Text>
+                <Text style={{ width: '50%', textAlign: 'right', fontFamily: 'Helvetica-Bold', fontSize: 10 }}>{formatCurrency(slip.net_pay)}</Text>
               </View>
             </View>
 
@@ -605,7 +605,7 @@ export default function PayrollPDF({ slip, company, vacations, loanPayments = []
         border: 'none',
         borderRadius: '4px',
         cursor: 'pointer',
-        fontWeight: 'bold'
+        fontFamily: 'Helvetica-Bold'
       }}>
         <button 
           onClick={handleDownload}
@@ -615,7 +615,7 @@ export default function PayrollPDF({ slip, company, vacations, loanPayments = []
             color: 'white',
             cursor: 'pointer',
             fontSize: '14px',
-            fontWeight: 'bold'
+            fontFamily: 'Helvetica-Bold'
           }}
         >
           Descargar PDF

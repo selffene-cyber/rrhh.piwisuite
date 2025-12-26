@@ -107,16 +107,18 @@ export default function EmployeesPage() {
           <button onClick={loadEmployees} className="secondary" style={{ padding: '8px 16px' }}>
             Actualizar
           </button>
-          <button 
-            style={{ 
-              background: '#fbbf24', 
-              color: '#000',
-              fontWeight: '600',
-              padding: '8px 16px'
-            }}
-          >
-            Generar Contrato/Anexo
-          </button>
+          <Link href="/contracts">
+            <button 
+              style={{ 
+                background: '#fbbf24', 
+                color: '#000',
+                fontWeight: '600',
+                padding: '8px 16px'
+              }}
+            >
+              Generar Contrato/Anexo
+            </button>
+          </Link>
           <Link href="/employees/new">
             <button>Nuevo Trabajador</button>
           </Link>
