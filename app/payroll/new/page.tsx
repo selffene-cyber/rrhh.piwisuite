@@ -72,7 +72,7 @@ export default function NewPayrollPage() {
         // Buscar pactos de horas extra que cubran el período de la liquidación
         const { data: pacts } = await supabase
           .from('overtime_pacts')
-          .select('*')
+          .select('status, pact_number, start_date, end_date')
           .eq('employee_id', selectedEmployee.id)
           .lte('start_date', periodEnd.toISOString().split('T')[0])
           .gte('end_date', periodStart.toISOString().split('T')[0])
@@ -130,7 +130,7 @@ export default function NewPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type')
         .eq('status', 'active')
         .eq('company_id', companyId)
         .order('full_name')
@@ -189,7 +189,7 @@ export default function NewPayrollPage() {
     
     const { data: periodVacations } = await supabase
       .from('vacations')
-      .select('*')
+      .select('id, start_date, end_date, days_count, status')
       .eq('employee_id', selectedEmployee.id)
       .in('status', ['aprobada', 'tomada'])
       .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
@@ -236,7 +236,7 @@ export default function NewPayrollPage() {
     
     const { data: medicalLeaves } = await supabase
       .from('medical_leaves')
-      .select('*')
+      .select('id, start_date, end_date, days_count, is_active')
       .eq('employee_id', selectedEmployee.id)
       .eq('is_active', true)
       .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
@@ -332,7 +332,7 @@ export default function NewPayrollPage() {
     // Obtener préstamos activos del trabajador con sus cuotas pendientes
     const { data: activeLoans } = await supabase
       .from('loans')
-      .select('*')
+      .select('id, installment_amount, remaining_amount, status')
       .eq('employee_id', selectedEmployee.id)
       .eq('status', 'active')
       .gt('remaining_amount', 0)
@@ -432,7 +432,7 @@ export default function NewPayrollPage() {
     const periodStr = `${formData.year}-${String(formData.month).padStart(2, '0')}`
     const { data: periodAdvances } = await supabase
       .from('advances')
-      .select('*')
+      .select('id, amount, advance_date, period, status, payroll_slip_id')
       .eq('employee_id', selectedEmployee.id)
       .eq('period', periodStr)
       .in('status', ['firmado', 'pagado'])
@@ -512,7 +512,7 @@ export default function NewPayrollPage() {
       // Primero intentar obtener uno existente
       const { data: existingPeriod } = await supabase
         .from('payroll_periods')
-        .select('*')
+        .select('id, company_id, year, month')
         .eq('company_id', companyId)
         .eq('year', formData.year)
         .eq('month', formData.month)

@@ -49,7 +49,7 @@ export default function BulkPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, afp, health_system, health_plan_percentage, contract_type')
         .eq('status', 'active')
         .eq('company_id', companyId)
         .order('full_name')

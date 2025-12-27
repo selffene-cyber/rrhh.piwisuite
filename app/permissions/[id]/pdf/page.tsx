@@ -39,7 +39,7 @@ export default function PermissionPDFPage() {
       // Obtener empleado completo
       const { data: empData } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, position, company_id')
         .eq('id', permData.employee_id)
         .single()
 
@@ -49,7 +49,7 @@ export default function PermissionPDFPage() {
       if (empData?.company_id) {
         const { data: compData } = await supabase
           .from('companies')
-          .select('*')
+          .select('id, name, rut, address, employer_name')
           .eq('id', empData.company_id)
           .single()
 

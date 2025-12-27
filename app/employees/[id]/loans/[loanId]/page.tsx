@@ -22,7 +22,7 @@ export default function LoanDetailPage({ params }: { params: { id: string, loanI
       // Cargar préstamo
       const { data: loanData, error: loanError } = await supabase
         .from('loans')
-        .select('*')
+        .select('id, employee_id, amount, remaining_amount, installment_amount, installments, interest_rate, loan_date, status, created_at')
         .eq('id', params.loanId)
         .single()
 
@@ -33,7 +33,7 @@ export default function LoanDetailPage({ params }: { params: { id: string, loanI
       if (loanData) {
         const { data: empData } = await supabase
           .from('employees')
-          .select('*')
+          .select('id, full_name, rut, company_id')
           .eq('id', loanData.employee_id)
           .single()
         

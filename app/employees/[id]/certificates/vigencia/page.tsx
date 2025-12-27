@@ -31,7 +31,7 @@ export default function CertificateVigenciaPage({ params }: { params: { id: stri
       // Cargar empleado
       const { data: empData, error: empError } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, position, hire_date, base_salary, contract_type, company_id')
         .eq('id', params.id)
         .eq('company_id', companyId)
         .single()
@@ -42,7 +42,7 @@ export default function CertificateVigenciaPage({ params }: { params: { id: stri
       // Cargar empresa
       const { data: compData } = await supabase
         .from('companies')
-        .select('*')
+        .select('id, name, rut, address, employer_name')
         .eq('id', companyId)
         .single()
 
@@ -51,7 +51,7 @@ export default function CertificateVigenciaPage({ params }: { params: { id: stri
       // Cargar contrato activo
       const { data: contractData } = await supabase
         .from('contracts')
-        .select('*')
+        .select('id, employee_id, start_date, end_date, contract_type, status')
         .eq('employee_id', params.id)
         .eq('status', 'active')
         .order('start_date', { ascending: false })

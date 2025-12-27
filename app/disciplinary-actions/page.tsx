@@ -280,69 +280,94 @@ export default function DisciplinaryActionsDashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card" style={{
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+        gap: '16px', 
+        marginBottom: '24px' 
+      }}>
+        {/* Card 1: Total Amonestaciones */}
+        <div style={{
+          padding: '20px',
           background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-          border: '1px solid #fbbf24',
+          borderRadius: '12px',
+          border: '2px solid #f59e0b'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <FaExclamationTriangle style={{ fontSize: '24px', color: '#f59e0b' }} />
-            <h3 style={{ margin: 0, color: '#111827' }}>Total Amonestaciones</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <FaExclamationTriangle size={24} color="#f59e0b" />
+            <h3 style={{ margin: 0, fontSize: '14px', color: '#92400e', fontWeight: '600' }}>
+              Total Amonestaciones
+            </h3>
           </div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#92400e', margin: '8px 0' }}>
             {stats.totalActions}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+          </p>
+          <p style={{ fontSize: '11px', color: '#92400e', margin: 0, opacity: 0.8 }}>
             {stats.totalWritten} escritas, {stats.totalVerbal} verbales
-          </div>
+          </p>
         </div>
 
-        <div className="card" style={{
+        {/* Card 2: En Revisión */}
+        <div style={{
+          padding: '20px',
           background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-          border: '1px solid #60a5fa',
+          borderRadius: '12px',
+          border: '2px solid #3b82f6'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <FaFileAlt style={{ fontSize: '24px', color: '#3b82f6' }} />
-            <h3 style={{ margin: 0, color: '#111827' }}>En Revisión</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <FaFileAlt size={24} color="#3b82f6" />
+            <h3 style={{ margin: 0, fontSize: '14px', color: '#1e40af', fontWeight: '600' }}>
+              En Revisión
+            </h3>
           </div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#1e40af', margin: '8px 0' }}>
             {stats.pendingReview}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+          </p>
+          <p style={{ fontSize: '11px', color: '#1e40af', margin: 0, opacity: 0.8 }}>
             Requieren atención
-          </div>
+          </p>
         </div>
 
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
-          border: '1px solid #10b981',
+        {/* Card 3: Emitidas */}
+        <div style={{
+          padding: '20px',
+          background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+          borderRadius: '12px',
+          border: '2px solid #10b981'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <FaFilePdf style={{ fontSize: '24px', color: '#10b981' }} />
-            <h3 style={{ margin: 0, color: '#111827' }}>Emitidas</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <FaFilePdf size={24} color="#10b981" />
+            <h3 style={{ margin: 0, fontSize: '14px', color: '#065f46', fontWeight: '600' }}>
+              Emitidas
+            </h3>
           </div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#065f46', margin: '8px 0' }}>
             {stats.issuedActions}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+          </p>
+          <p style={{ fontSize: '11px', color: '#065f46', margin: 0, opacity: 0.8 }}>
             Procesadas y notificadas
-          </div>
+          </p>
         </div>
 
-        <div className="card" style={{
+        {/* Card 4: Trabajadores */}
+        <div style={{
+          padding: '20px',
           background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
-          border: '1px solid #f472b6',
+          borderRadius: '12px',
+          border: '2px solid #ec4899'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <FaUser style={{ fontSize: '24px', color: '#ec4899' }} />
-            <h3 style={{ margin: 0, color: '#111827' }}>Trabajadores</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <FaUser size={24} color="#ec4899" />
+            <h3 style={{ margin: 0, fontSize: '14px', color: '#be185d', fontWeight: '600' }}>
+              Trabajadores
+            </h3>
           </div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#be185d', margin: '8px 0' }}>
             {stats.employeesWithActions}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+          </p>
+          <p style={{ fontSize: '11px', color: '#be185d', margin: 0, opacity: 0.8 }}>
             Con amonestaciones registradas
-          </div>
+          </p>
         </div>
       </div>
 

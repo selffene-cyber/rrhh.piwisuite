@@ -40,7 +40,7 @@ export default function EmployeePermissionsPage({
       // Cargar trabajador
       const { data: empData } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, company_id')
         .eq('id', params.id)
         .single()
 

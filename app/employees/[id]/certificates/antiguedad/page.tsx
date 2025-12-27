@@ -29,7 +29,7 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
       // Cargar empleado
       const { data: empData, error: empError } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, position, hire_date, company_id')
         .eq('id', params.id)
         .eq('company_id', companyId)
         .single()
@@ -40,7 +40,7 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
       // Cargar empresa
       const { data: compData } = await supabase
         .from('companies')
-        .select('*')
+        .select('id, name, rut, address, employer_name')
         .eq('id', companyId)
         .single()
 

@@ -22,7 +22,7 @@ export default function CertificatesHistory({ employeeId }: CertificatesHistoryP
     try {
       const { data, error } = await supabase
         .from('certificates')
-        .select('*')
+        .select('id, employee_id, certificate_type_id, issue_date, purpose, folio_number, created_at, certificate_types(name, code)')
         .eq('employee_id', employeeId)
         .order('created_at', { ascending: false })
         .limit(20)

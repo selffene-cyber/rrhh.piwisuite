@@ -30,7 +30,7 @@ export default function GenerateCertificatesPage() {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, status')
         .eq('company_id', companyId)
         .eq('status', 'active')
         .order('full_name')

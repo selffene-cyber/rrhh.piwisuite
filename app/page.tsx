@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock } from 'react-icons/fa'
@@ -56,34 +56,37 @@ export default function HomePage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
-    loadStats()
-    loadMonthlyData()
-    calculateProjection()
-    loadEmployeesRanking()
-    
-    // Ejecutar Alert Engine automáticamente al cargar el dashboard
-    runAlertEngineOnLoad()
-  }, [])
+    // Paralelizar carga de datos críticos
+    Promise.all([
+      loadStats(),
+      loadMonthlyData(),
+      runAlertEngineOnLoad() // Ejecutar en paralelo pero no esperar
+    ]).catch(error => {
+      console.error('Error al cargar datos del dashboard:', error)
+    })
+
+    // Cargar datos pesados después (no bloquean la UI inicial)
+    // Usar setTimeout para no bloquear el render inicial
+    setTimeout(() => {
+      calculateProjection()
+      loadEmployeesRanking()
+    }, 100)
+  }, [companyId])
 
   const runAlertEngineOnLoad = async () => {
     try {
-      // Obtener company_id
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .maybeSingle()
-
-      if (company?.id) {
-        // Ejecutar silenciosamente (sin mostrar alertas)
-        await fetch('/api/alerts/run', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ company_id: company.id }),
-        })
-      }
+      if (!companyId) return
+      
+      // Ejecutar silenciosamente (sin mostrar alertas) - no esperar respuesta
+      fetch('/api/alerts/run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ company_id: companyId }),
+      }).catch(() => {
+        // Silenciar errores en ejecución automática
+      })
     } catch (error) {
       // Silenciar errores en ejecución automática
       console.log('Alert Engine ejecutado automáticamente al cargar dashboard')
@@ -96,45 +99,57 @@ export default function HomePage() {
       if (!companyId) {
         setEmployeesCount(0)
         setPayrollCount(0)
+        setLoading(false)
         return
       }
       
-      const { data: employeesData, error: employeesError } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('status', 'active')
-        .eq('company_id', companyId)
+      // Paralelizar consultas de empleados y liquidaciones
+      const [employeesResult, payrollResult] = await Promise.all([
+        // Obtener empleados activos
+        supabase
+          .from('employees')
+          .select('id', { count: 'exact' })
+          .eq('status', 'active')
+          .eq('company_id', companyId),
+        
+        // Obtener IDs de empleados para consulta de liquidaciones
+        supabase
+          .from('employees')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('status', 'active')
+      ])
 
-      if (employeesError) {
-        console.error('Error al contar trabajadores:', employeesError)
+      if (employeesResult.error) {
+        console.error('Error al contar trabajadores:', employeesResult.error)
+        setEmployeesCount(0)
       } else {
-        setEmployeesCount(employeesData?.length || 0)
+        setEmployeesCount(employeesResult.count || employeesResult.data?.length || 0)
       }
 
-      // Contar liquidaciones emitidas o enviadas (no borradores) de empleados de la empresa
-      // Primero obtener IDs de empleados
-      const employeeIds = employeesData?.map(emp => emp.id) || []
-      
-      let payrollQuery = supabase
-        .from('payroll_slips')
-        .select('id')
-        .in('status', ['issued', 'sent'])
+      // Contar liquidaciones emitidas o enviadas
+      const employeeIds = payrollResult.data?.map(emp => emp.id) || []
       
       if (employeeIds.length > 0) {
-        payrollQuery = payrollQuery.in('employee_id', employeeIds)
-      } else {
-        payrollQuery = payrollQuery.eq('employee_id', '00000000-0000-0000-0000-000000000000') // No hay empleados
-      }
-      
-      const { data: payrollData, error: payrollError } = await payrollQuery
+        const { count, error: payrollError } = await supabase
+          .from('payroll_slips')
+          .select('id', { count: 'exact', head: true })
+          .in('employee_id', employeeIds)
+          .in('status', ['issued', 'sent'])
 
-      if (payrollError) {
-        console.error('Error al contar liquidaciones:', payrollError)
+        if (payrollError) {
+          console.error('Error al contar liquidaciones:', payrollError)
+          setPayrollCount(0)
+        } else {
+          setPayrollCount(count || 0)
+        }
       } else {
-        setPayrollCount(payrollData?.length || 0)
+        setPayrollCount(0)
       }
     } catch (error) {
       console.error('Error al cargar estadísticas:', error)
+      setEmployeesCount(0)
+      setPayrollCount(0)
     } finally {
       setLoading(false)
     }
@@ -468,86 +483,109 @@ export default function HomePage() {
         .eq('status', 'active')
         .eq('company_id', companyId)
 
-      if (employeesError || !employees) {
-        console.error('Error al cargar trabajadores:', employeesError)
+      if (employeesError || !employees || employees.length === 0) {
+        setEmployeesRanking([])
         return
       }
 
-      // Para cada trabajador, calcular métricas
-      const rankingData = await Promise.all(
-        employees.map(async (employee) => {
-          // Calcular antigüedad en días
-          const hireDate = new Date(employee.hire_date)
-          const today = new Date()
-          const antiguedad = Math.floor((today.getTime() - hireDate.getTime()) / (1000 * 60 * 60 * 24))
+      const employeeIds = employees.map(emp => emp.id)
 
-          // Calcular ingresos líquidos totales
-          const { data: payrolls } = await supabase
-            .from('payroll_slips')
-            .select('net_pay')
-            .eq('employee_id', employee.id)
-            .in('status', ['issued', 'sent'])
+      // Paralelizar todas las consultas agregadas (evitar N+1)
+      const [payrollsResult, vacationsResult, leavesResult, loansResult] = await Promise.all([
+        // Obtener todas las liquidaciones de todos los empleados
+        supabase
+          .from('payroll_slips')
+          .select('employee_id, net_pay')
+          .in('employee_id', employeeIds)
+          .in('status', ['issued', 'sent']),
+        
+        // Obtener todas las vacaciones de todos los empleados
+        supabase
+          .from('vacations')
+          .select('employee_id, days_count')
+          .in('employee_id', employeeIds)
+          .in('status', ['aprobada', 'tomada']),
+        
+        // Obtener todas las licencias médicas de todos los empleados
+        supabase
+          .from('medical_leaves')
+          .select('employee_id, days_count')
+          .in('employee_id', employeeIds)
+          .eq('is_active', false),
+        
+        // Obtener todos los préstamos activos de todos los empleados
+        supabase
+          .from('loans')
+          .select('employee_id, total_amount')
+          .in('employee_id', employeeIds)
+          .eq('status', 'active')
+      ])
 
-          const totalLiquidos = payrolls?.reduce((sum, p) => sum + (p.net_pay || 0), 0) || 0
+      // Agregar datos por empleado
+      const payrollsByEmployee = new Map<string, number>()
+      payrollsResult.data?.forEach((p: any) => {
+        const current = payrollsByEmployee.get(p.employee_id) || 0
+        payrollsByEmployee.set(p.employee_id, current + (p.net_pay || 0))
+      })
 
-          // Calcular días de vacaciones
-          const { data: vacations } = await supabase
-            .from('vacations')
-            .select('days_count')
-            .eq('employee_id', employee.id)
-            .in('status', ['aprobada', 'tomada'])
+      const vacationsByEmployee = new Map<string, number>()
+      vacationsResult.data?.forEach((v: any) => {
+        const current = vacationsByEmployee.get(v.employee_id) || 0
+        vacationsByEmployee.set(v.employee_id, current + (v.days_count || 0))
+      })
 
-          const diasVacaciones = vacations?.reduce((sum, v) => sum + (v.days_count || 0), 0) || 0
+      const leavesByEmployee = new Map<string, number>()
+      leavesResult.data?.forEach((l: any) => {
+        const current = leavesByEmployee.get(l.employee_id) || 0
+        leavesByEmployee.set(l.employee_id, current + (l.days_count || 0))
+      })
 
-          // Calcular días de licencias médicas
-          const { data: leaves } = await supabase
-            .from('medical_leaves')
-            .select('days_count')
-            .eq('employee_id', employee.id)
-            .eq('is_active', false) // Solo licencias completadas
+      const loansByEmployee = new Map<string, number>()
+      loansResult.data?.forEach((l: any) => {
+        const current = loansByEmployee.get(l.employee_id) || 0
+        loansByEmployee.set(l.employee_id, current + (l.total_amount || 0))
+      })
 
-          const diasLicencias = leaves?.reduce((sum, l) => sum + (l.days_count || 0), 0) || 0
+      // Construir ranking
+      const today = new Date()
+      const rankingData = employees.map(employee => {
+        const hireDate = new Date(employee.hire_date)
+        const antiguedad = Math.floor((today.getTime() - hireDate.getTime()) / (1000 * 60 * 60 * 24))
+        const diasVacaciones = vacationsByEmployee.get(employee.id) || 0
+        const diasLicencias = leavesByEmployee.get(employee.id) || 0
 
-          // Calcular total de préstamos
-          const { data: loans } = await supabase
-            .from('loans')
-            .select('total_amount')
-            .eq('employee_id', employee.id)
-            .eq('status', 'active')
-
-          const totalPrestamos = loans?.reduce((sum, l) => sum + (l.total_amount || 0), 0) || 0
-
-          return {
-            id: employee.id,
-            nombre: employee.full_name,
-            rut: employee.rut,
-            antiguedad,
-            totalLiquidos,
-            diasAusencia: diasVacaciones + diasLicencias,
-            diasLicencias,
-            diasVacaciones,
-            totalPrestamos
-          }
-        })
-      )
+        return {
+          id: employee.id,
+          nombre: employee.full_name,
+          rut: employee.rut,
+          antiguedad,
+          totalLiquidos: payrollsByEmployee.get(employee.id) || 0,
+          diasAusencia: diasVacaciones + diasLicencias,
+          diasLicencias,
+          diasVacaciones,
+          totalPrestamos: loansByEmployee.get(employee.id) || 0
+        }
+      })
 
       setEmployeesRanking(rankingData)
     } catch (error) {
       console.error('Error al cargar ranking de trabajadores:', error)
+      setEmployeesRanking([])
     }
   }
 
-  const handleSort = (column: string) => {
+  const handleSort = useCallback((column: string) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
       setSortColumn(column)
       setSortDirection('desc')
     }
-  }
+  }, [sortColumn, sortDirection])
 
-  // Ordenar datos localmente según la columna seleccionada
-  const sortedRanking = [...employeesRanking].sort((a, b) => {
+  // Ordenar datos localmente según la columna seleccionada (memoizado)
+  const sortedRanking = useMemo(() => {
+    return [...employeesRanking].sort((a, b) => {
     let aValue: number
     let bValue: number
 
@@ -582,6 +620,7 @@ export default function HomePage() {
       return bValue - aValue
     }
   })
+  }, [employeesRanking, sortColumn, sortDirection])
 
   if (loading) {
     return (

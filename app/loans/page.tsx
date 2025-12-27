@@ -56,7 +56,16 @@ export default function LoansManagementPage() {
       const { data: loansData, error } = await supabase
         .from('loans')
         .select(`
-          *,
+          id,
+          employee_id,
+          amount,
+          remaining_amount,
+          installment_amount,
+          installments,
+          interest_rate,
+          loan_date,
+          status,
+          created_at,
           employees (
             id,
             full_name,

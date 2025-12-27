@@ -12,7 +12,7 @@ export default async function VacationPDFPage({
   // Cargar empleado
   const { data: employee, error: employeeError } = await supabase
     .from('employees')
-    .select('*')
+    .select('id, full_name, rut, position, hire_date, company_id')
     .eq('id', params.id)
     .single()
 
@@ -23,7 +23,7 @@ export default async function VacationPDFPage({
   // Cargar vacación
   const { data: vacation, error: vacationError } = await supabase
     .from('vacations')
-    .select('*')
+    .select('id, employee_id, start_date, end_date, days_count, status, reason')
     .eq('id', params.vacationId)
     .eq('employee_id', params.id)
     .single()
@@ -35,8 +35,8 @@ export default async function VacationPDFPage({
   // Cargar empresa
   const { data: company } = await supabase
     .from('companies')
-    .select('*')
-    .limit(1)
+    .select('id, name, rut, address, employer_name')
+    .eq('id', employee.company_id)
     .single()
 
   return <VacationPDF vacation={vacation} employee={employee} company={company} />

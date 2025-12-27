@@ -73,7 +73,7 @@ export default function BulkAdvancesPage() {
       if (companyId) {
         const { data: companyData } = await supabase
           .from('companies')
-          .select('*')
+          .select('id, name, rut, address, employer_name')
           .eq('id', companyId)
           .single()
 

@@ -28,7 +28,7 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, base_salary, company_id')
         .eq('id', params.id)
         .single()
 
