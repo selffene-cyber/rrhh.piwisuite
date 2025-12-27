@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function SettingsPage() {
+  const { companyId, loading: companyLoading } = useCurrentCompany()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
@@ -20,15 +22,21 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
 
   useEffect(() => {
-    loadCompany()
-  }, [])
+    if (!companyLoading && companyId) {
+      loadCompany()
+    } else if (!companyLoading && !companyId) {
+      setLoading(false)
+    }
+  }, [companyId, companyLoading])
 
   const loadCompany = async () => {
+    if (!companyId) return
+
     try {
       const { data, error } = await supabase
         .from('companies')
         .select('*')
-        .limit(1)
+        .eq('id', companyId)
         .single()
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
@@ -101,27 +109,16 @@ export default function SettingsPage() {
         .getPublicUrl(filePath)
 
       // Actualizar logo_url en la base de datos
-      const { data: existing } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .single()
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('companies')
-          .update({ logo_url: publicUrl })
-          .eq('id', existing.id)
-
-        if (updateError) throw updateError
-      } else {
-        // Si no existe empresa, crear con logo
-        const { error: insertError } = await supabase
-          .from('companies')
-          .insert({ ...formData, logo_url: publicUrl })
-
-        if (insertError) throw insertError
+      if (!companyId) {
+        throw new Error('No hay empresa seleccionada')
       }
+
+      const { error: updateError } = await supabase
+        .from('companies')
+        .update({ logo_url: publicUrl })
+        .eq('id', companyId)
+
+      if (updateError) throw updateError
 
       setFormData((prev) => ({ ...prev, logo_url: publicUrl }))
       setLogoPreview(publicUrl)
@@ -166,20 +163,16 @@ export default function SettingsPage() {
       }
 
       // Actualizar en base de datos
-      const { data: existing } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .single()
-
-      if (existing) {
-        const { error } = await supabase
-          .from('companies')
-          .update({ logo_url: null })
-          .eq('id', existing.id)
-
-        if (error) throw error
+      if (!companyId) {
+        throw new Error('No hay empresa seleccionada')
       }
+
+      const { error } = await supabase
+        .from('companies')
+        .update({ logo_url: null })
+        .eq('id', companyId)
+
+      if (error) throw error
 
       setFormData((prev) => ({ ...prev, logo_url: '' }))
       setLogoPreview(null)
@@ -200,42 +193,24 @@ export default function SettingsPage() {
         await handleLogoUpload(logoFile)
       }
 
-      // Intentar actualizar primero
-      const { data: existing } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .single()
-
-      if (existing) {
-        const { error } = await supabase
-          .from('companies')
-          .update({
-            name: formData.name,
-            employer_name: formData.employer_name,
-            rut: formData.rut,
-            address: formData.address,
-            city: formData.city,
-            logo_url: formData.logo_url,
-          })
-          .eq('id', existing.id)
-
-        if (error) throw error
-      } else {
-        // Si no existe, crear
-        const { error } = await supabase
-          .from('companies')
-          .insert({
-            name: formData.name,
-            employer_name: formData.employer_name,
-            rut: formData.rut,
-            address: formData.address,
-            city: formData.city,
-            logo_url: formData.logo_url,
-          })
-
-        if (error) throw error
+      // Actualizar empresa
+      if (!companyId) {
+        throw new Error('No hay empresa seleccionada')
       }
+
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          name: formData.name,
+          employer_name: formData.employer_name,
+          rut: formData.rut,
+          address: formData.address,
+          city: formData.city,
+          logo_url: formData.logo_url,
+        })
+        .eq('id', companyId)
+
+      if (error) throw error
 
       alert('Configuración guardada correctamente')
       setLogoFile(null)
@@ -246,8 +221,19 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading) {
+  if (loading || companyLoading) {
     return <div>Cargando...</div>
+  }
+
+  if (!companyId) {
+    return (
+      <div>
+        <h1>Configuración</h1>
+        <div className="card">
+          <p>Por favor, selecciona una empresa para ver su configuración.</p>
+        </div>
+      </div>
+    )
   }
 
   return (

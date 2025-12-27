@@ -122,6 +122,14 @@ export default function EmployeesPage() {
           <Link href="/employees/new">
             <button>Nuevo Trabajador</button>
           </Link>
+          <Link href="/employees/form-pdf">
+            <button style={{ 
+              background: '#10b981',
+              color: 'white'
+            }}>
+              Formulario de Registro (PDF)
+            </button>
+          </Link>
         </div>
       </div>
 

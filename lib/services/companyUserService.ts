@@ -259,7 +259,7 @@ export async function updateUserCompanyRole(
       .eq('company_id', companyId)
       .single()
 
-    if (currentRelation?.role === 'owner') {
+    if ((currentRelation as any)?.role === 'owner') {
       const { count } = await supabase
         .from('company_users')
         .select('id', { count: 'exact', head: true })

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
 
@@ -152,7 +153,17 @@ export default function NewEmployeePage() {
 
   return (
     <div>
-      <h1>Nuevo Trabajador</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h1>Nuevo Trabajador</h1>
+        <Link href="/employees/form-pdf">
+          <button style={{ 
+            background: '#10b981',
+            color: 'white'
+          }}>
+            Descargar Formulario PDF
+          </button>
+        </Link>
+      </div>
       <div className="card">
         <form onSubmit={handleSubmit}>
           <h2>Datos Personales</h2>
