@@ -106,7 +106,7 @@ export default function OvertimeHistoryPage() {
         `)
         .in('employee_id', employeeIds)
         .in('period_id', periodIds)
-        .in('status', ['issued', 'sent'])
+        .in('status', ['draft', 'issued', 'sent'])
 
       if (filters.employeeId !== 'all') {
         slipsQuery = slipsQuery.eq('employee_id', filters.employeeId)
@@ -125,19 +125,28 @@ export default function OvertimeHistoryPage() {
 
       // Obtener items de horas extra para estas liquidaciones
       const slipIds = slips.map(s => s.id)
+      console.log('🔍 Buscando items de horas extras para liquidaciones:', slipIds)
+      
       const { data: items, error: itemsError } = await supabase
         .from('payroll_items')
-        .select('id, payroll_slip_id, amount, description')
+        .select('id, payroll_slip_id, amount, description, type, category')
         .in('payroll_slip_id', slipIds)
-        .eq('type', 'taxable_earning')
-        .eq('category', 'horas_extras')
 
       if (itemsError) throw itemsError
+      
+      console.log('📋 Todos los items encontrados:', items)
+      
+      // Filtrar items de horas extras manualmente para ver qué hay
+      const overtimeItems = items?.filter(item => 
+        item.type === 'taxable_earning' && item.category === 'horas_extras'
+      ) || []
+      
+      console.log('⏰ Items de horas extras filtrados:', overtimeItems)
 
-      // Crear mapa de items por liquidación
+      // Crear mapa de items por liquidación (usar solo items de horas extras)
       const itemsBySlip = new Map()
-      if (items) {
-        for (const item of items) {
+      if (overtimeItems) {
+        for (const item of overtimeItems) {
           if (!itemsBySlip.has(item.payroll_slip_id)) {
             itemsBySlip.set(item.payroll_slip_id, [])
           }
@@ -145,10 +154,14 @@ export default function OvertimeHistoryPage() {
         }
       }
 
+      console.log('🗺️ Mapa de items por liquidación:', Array.from(itemsBySlip.entries()))
+
       const payrollData = slips.map(slip => ({
         ...slip,
         payroll_items: itemsBySlip.get(slip.id) || []
       })).filter(slip => slip.payroll_items.length > 0)
+      
+      console.log('💼 Liquidaciones con horas extras:', payrollData.length)
 
       // Procesar datos para agrupar por trabajador
       const employeeMap = new Map()
@@ -173,7 +186,7 @@ export default function OvertimeHistoryPage() {
               amount += Number(item.amount) || 0
               // Extraer número de horas de la descripción
               // Formatos posibles: "Horas Extras (4 horas)", "Horas Extras (4 hora)", "Horas Extras"
-              const hoursMatch = item.description?.match(/(\d+(?:\.\d+)?)\s*hora/i)
+              const hoursMatch = item.description?.match(/(\d+(?:\.\d+)?)\s*hora[s]?/i)
               if (hoursMatch) {
                 hours += parseFloat(hoursMatch[1]) || 0
               } else {
