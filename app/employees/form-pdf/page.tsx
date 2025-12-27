@@ -81,9 +81,7 @@ export default function EmployeeFormPDFPage() {
             display: 'inline-block'
           }}
         >
-          {({ blob, url, loading: downloadLoading }) =>
-            downloadLoading ? 'Generando PDF...' : 'Descargar PDF'
-          }
+          Descargar PDF
         </PDFDownloadLink>
         <Link href="/employees">
           <button style={{ 

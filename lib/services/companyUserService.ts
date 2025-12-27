@@ -274,7 +274,7 @@ export async function updateUserCompanyRole(
     }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('company_users')
     .update({ role: newRole })
     .eq('user_id', userId)

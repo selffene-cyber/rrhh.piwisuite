@@ -95,20 +95,20 @@ export async function getDisciplinaryActions(
       let issuer = null
       let approver = null
 
-      if (action.issuer_user_id) {
+      if ((action as any).issuer_user_id) {
         const { data: issuerData } = await supabase
           .from('user_profiles')
           .select('id, email')
-          .eq('id', action.issuer_user_id)
+          .eq('id', (action as any).issuer_user_id)
           .single()
         issuer = issuerData
       }
 
-      if (action.approver_user_id) {
+      if ((action as any).approver_user_id) {
         const { data: approverData } = await supabase
           .from('user_profiles')
           .select('id, email')
-          .eq('id', action.approver_user_id)
+          .eq('id', (action as any).approver_user_id)
           .single()
         approver = approverData
       }
