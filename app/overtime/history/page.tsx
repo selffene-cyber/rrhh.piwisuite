@@ -106,7 +106,7 @@ export default function OvertimeHistoryPage() {
         `)
         .in('employee_id', employeeIds)
         .in('period_id', periodIds)
-        .in('status', ['issued', 'sent'])
+        .in('status', ['draft', 'issued', 'sent'])
 
       if (filters.employeeId !== 'all') {
         slipsQuery = slipsQuery.eq('employee_id', filters.employeeId)
