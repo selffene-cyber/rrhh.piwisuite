@@ -8,6 +8,7 @@ import { formatDate, formatMonthYear } from '@/lib/utils/date'
 import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaTimes, FaMoneyBillWave, FaTrash, FaChartLine } from 'react-icons/fa'
 
 export default function AdvancesPage() {
+  const { companyId } = useCurrentCompany()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [advances, setAdvances] = useState<any[]>([])
@@ -22,10 +23,16 @@ export default function AdvancesPage() {
   })
 
   useEffect(() => {
-    loadData()
-    // Verificar y corregir anticipos huérfanos (descontados sin liquidación válida)
-    checkAndFixOrphanedAdvances()
-  }, [filterEmployee, filterPeriod, filterStatus])
+    if (companyId) {
+      loadData()
+      // Verificar y corregir anticipos huérfanos (descontados sin liquidación válida)
+      checkAndFixOrphanedAdvances()
+    } else {
+      setEmployees([])
+      setAdvances([])
+      setLoading(false)
+    }
+  }, [filterEmployee, filterPeriod, filterStatus, companyId])
 
   const checkAndFixOrphanedAdvances = async () => {
     try {
@@ -91,18 +98,24 @@ export default function AdvancesPage() {
     try {
       setLoading(true)
 
-      // Cargar empleados
+      if (!companyId) return
+
+      // Cargar empleados de la empresa
       const { data: employeesData } = await supabase
         .from('employees')
         .select('id, full_name, rut')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       if (employeesData) {
         setEmployees(employeesData)
       }
 
-      // Cargar anticipos
+      // Cargar anticipos de empleados de la empresa
+      // Primero obtener IDs de empleados de la empresa
+      const employeeIds = employeesData?.map(emp => emp.id) || []
+      
       let query = supabase
         .from('advances')
         .select(`
@@ -110,6 +123,7 @@ export default function AdvancesPage() {
           employees (id, full_name, rut),
           payroll_slips (id, payroll_periods (year, month))
         `)
+        .in('employee_id', employeeIds.length > 0 ? employeeIds : ['00000000-0000-0000-0000-000000000000'])
         .order('advance_date', { ascending: false })
 
       if (filterEmployee) {

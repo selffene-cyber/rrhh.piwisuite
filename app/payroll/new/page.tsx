@@ -8,8 +8,10 @@ import { calculatePayroll } from '@/lib/services/payrollCalculator'
 import { getCurrentMonthYear } from '@/lib/utils/date'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function NewPayrollPage() {
+  const { companyId } = useCurrentCompany()
   const router = useRouter()
   const searchParams = useSearchParams()
   const employeeIdParam = searchParams.get('employee_id')
@@ -43,8 +45,12 @@ export default function NewPayrollPage() {
   const [periodAdvances, setPeriodAdvances] = useState<any[]>([])
 
   useEffect(() => {
-    loadEmployees()
-  }, [])
+    if (companyId) {
+      loadEmployees()
+    } else {
+      setEmployees([])
+    }
+  }, [companyId])
 
   useEffect(() => {
     if (formData.employee_id && selectedEmployee) {
@@ -55,10 +61,16 @@ export default function NewPayrollPage() {
 
   const loadEmployees = async () => {
     try {
+      if (!companyId) {
+        setEmployees([])
+        return
+      }
+      
       const { data, error } = await supabase
         .from('employees')
         .select('*')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       if (error) throw error

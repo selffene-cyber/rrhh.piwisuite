@@ -9,6 +9,7 @@ import { MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import { getAFPRate, getUnemploymentInsuranceEmployerRate, getSISRate } from '@/lib/services/previredAPI'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 // Función para formatear fecha en formato "24/DIC/2025"
 const formatDataDate = (year: number, month: number): string => {
@@ -19,6 +20,7 @@ const formatDataDate = (year: number, month: number): string => {
 }
 
 export default function HomePage() {
+  const { companyId } = useCurrentCompany()
   const [employeesCount, setEmployeesCount] = useState(0)
   const [payrollCount, setPayrollCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -91,10 +93,17 @@ export default function HomePage() {
   const loadStats = async () => {
     try {
       // Obtener estadísticas básicas
+      if (!companyId) {
+        setEmployeesCount(0)
+        setPayrollCount(0)
+        return
+      }
+      
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
         .select('id')
         .eq('status', 'active')
+        .eq('company_id', companyId)
 
       if (employeesError) {
         console.error('Error al contar trabajadores:', employeesError)
@@ -102,11 +111,22 @@ export default function HomePage() {
         setEmployeesCount(employeesData?.length || 0)
       }
 
-      // Contar liquidaciones emitidas o enviadas (no borradores)
-      const { data: payrollData, error: payrollError } = await supabase
+      // Contar liquidaciones emitidas o enviadas (no borradores) de empleados de la empresa
+      // Primero obtener IDs de empleados
+      const employeeIds = employeesData?.map(emp => emp.id) || []
+      
+      let payrollQuery = supabase
         .from('payroll_slips')
         .select('id')
         .in('status', ['issued', 'sent'])
+      
+      if (employeeIds.length > 0) {
+        payrollQuery = payrollQuery.in('employee_id', employeeIds)
+      } else {
+        payrollQuery = payrollQuery.eq('employee_id', '00000000-0000-0000-0000-000000000000') // No hay empleados
+      }
+      
+      const { data: payrollData, error: payrollError } = await payrollQuery
 
       if (payrollError) {
         console.error('Error al contar liquidaciones:', payrollError)
@@ -122,7 +142,25 @@ export default function HomePage() {
 
   const loadMonthlyData = async () => {
     try {
-      // Obtener liquidaciones de los últimos 12 meses
+      if (!companyId) {
+        setMonthlyData([])
+        return
+      }
+      
+      // Obtener IDs de empleados de la empresa
+      const { data: employeesData } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', companyId)
+      
+      const employeeIds = employeesData?.map(emp => emp.id) || []
+      
+      if (employeeIds.length === 0) {
+        setMonthlyData([])
+        return
+      }
+      
+      // Obtener liquidaciones de los últimos 12 meses de empleados de la empresa
       const currentDate = new Date()
       const twelveMonthsAgo = new Date()
       twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
@@ -134,6 +172,7 @@ export default function HomePage() {
           payroll_periods (year, month),
           created_at
         `)
+        .in('employee_id', employeeIds)
         .in('status', ['issued', 'sent'])
         .gte('created_at', twelveMonthsAgo.toISOString())
         .order('created_at', { ascending: true })
@@ -417,11 +456,17 @@ export default function HomePage() {
 
   const loadEmployeesRanking = async () => {
     try {
-      // Obtener todos los trabajadores activos
+      if (!companyId) {
+        setEmployeesRanking([])
+        return
+      }
+      
+      // Obtener todos los trabajadores activos de la empresa
       const { data: employees, error: employeesError } = await supabase
         .from('employees')
         .select('id, full_name, rut, hire_date')
         .eq('status', 'active')
+        .eq('company_id', companyId)
 
       if (employeesError || !employees) {
         console.error('Error al cargar trabajadores:', employeesError)

@@ -9,8 +9,10 @@ import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNu
 import { FaMoneyBillWave } from 'react-icons/fa'
 import DateInput from '@/components/DateInput'
 import MonthInput from '@/components/MonthInput'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function NewAdvancePage() {
+  const { companyId } = useCurrentCompany()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,11 +35,17 @@ export default function NewAdvancePage() {
     try {
       setLoading(true)
 
-      // Cargar empleados activos
+      // Cargar empleados activos de la empresa
+      if (!companyId) {
+        setEmployees([])
+        return
+      }
+      
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
         .select('id, full_name, rut, base_salary, company_id')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       if (employeesError) throw employeesError

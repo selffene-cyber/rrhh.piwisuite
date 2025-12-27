@@ -5,22 +5,32 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { Employee } from '@/types'
 import { FaEye, FaPencilAlt, FaTrash } from 'react-icons/fa'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function EmployeesPage() {
+  const { company, companyId } = useCurrentCompany()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadEmployees()
-  }, [])
+    if (companyId) {
+      loadEmployees()
+    } else {
+      setEmployees([])
+      setLoading(false)
+    }
+  }, [companyId])
 
   const loadEmployees = async () => {
+    if (!companyId) return
+    
     try {
       setLoading(true)
       const { data, error: fetchError } = await supabase
         .from('employees')
         .select('*')
+        .eq('company_id', companyId)
         .order('full_name')
 
       if (fetchError) {

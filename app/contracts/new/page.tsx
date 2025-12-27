@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import DateInput from '@/components/DateInput'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 // Plantillas de contratos según tipo
 const contractTemplates = {
@@ -103,11 +104,17 @@ export default function NewContractPage() {
 
   const loadData = async () => {
     try {
-      // Cargar empleados
+      // Cargar empleados de la empresa
+      if (!companyId) {
+        setEmployees([])
+        return
+      }
+      
       const { data: employeesData } = await supabase
         .from('employees')
         .select('*')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       setEmployees(employeesData || [])

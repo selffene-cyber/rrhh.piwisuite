@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import DateInput from '@/components/DateInput'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function NewAnnexPage() {
+  const { companyId } = useCurrentCompany()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -46,11 +48,17 @@ export default function NewAnnexPage() {
 
       setContracts(contractsData || [])
 
-      // Cargar empleados
+      // Cargar empleados de la empresa
+      if (!companyId) {
+        setEmployees([])
+        return
+      }
+      
       const { data: employeesData } = await supabase
         .from('employees')
         .select('*')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       setEmployees(employeesData || [])

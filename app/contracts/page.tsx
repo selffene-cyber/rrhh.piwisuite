@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { FaFileContract, FaPlus, FaEdit, FaTrash, FaEye } from 'react-icons/fa'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function ContractsPage() {
+  const { companyId } = useCurrentCompany()
   const [contracts, setContracts] = useState<any[]>([])
   const [annexes, setAnnexes] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
@@ -24,23 +26,35 @@ export default function ContractsPage() {
   })
 
   useEffect(() => {
-    loadData()
-  }, [filter, statusFilter, employeeFilter])
+    if (companyId) {
+      loadData()
+    } else {
+      setEmployees([])
+      setContracts([])
+      setAnnexes([])
+      setLoading(false)
+    }
+  }, [filter, statusFilter, employeeFilter, companyId])
 
   const loadData = async () => {
+    if (!companyId) return
+    
     try {
       setLoading(true)
 
-      // Cargar empleados
+      // Cargar empleados de la empresa
       const { data: employeesData } = await supabase
         .from('employees')
         .select('id, full_name, rut')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       setEmployees(employeesData || [])
 
-      // Cargar contratos
+      // Cargar contratos de empleados de la empresa
+      const employeeIds = employeesData?.map(emp => emp.id) || []
+      
       let contractsQuery = supabase
         .from('contracts')
         .select(`
@@ -48,6 +62,7 @@ export default function ContractsPage() {
           employees (id, full_name, rut),
           companies (id, name, rut)
         `)
+        .in('employee_id', employeeIds.length > 0 ? employeeIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: false })
 
       if (employeeFilter !== 'all') {

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { getVacationPeriods, syncVacationPeriods, getVacationSummary } from '@/lib/services/vacationPeriods'
 import { FaUmbrellaBeach, FaUser, FaCalendarAlt, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 interface EmployeeVacationData {
   id: string
@@ -18,6 +19,7 @@ interface EmployeeVacationData {
 }
 
 export default function VacationsDashboardPage() {
+  const { companyId } = useCurrentCompany()
   const [loading, setLoading] = useState(true)
   const [employees, setEmployees] = useState<EmployeeVacationData[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null)
@@ -31,18 +33,26 @@ export default function VacationsDashboardPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
-    loadEmployeesVacations()
-  }, [])
+    if (companyId) {
+      loadEmployeesVacations()
+    } else {
+      setEmployees([])
+      setLoading(false)
+    }
+  }, [companyId])
 
   const loadEmployeesVacations = async () => {
+    if (!companyId) return
+    
     try {
       setLoading(true)
       
-      // Obtener todos los trabajadores activos
+      // Obtener todos los trabajadores activos de la empresa
       const { data: employeesData, error: empError } = await supabase
         .from('employees')
         .select('id, full_name, rut, hire_date')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name', { ascending: true })
 
       if (empError) throw empError

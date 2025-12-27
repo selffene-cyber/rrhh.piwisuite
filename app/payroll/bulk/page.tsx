@@ -35,10 +35,16 @@ export default function BulkPayrollPage() {
 
   const loadEmployees = async () => {
     try {
+      if (!companyId) {
+        setEmployees([])
+        return
+      }
+      
       const { data, error } = await supabase
         .from('employees')
         .select('*')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name')
 
       if (error) throw error

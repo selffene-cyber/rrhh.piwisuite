@@ -38,7 +38,7 @@ interface EmployeeDisciplinaryData {
 }
 
 export default function DisciplinaryActionsDashboardPage() {
-  const { company: currentCompany } = useCurrentCompany()
+  const { company: currentCompany, companyId } = useCurrentCompany()
   const [loading, setLoading] = useState(true)
   const [employees, setEmployees] = useState<EmployeeDisciplinaryData[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null)
@@ -57,13 +57,16 @@ export default function DisciplinaryActionsDashboardPage() {
   const [filterType, setFilterType] = useState<string>('all')
 
   useEffect(() => {
-    if (currentCompany) {
+    if (currentCompany && companyId) {
       loadData()
+    } else {
+      setEmployees([])
+      setLoading(false)
     }
-  }, [currentCompany, filterStatus, filterType])
+  }, [currentCompany, companyId, filterStatus, filterType])
 
   const loadData = async () => {
-    if (!currentCompany) return
+    if (!currentCompany || !companyId) return
 
     try {
       setLoading(true)
@@ -74,11 +77,12 @@ export default function DisciplinaryActionsDashboardPage() {
       )
       const actions = await response.json()
 
-      // Obtener todos los trabajadores activos
+      // Obtener todos los trabajadores activos de la empresa
       const { data: employeesData } = await supabase
         .from('employees')
         .select('id, full_name, rut')
         .eq('status', 'active')
+        .eq('company_id', companyId)
         .order('full_name', { ascending: true })
 
       // Agrupar amonestaciones por trabajador
