@@ -7,8 +7,10 @@ import { getCurrentMonthYear } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import Link from 'next/link'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function BulkPayrollPage() {
+  const { companyId } = useCurrentCompany()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -30,8 +32,13 @@ export default function BulkPayrollPage() {
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
-    loadEmployees()
-  }, [])
+    if (companyId) {
+      loadEmployees()
+    } else {
+      setEmployees([])
+      setLoading(false)
+    }
+  }, [companyId])
 
   const loadEmployees = async () => {
     try {
