@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { Employee } from '@/types'
@@ -11,22 +11,13 @@ const ITEMS_PER_PAGE = 50
 
 export default function EmployeesPage() {
   const { company, companyId } = useCurrentCompany()
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
   const totalPages = useMemo(() => Math.ceil(totalCount / ITEMS_PER_PAGE), [totalCount])
-
-  useEffect(() => {
-    if (companyId) {
-      loadEmployees()
-    } else {
-      setEmployees([])
-      setLoading(false)
-    }
-  }, [companyId, currentPage, loadEmployees])
 
   const loadEmployees = useCallback(async () => {
     if (!companyId) return
@@ -73,7 +64,16 @@ export default function EmployeesPage() {
     }
   }, [companyId, currentPage])
 
-  const handleDelete = async (employee: Employee) => {
+  useEffect(() => {
+    if (companyId) {
+      loadEmployees()
+    } else {
+      setEmployees([])
+      setLoading(false)
+    }
+  }, [companyId, currentPage, loadEmployees])
+
+  const handleDelete = async (employee: any) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar a ${employee.full_name}? Esta acción no se puede deshacer.`)) {
       return
     }
@@ -220,7 +220,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((employee: Employee) => (
+                  {employees.map((employee: any) => (
                     <tr key={employee.id}>
                       <td>{employee.full_name}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{employee.rut}</td>
@@ -295,7 +295,7 @@ export default function EmployeesPage() {
 
             {/* Cards Mobile */}
             <div className="table-mobile-card">
-              {employees.map((employee: Employee) => (
+              {employees.map((employee: any) => (
                 <div key={employee.id} className="mobile-card">
                   <div className="mobile-card-row">
                     <span className="mobile-card-label">Nombre</span>
