@@ -167,6 +167,7 @@ export default function NewEmployeePage() {
       <div className="card">
         <form onSubmit={handleSubmit}>
           <h2>Datos Personales</h2>
+          {/* Fila 1: Nombre completo, RUT, Fecha de nacimiento */}
           <div className="form-row">
             <div className="form-group">
               <label>Nombre Completo *</label>
@@ -187,14 +188,23 @@ export default function NewEmployeePage() {
                 placeholder="12.345.678-9"
               />
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
               <label>Fecha de Nacimiento</label>
               <input
                 type="date"
                 value={formData.birth_date}
                 onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+              />
+            </div>
+          </div>
+          {/* Fila 2: Dirección, Teléfono, Correo electrónico */}
+          <div className="form-row">
+            <div className="form-group">
+              <label>Dirección</label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
             </div>
             <div className="form-group">
@@ -205,25 +215,18 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
-          </div>
-          <div className="form-group">
-            <label>Dirección</label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>Correo Electrónico</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
+            <div className="form-group">
+              <label>Correo Electrónico</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
           </div>
 
           <h2 style={{ marginTop: '32px' }}>Datos Bancarios</h2>
+          {/* Fila 3: Banco, Tipo de cuenta, Número de cuenta */}
           <div className="form-row">
             <div className="form-group">
               <label>Banco</label>
@@ -246,21 +249,22 @@ export default function NewEmployeePage() {
                 <option value="vista">Cuenta Vista</option>
               </select>
             </div>
+            <div className="form-group">
+              <label>Número de Cuenta</label>
+              <input
+                type="text"
+                value={formData.account_number}
+                onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                placeholder="Ej: 12345678-9"
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>Número de Cuenta</label>
-            <input
-              type="text"
-              value={formData.account_number}
-              onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-              placeholder="Ej: 12345678-9"
-            />
-            <small style={{ color: '#6b7280', fontSize: '12px' }}>
-              Esta información aparecerá en los contratos y liquidaciones
-            </small>
-          </div>
+          <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '-12px', marginBottom: '16px' }}>
+            Esta información aparecerá en los contratos y liquidaciones
+          </small>
 
           <h2 style={{ marginTop: '32px' }}>Datos Laborales</h2>
+          {/* Fila 4: Fecha de ingreso, Cargo, Centro de costo */}
           <div className="form-row">
             <div className="form-group">
               <label>Fecha de Ingreso *</label>
@@ -280,8 +284,6 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
               />
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
               <label>Centro de Costo</label>
               <input
@@ -290,6 +292,9 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, cost_center: e.target.value })}
               />
             </div>
+          </div>
+          {/* Fila 5: Sueldo base, Movilización, Colación */}
+          <div className="form-row">
             <div className="form-group">
               <label>Sueldo Base *</label>
               <input
@@ -301,8 +306,6 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
               />
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
               <label>Movilización</label>
               <input
@@ -313,9 +316,6 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, transportation: e.target.value })}
                 placeholder="0"
               />
-              <small style={{ color: '#6b7280', fontSize: '12px' }}>
-                Este valor aparecerá precargado en las liquidaciones
-              </small>
             </div>
             <div className="form-group">
               <label>Colación</label>
@@ -327,11 +327,11 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, meal_allowance: e.target.value })}
                 placeholder="0"
               />
-              <small style={{ color: '#6b7280', fontSize: '12px' }}>
-                Este valor aparecerá precargado en las liquidaciones
-              </small>
             </div>
           </div>
+          <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '-12px', marginBottom: '16px' }}>
+            Movilización y Colación aparecerán precargados en las liquidaciones
+          </small>
           <div className="form-row">
             <div className="form-group">
               <label>Solicita Anticipo?</label>
@@ -375,6 +375,7 @@ export default function NewEmployeePage() {
               </div>
             )}
           </div>
+          {/* Fila 6: AFP, Sistema de salud, Plan de salud */}
           <div className="form-row">
             <div className="form-group">
               <label>AFP *</label>
@@ -404,15 +405,15 @@ export default function NewEmployeePage() {
                 ))}
               </select>
             </div>
-          </div>
-          <div className="form-group">
-            <label>Plan de Salud</label>
-            <input
-              type="text"
-              value={formData.health_plan}
-              onChange={(e) => setFormData({ ...formData, health_plan: e.target.value })}
-              placeholder="Nombre del plan (solo si es ISAPRE)"
-            />
+            <div className="form-group">
+              <label>Plan de Salud</label>
+              <input
+                type="text"
+                value={formData.health_plan}
+                onChange={(e) => setFormData({ ...formData, health_plan: e.target.value })}
+                placeholder="Nombre del plan (solo si es ISAPRE)"
+              />
+            </div>
           </div>
           {formData.health_system === 'ISAPRE' && (
             <div className="form-group">

@@ -8,3 +8,4 @@ COMMENT ON COLUMN employees.nationality IS 'Nacionalidad del trabajador';
 COMMENT ON COLUMN employees.marital_status IS 'Estado civil: soltero, casado, divorciado, viudo, union_civil';
 
 
+

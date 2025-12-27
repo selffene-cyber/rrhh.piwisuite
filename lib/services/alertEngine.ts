@@ -13,6 +13,7 @@ export type AlertType =
   | 'ot_pending_approval'
   | 'sick_leave_active'
   | 'scheduled_raise'
+  | 'overtime_pact_expiring'
 
 export type AlertEntityType = 'employee' | 'payroll_period' | 'company'
 export type AlertStatus = 'open' | 'dismissed' | 'resolved'
@@ -334,7 +335,90 @@ async function checkLegalParams(company_id: string, supabase: any): Promise<void
 }
 
 /**
- * Regla 4: Licencias activas (informativa)
+ * Regla 4: Pactos de horas extra por vencer
+ */
+async function checkOvertimePactsExpiring(company_id: string, supabase: any): Promise<void> {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const in15Days = new Date(today)
+  in15Days.setDate(today.getDate() + 15)
+
+  // Obtener empleados de la empresa
+  const { data: employees } = await supabase
+    .from('employees')
+    .select('id')
+    .eq('company_id', company_id)
+
+  if (!employees || employees.length === 0) return
+
+  const employeeIds = employees.map((emp: { id: string }) => emp.id)
+
+  // Obtener pactos activos que vencen en los próximos 15 días
+  const { data: pacts } = await supabase
+    .from('overtime_pacts')
+    .select(`
+      id,
+      employee_id,
+      end_date,
+      employees!inner(id, full_name, rut, company_id)
+    `)
+    .in('employee_id', employeeIds)
+    .eq('status', 'active')
+    .gte('end_date', today.toISOString().split('T')[0])
+    .lte('end_date', in15Days.toISOString().split('T')[0])
+
+  if (!pacts) return
+
+  for (const pact of pacts) {
+    const employee = (pact as any).employees
+    if (!employee) continue
+
+    const endDate = new Date(pact.end_date)
+    const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+    const severity: AlertSeverity = daysRemaining <= 7 ? 'critical' : 'high'
+
+    await upsertAlert({
+      company_id,
+      severity,
+      type: 'overtime_pact_expiring',
+      title: `Pacto de horas extra por vencer`,
+      message: `El pacto de horas extra de ${employee.full_name} vence en ${daysRemaining} día(s) (${endDate.toLocaleDateString('es-CL')}). Debe renovarse o crear uno nuevo para continuar registrando horas extra.`,
+      entity_type: 'employee',
+      entity_id: employee.id,
+      due_date: endDate,
+      metadata: {
+        employeeName: employee.full_name,
+        rut: employee.rut,
+        daysRemaining,
+        pactId: pact.id
+      }
+    }, supabase)
+  }
+
+  // Resolver alertas de pactos que ya vencieron o se renovaron
+  await resolveAlerts(company_id, 'overtime_pact_expiring', async (alert) => {
+    if (!alert.due_date) return false
+    const endDate = new Date(alert.due_date)
+    const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    
+    // Verificar si el pacto sigue activo
+    if (alert.metadata?.pactId) {
+      const { data: pact } = await supabase
+        .from('overtime_pacts')
+        .select('status')
+        .eq('id', alert.metadata.pactId)
+        .single()
+      
+      if (!pact || pact.status !== 'active') return false
+    }
+    
+    return daysRemaining <= 15 && daysRemaining > 0
+  }, supabase)
+}
+
+/**
+ * Regla 5: Licencias activas (informativa)
  */
 async function checkActiveLeaves(company_id: string, supabase: any): Promise<void> {
   const today = new Date()
@@ -400,7 +484,8 @@ export async function runAlertEngine(company_id: string, supabaseClient: any): P
       checkContractExpiry(company_id, supabaseClient),
       checkVacationBalance(company_id, supabaseClient),
       checkLegalParams(company_id, supabaseClient),
-      checkActiveLeaves(company_id, supabaseClient)
+      checkActiveLeaves(company_id, supabaseClient),
+      checkOvertimePactsExpiring(company_id, supabaseClient)
     ])
 
     const afterCount = await supabaseClient

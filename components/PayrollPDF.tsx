@@ -5,6 +5,56 @@ import { Document, Page, Text, View, StyleSheet, PDFViewer, pdf } from '@react-p
 import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 
+// Función para dividir texto largo sin cortar palabras
+const splitLongText = (text: string, maxLength: number = 20): string[] => {
+  if (text.length <= maxLength) {
+    return [text]
+  }
+  
+  // Buscar patrones comunes antes de palabras largas (ej: "BONO DE RESPONSABILIDAD")
+  const commonPrepositions = [' DE ', ' POR ', ' Y ', ' O ', ' EN ', ' CON ', ' SIN ', ' DEL ', ' DE LA ', ' DE LOS ']
+  let bestSplitIndex = -1
+  
+  // Buscar la mejor posición de división considerando preposiciones
+  for (const prep of commonPrepositions) {
+    const index = text.lastIndexOf(prep, maxLength)
+    if (index > 0 && index < maxLength) {
+      // Dividir después de la preposición (incluyendo el espacio final)
+      const candidateIndex = index + prep.length
+      if (candidateIndex <= maxLength + 5) { // Permitir un poco de flexibilidad
+        bestSplitIndex = candidateIndex
+        break
+      }
+    }
+  }
+  
+  // Si no encontramos una preposición, buscar el último espacio antes del límite
+  if (bestSplitIndex === -1) {
+    for (let i = maxLength; i >= Math.max(0, maxLength - 15); i--) {
+      if (text[i] === ' ' || text[i] === '/' || text[i] === '-' || text[i] === ':') {
+        bestSplitIndex = i + 1 // Dividir después del espacio
+        break
+      }
+    }
+  }
+  
+  // Si aún no encontramos, usar el último espacio en todo el texto antes del límite
+  if (bestSplitIndex === -1) {
+    const lastSpace = text.lastIndexOf(' ', maxLength)
+    if (lastSpace > 0) {
+      bestSplitIndex = lastSpace + 1
+    } else {
+      // Último recurso: dividir en el límite (cortará la palabra)
+      bestSplitIndex = maxLength
+    }
+  }
+  
+  const firstPart = text.substring(0, bestSplitIndex).trim()
+  const secondPart = text.substring(bestSplitIndex).trim()
+  
+  return [firstPart, secondPart]
+}
+
 const styles = StyleSheet.create({
   page: {
     padding: 30,
@@ -269,9 +319,12 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                 {taxableItems.map((item: any) => {
                   const description = item.description.toUpperCase()
                   // Detectar si contiene "DÍAS TRABAJADOS" o "DIAS TRABAJADOS" y dividirlo manualmente
-                  const needsSplit = description.includes('DÍAS TRABAJADOS') || description.includes('DIAS TRABAJADOS')
+                  const needsSplitDias = description.includes('DÍAS TRABAJADOS') || description.includes('DIAS TRABAJADOS')
                   
-                  if (needsSplit) {
+                  // Detectar si contiene "HORAS EXTRAS" y dividirlo manualmente
+                  const needsSplitHoras = description.includes('HORAS EXTRAS')
+                  
+                  if (needsSplitDias) {
                     // Dividir en "SUELDO BASE DÍAS" y "TRABAJADOS" (con cualquier texto adicional)
                     // Buscar la posición de "TRABAJADOS"
                     const trabajadosIndex = description.indexOf('TRABAJADOS')
@@ -284,6 +337,43 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                           <View style={{ width: '55%' }}>
                             <Text style={{ fontSize: 7 }}>{firstPart}</Text>
                             <Text style={{ fontSize: 7 }}>{secondPart}:</Text>
+                          </View>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
+                        </View>
+                      )
+                    }
+                  }
+                  
+                  if (needsSplitHoras) {
+                    // Dividir en "HORAS EXTRAS" y el número de horas entre paréntesis
+                    // Buscar la posición del paréntesis de apertura
+                    const parenIndex = description.indexOf('(')
+                    if (parenIndex > 0) {
+                      const firstPart = description.substring(0, parenIndex).trim() // "HORAS EXTRAS"
+                      const secondPart = description.substring(parenIndex).trim() // "(4 HORAS)"
+                      
+                      return (
+                        <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
+                          <View style={{ width: '55%' }}>
+                            <Text style={{ fontSize: 7 }}>{firstPart}</Text>
+                            <Text style={{ fontSize: 7 }}>{secondPart}:</Text>
+                          </View>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
+                        </View>
+                      )
+                    }
+                  }
+                  
+                  // Para descripciones largas, dividir inteligentemente sin cortar palabras
+                  const maxLength = 20 // Aproximadamente el ancho disponible en la columna
+                  if (description.length > maxLength) {
+                    const parts = splitLongText(description, maxLength)
+                    if (parts.length === 2) {
+                      return (
+                        <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
+                          <View style={{ width: '55%' }}>
+                            <Text style={{ fontSize: 7 }}>{parts[0]}</Text>
+                            <Text style={{ fontSize: 7 }}>{parts[1]}:</Text>
                           </View>
                           <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
                         </View>
@@ -307,12 +397,32 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                 </View>
 
                 <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 5, fontSize: 8 }}>HABERES NO IMPONIBLES</Text>
-                {nonTaxableItems.map((item: any) => (
-                  <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
-                    <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
-                    <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
-                  </View>
-                ))}
+                {nonTaxableItems.map((item: any) => {
+                  const description = item.description.toUpperCase()
+                  // Para descripciones largas, dividir inteligentemente sin cortar palabras
+                  const maxLength = 20 // Aproximadamente el ancho disponible en la columna
+                  if (description.length > maxLength) {
+                    const parts = splitLongText(description, maxLength)
+                    if (parts.length === 2) {
+                      return (
+                        <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
+                          <View style={{ width: '55%' }}>
+                            <Text style={{ fontSize: 7 }}>{parts[0]}</Text>
+                            <Text style={{ fontSize: 7 }}>{parts[1]}:</Text>
+                          </View>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
+                        </View>
+                      )
+                    }
+                  }
+                  
+                  return (
+                    <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
+                      <Text style={{ width: '55%', fontSize: 7 }}>{description}:</Text>
+                      <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
+                    </View>
+                  )
+                })}
                 {nonTaxableItems.length === 0 && (
                   <>
                     <View style={[styles.row, { marginBottom: 2 }]}>

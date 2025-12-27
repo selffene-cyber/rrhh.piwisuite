@@ -4,21 +4,26 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
-export default function CertificatePage({ params }: { params: { id: string } }) {
+export default function CertificateRentaPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const { companyId } = useCurrentCompany()
   const [loading, setLoading] = useState(true)
   const [employee, setEmployee] = useState<any>(null)
   const [company, setCompany] = useState<any>(null)
   const [formData, setFormData] = useState({
     issue_date: new Date().toISOString().split('T')[0],
+    months_period: 3 as 3 | 6 | 12,
     purpose: '',
   })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (companyId) {
+      loadData()
+    }
+  }, [companyId])
 
   const loadData = async () => {
     try {
@@ -27,6 +32,7 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
         .from('employees')
         .select('*')
         .eq('id', params.id)
+        .eq('company_id', companyId)
         .single()
 
       if (empError) throw empError
@@ -36,7 +42,7 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
       const { data: compData } = await supabase
         .from('companies')
         .select('*')
-        .limit(1)
+        .eq('id', companyId)
         .single()
 
       setCompany(compData)
@@ -47,17 +53,40 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
     }
   }
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!formData.issue_date) {
       alert('Por favor ingresa la fecha de emisión')
       return
     }
-    // Redirigir a la página PDF con los parámetros
-    const queryParams = new URLSearchParams({
-      issue_date: formData.issue_date,
-      purpose: formData.purpose || '',
-    })
-    router.push(`/employees/${params.id}/certificate/pdf?${queryParams.toString()}`)
+
+    try {
+      // Crear certificado en la BD para generar folio automático
+      const { data: certificate, error } = await supabase
+        .from('certificates')
+        .insert({
+          company_id: companyId,
+          employee_id: params.id,
+          certificate_type: 'renta',
+          issue_date: formData.issue_date,
+          months_period: formData.months_period,
+          purpose: formData.purpose || null,
+          status: 'issued',
+        })
+        .select('folio_number')
+        .single()
+
+      if (error) throw error
+
+      // Redirigir a la página PDF con los parámetros
+      const queryParams = new URLSearchParams({
+        issue_date: formData.issue_date,
+        months_period: formData.months_period.toString(),
+        purpose: formData.purpose || '',
+      })
+      router.push(`/employees/${params.id}/certificates/renta/pdf?${queryParams.toString()}`)
+    } catch (error: any) {
+      alert('Error al generar certificado: ' + error.message)
+    }
   }
 
   if (loading) {
@@ -68,35 +97,39 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
     return <div>Trabajador no encontrado</div>
   }
 
-  const getContractTypeText = () => {
-    if (employee.contract_type === 'plazo_fijo') {
-      return 'Plazo Fijo'
-    } else if (employee.contract_type === 'indefinido') {
-      return 'Indefinido'
-    } else {
-      return employee.contract_other || 'Otro'
-    }
-  }
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1>Certificado de Antigüedad - {employee.full_name}</h1>
-        <Link href={`/employees/${params.id}`}>
+        <h1>Certificado de Renta - {employee.full_name}</h1>
+        <Link href={`/employees/${params.id}/certificates`}>
           <button className="secondary">Volver</button>
         </Link>
       </div>
 
       <div className="card">
         <h2>Datos del Certificado</h2>
-        <div className="form-group">
-          <label>Fecha de Emisión *</label>
-          <input
-            type="date"
-            required
-            value={formData.issue_date}
-            onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label>Fecha de Emisión *</label>
+            <input
+              type="date"
+              required
+              value={formData.issue_date}
+              onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
+            />
+          </div>
+          <div className="form-group">
+            <label>Período a Certificar *</label>
+            <select
+              required
+              value={formData.months_period}
+              onChange={(e) => setFormData({ ...formData, months_period: parseInt(e.target.value) as 3 | 6 | 12 })}
+            >
+              <option value={3}>Últimos 3 meses</option>
+              <option value={6}>Últimos 6 meses</option>
+              <option value={12}>Últimos 12 meses</option>
+            </select>
+          </div>
         </div>
         <div className="form-group">
           <label>Propósito del Certificado (Opcional)</label>
@@ -110,7 +143,7 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
       </div>
 
       <div className="card">
-        <h2>Información que se incluirá en el certificado</h2>
+        <h2>Información del Trabajador</h2>
         <div className="form-row">
           <div className="form-group">
             <label>Trabajador</label>
@@ -119,16 +152,6 @@ export default function CertificatePage({ params }: { params: { id: string } }) 
           <div className="form-group">
             <label>RUT</label>
             <p>{employee.rut}</p>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Fecha de Ingreso</label>
-            <p>{employee.hire_date ? new Date(employee.hire_date).toLocaleDateString('es-CL') : '-'}</p>
-          </div>
-          <div className="form-group">
-            <label>Tipo de Contrato</label>
-            <p>{getContractTypeText()}</p>
           </div>
         </div>
         <div className="form-row">

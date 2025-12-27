@@ -21,11 +21,19 @@ export default async function LoanPDFPage({ params }: { params: { id: string, lo
     .eq('id', loan.employee_id)
     .single()
 
+  if (!employee || !employee.company_id) {
+    notFound()
+  }
+
   const { data: company } = await supabase
     .from('companies')
     .select('*')
-    .limit(1)
+    .eq('id', employee.company_id)
     .single()
+
+  if (!company) {
+    notFound()
+  }
 
   return <LoanPDF loan={loan} employee={employee} company={company} />
 }

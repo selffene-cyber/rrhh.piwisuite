@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
-import { FaHandHoldingUsd, FaChartLine, FaFileInvoiceDollar, FaTrash } from 'react-icons/fa'
+import { FaHandHoldingUsd, FaChartLine, FaFileInvoiceDollar, FaTrash, FaPlus } from 'react-icons/fa'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function LoansManagementPage() {
+  const { companyId } = useCurrentCompany()
   const [loans, setLoans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -16,12 +18,39 @@ export default function LoansManagementPage() {
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (companyId) {
+      loadData()
+    } else {
+      setLoans([])
+      setLoading(false)
+    }
+  }, [companyId])
 
   const loadData = async () => {
     try {
       setLoading(true)
+
+      if (!companyId) {
+        setLoans([])
+        setLoading(false)
+        return
+      }
+
+      // Primero obtener los IDs de los empleados de la empresa
+      const { data: employeesData, error: employeesError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', companyId)
+
+      if (employeesError) throw employeesError
+
+      const employeeIds = employeesData?.map(emp => emp.id) || []
+
+      if (employeeIds.length === 0) {
+        setLoans([])
+        setLoading(false)
+        return
+      }
 
       // Cargar todos los préstamos activos y cancelados con información del empleado
       const { data: loansData, error } = await supabase
@@ -34,6 +63,7 @@ export default function LoansManagementPage() {
             rut
           )
         `)
+        .in('employee_id', employeeIds)
         .in('status', ['active', 'cancelled'])
         .order('created_at', { ascending: false })
 
@@ -106,9 +136,17 @@ export default function LoansManagementPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Gestión de Préstamos</h1>
-        <Link href="/">
-          <button className="secondary">Volver al Dashboard</button>
-        </Link>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link href="/loans/new">
+            <button>
+              <FaPlus style={{ marginRight: '8px' }} />
+              Nuevo Préstamo
+            </button>
+          </Link>
+          <Link href="/">
+            <button className="secondary">Volver al Dashboard</button>
+          </Link>
+        </div>
       </div>
 
       {/* Cards de Estadísticas */}

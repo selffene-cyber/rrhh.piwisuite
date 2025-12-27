@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen } from 'react-icons/fa'
+import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock } from 'react-icons/fa'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
@@ -1027,6 +1027,94 @@ export default function HomePage() {
               <div>
                 <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Banco de Documentos</div>
                 <div style={{ fontSize: '12px', color: '#6b7280' }}>Gestionar documentos</div>
+              </div>
+            </div>
+          </Link>
+          {/* Generar Certificados */}
+          <Link href="/certificates/generate" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#7c3aed'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(124, 58, 237, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#ede9fe',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#7c3aed'
+              }}>
+                <FaFileAlt size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Generar Certificados</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Certificados laborales</div>
+              </div>
+            </div>
+          </Link>
+          {/* Gestión Horas Extras */}
+          <Link href="/overtime" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#f59e0b'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(245, 158, 11, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#fef3c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#f59e0b'
+              }}>
+                <FaClock size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Gestión Horas Extras</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Pactos y registros</div>
               </div>
             </div>
           </Link>

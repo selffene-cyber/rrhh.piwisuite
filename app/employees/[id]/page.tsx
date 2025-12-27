@@ -2,7 +2,12 @@ import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/utils/date'
 import { notFound } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import ContractsHistory from './contracts-history'
+
+const CertificatesHistory = dynamic(() => import('./certificates-history'), {
+  ssr: false,
+})
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createServerClient()
@@ -258,10 +263,27 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2>Certificado de Antigüedad</h2>
-          <Link href={`/employees/${params.id}/certificate`}>
-            <button>Emitir Certificado</button>
+          <h2>Certificados Laborales</h2>
+          <Link href={`/employees/${params.id}/certificates`}>
+            <button>Solicitar Certificado</button>
           </Link>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '16px' }}>
+          <Link href={`/employees/${params.id}/certificates/antiguedad`}>
+            <button className="secondary" style={{ width: '100%' }}>Certificado de Antigüedad</button>
+          </Link>
+          <Link href={`/employees/${params.id}/certificates/renta`}>
+            <button className="secondary" style={{ width: '100%' }}>Certificado de Renta</button>
+          </Link>
+          <Link href={`/employees/${params.id}/certificates/vigencia`}>
+            <button className="secondary" style={{ width: '100%' }}>Certificado de Vigencia</button>
+          </Link>
+          <Link href={`/employees/${params.id}/contracts`}>
+            <button className="secondary" style={{ width: '100%' }}>Contratos y Anexos</button>
+          </Link>
+        </div>
+        <div style={{ marginTop: '24px' }}>
+          <CertificatesHistory employeeId={params.id} />
         </div>
       </div>
 

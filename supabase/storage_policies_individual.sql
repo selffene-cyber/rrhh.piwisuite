@@ -10,3 +10,4 @@ TO authenticated
 WITH CHECK (bucket_id = 'company-assets');
 
 
+

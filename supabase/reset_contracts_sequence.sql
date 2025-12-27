@@ -4,3 +4,4 @@
 ALTER SEQUENCE contracts_number_seq RESTART WITH 1;
 
 
+
