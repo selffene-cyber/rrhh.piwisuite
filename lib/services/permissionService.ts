@@ -116,26 +116,26 @@ export async function getPermissions(
       let approvedByUser = null
       let createdByUser = null
 
-      if (permission.approved_by) {
+      if ((permission as any).approved_by) {
         const { data: approvedData } = await supabase
           .from('user_profiles')
           .select('id, email')
-          .eq('id', permission.approved_by)
+          .eq('id', (permission as any).approved_by)
           .single()
         approvedByUser = approvedData
       }
 
-      if (permission.created_by) {
+      if ((permission as any).created_by) {
         const { data: createdData } = await supabase
           .from('user_profiles')
           .select('id, email')
-          .eq('id', permission.created_by)
+          .eq('id', (permission as any).created_by)
           .single()
         createdByUser = createdData
       }
 
       return {
-        ...permission,
+        ...(permission as any),
         approved_by_user: approvedByUser,
         created_by_user: createdByUser,
       }
@@ -190,26 +190,26 @@ export async function getPermission(
   let approvedByUser = null
   let createdByUser = null
 
-  if (data.approved_by) {
+  if ((data as any).approved_by) {
     const { data: approvedData } = await supabase
       .from('user_profiles')
       .select('id, email')
-      .eq('id', data.approved_by)
+      .eq('id', (data as any).approved_by)
       .single()
     approvedByUser = approvedData
   }
 
-  if (data.created_by) {
+  if ((data as any).created_by) {
     const { data: createdData } = await supabase
       .from('user_profiles')
       .select('id, email')
-      .eq('id', data.created_by)
+      .eq('id', (data as any).created_by)
       .single()
     createdByUser = createdData
   }
 
   return {
-    ...data,
+    ...(data as any),
     approved_by_user: approvedByUser,
     created_by_user: createdByUser,
   } as PermissionWithDetails
@@ -221,14 +221,14 @@ export async function createPermission(
   supabase: SupabaseClient<Database>
 ): Promise<Permission> {
   // Calcular días si no se proporciona
-  const start = new Date(permission.start_date)
-  const end = new Date(permission.end_date)
-  const days = permission.days || Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1)
+  const start = new Date((permission as any).start_date)
+  const end = new Date((permission as any).end_date)
+  const days = (permission as any).days || Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1)
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('permissions')
     .insert({
-      ...permission,
+      ...(permission as any),
       days,
     })
     .select()
@@ -244,7 +244,7 @@ export async function updatePermission(
   updates: Partial<Permission>,
   supabase: SupabaseClient<Database>
 ): Promise<Permission> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('permissions')
     .update(updates)
     .eq('id', id)

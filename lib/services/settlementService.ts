@@ -9,10 +9,11 @@ import { calculateSettlement, createCalculationSnapshot, SettlementCalculationIn
 import { getVacationSummary } from './vacationPeriods'
 import { formatDateLegal } from '@/lib/utils/contractText'
 
-type Settlement = Database['public']['Tables']['settlements']['Row']
-type SettlementInsert = Database['public']['Tables']['settlements']['Insert']
-type SettlementItem = Database['public']['Tables']['settlement_items']['Row']
-type SettlementCause = Database['public']['Tables']['settlement_causes']['Row']
+// Tipos temporales hasta que se actualice types/database.ts
+type Settlement = any
+type SettlementInsert = any
+type SettlementItem = any
+type SettlementCause = any
 
 export interface SettlementWithDetails extends Settlement {
   employee?: {
@@ -109,8 +110,8 @@ export async function getEmployeeDataForSettlement(
     .maybeSingle()
 
   // Usar datos del contrato activo si existe, sino del empleado
-  const contract_start_date = activeContract?.start_date || employee.hire_date
-  const last_salary_monthly = activeContract?.base_salary || employee.base_salary
+  const contract_start_date = (activeContract as any)?.start_date || (employee as any).hire_date
+  const last_salary_monthly = (activeContract as any)?.base_salary || (employee as any).base_salary
 
   // 3. Calcular días trabajados del último mes
   const termination = typeof terminationDate === 'string' 
@@ -122,7 +123,7 @@ export async function getEmployeeDataForSettlement(
   const worked_days_last_month = Math.ceil((lastMonthEnd.getTime() - lastMonthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
   // 4. Obtener vacaciones pendientes
-  const vacationSummary = await getVacationSummary(employeeId, employee.hire_date)
+  const vacationSummary = await getVacationSummary(employeeId, (employee as any).hire_date)
   const vacation_days_pending = Math.max(0, vacationSummary.totalAvailable)
 
   // 5. Obtener saldo de préstamos activos
@@ -132,7 +133,7 @@ export async function getEmployeeDataForSettlement(
     .eq('employee_id', employeeId)
     .eq('status', 'active')
 
-  const loan_balance = (activeLoans || []).reduce((sum, loan) => sum + (loan.remaining_amount || 0), 0)
+  const loan_balance = (activeLoans || []).reduce((sum, loan: any) => sum + ((loan as any).remaining_amount || 0), 0)
 
   // 6. Obtener saldo de anticipos no descontados
   // Anticipos que estén en estado 'firmado' o 'pagado' pero no 'descontado'
@@ -143,12 +144,12 @@ export async function getEmployeeDataForSettlement(
     .in('status', ['firmado', 'pagado'])
     .is('payroll_slip_id', null) // No descontados
 
-  const advance_balance = (pendingAdvances || []).reduce((sum, advance) => sum + (advance.amount || 0), 0)
+  const advance_balance = (pendingAdvances || []).reduce((sum, advance: any) => sum + ((advance as any).amount || 0), 0)
 
   return {
-    employee_id: employee.id,
-    company_id: employee.company_id || '',
-    contract_id: activeContract?.id,
+    employee_id: (employee as any).id,
+    company_id: (employee as any).company_id || '',
+    contract_id: (activeContract as any)?.id,
     contract_start_date,
     last_salary_monthly,
     worked_days_last_month,
@@ -255,7 +256,7 @@ export async function createSettlement(
     notes: input.notes || null
   }
 
-  const { data: settlement, error: settlementError } = await supabase
+  const { data: settlement, error: settlementError } = await (supabase as any)
     .from('settlements')
     .insert(settlementData)
     .select()
@@ -269,7 +270,7 @@ export async function createSettlement(
   // Haberes
   if (calculation.salary_balance > 0) {
     items.push({
-      settlement_id: settlement.id,
+      settlement_id: (settlement as any).id,
       type: 'earning',
       category: 'salary_balance',
       description: 'Saldo de sueldo proporcional',
@@ -279,7 +280,7 @@ export async function createSettlement(
 
   if (calculation.vacation_payout > 0) {
     items.push({
-      settlement_id: settlement.id,
+      settlement_id: (settlement as any).id,
       type: 'earning',
       category: 'vacation',
       description: `Pago de vacaciones pendientes (${employeeData.vacation_days_pending} días)`,
@@ -290,7 +291,7 @@ export async function createSettlement(
 
   if (calculation.ias_amount > 0) {
     items.push({
-      settlement_id: settlement.id,
+      settlement_id: (settlement as any).id,
       type: 'earning',
       category: 'ias',
       description: `Indemnización por años de servicio (${calculation.service_time.service_years_capped} años)`,
@@ -301,7 +302,7 @@ export async function createSettlement(
 
   if (calculation.iap_amount > 0) {
     items.push({
-      settlement_id: settlement.id,
+      settlement_id: (settlement as any).id,
       type: 'earning',
       category: 'iap',
       description: 'Indemnización por aviso previo',
@@ -313,7 +314,7 @@ export async function createSettlement(
   // Descuentos
   if (calculation.loan_balance > 0) {
     items.push({
-      settlement_id: settlement.id,
+      settlement_id: (settlement as any).id,
       type: 'deduction',
       category: 'loan',
       description: 'Descuento por préstamos pendientes',
@@ -323,7 +324,7 @@ export async function createSettlement(
 
   if (calculation.advance_balance > 0) {
     items.push({
-      settlement_id: settlement.id,
+      settlement_id: (settlement as any).id,
       type: 'deduction',
       category: 'advance',
       description: 'Descuento por anticipos pendientes',
@@ -333,7 +334,7 @@ export async function createSettlement(
 
   // Insertar items
   if (items.length > 0) {
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await (supabase as any)
       .from('settlement_items')
       .insert(items)
 
@@ -374,26 +375,26 @@ export async function getSettlement(
   const { data: employee } = await supabase
     .from('employees')
     .select('id, full_name, rut, position')
-    .eq('id', settlement.employee_id)
+    .eq('id', (settlement as any).employee_id)
     .single()
 
   // Obtener causal
-  const cause = await getSettlementCauseByCode(settlement.cause_code, supabase)
+  const cause = await getSettlementCauseByCode((settlement as any).cause_code, supabase)
 
   // Obtener contrato si existe
   let contract = null
-  if (settlement.contract_id) {
+  if ((settlement as any).contract_id) {
     const { data: contractData } = await supabase
       .from('contracts')
       .select('id, start_date, base_salary, position')
-      .eq('id', settlement.contract_id)
+      .eq('id', (settlement as any).contract_id)
       .single()
 
     contract = contractData
   }
 
   return {
-    ...settlement,
+    ...(settlement as any),
     items: items || [],
     employee: employee || undefined,
     cause: cause || undefined,
@@ -553,7 +554,7 @@ export async function recalculateSettlement(
     calculation_log: log
   }
 
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await (supabase as any)
     .from('settlements')
     .update(updateData)
     .eq('id', settlementId)
@@ -635,7 +636,7 @@ export async function recalculateSettlement(
   }
 
   if (items.length > 0) {
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await (supabase as any)
       .from('settlement_items')
       .insert(items)
 
@@ -685,7 +686,7 @@ export async function updateSettlementStatus(
     updateData.notes = options.notes
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('settlements')
     .update(updateData)
     .eq('id', settlementId)

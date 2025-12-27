@@ -114,7 +114,7 @@ export async function getDisciplinaryActions(
       }
 
       return {
-        ...action,
+        ...(action as any),
         issuer,
         approver,
       }
@@ -146,26 +146,26 @@ export async function getDisciplinaryAction(
   let issuer = null
   let approver = null
 
-  if (data.issuer_user_id) {
+  if ((data as any).issuer_user_id) {
     const { data: issuerData } = await supabase
       .from('user_profiles')
       .select('id, email')
-      .eq('id', data.issuer_user_id)
+      .eq('id', (data as any).issuer_user_id)
       .single()
     issuer = issuerData
   }
 
-  if (data.approver_user_id) {
+  if ((data as any).approver_user_id) {
     const { data: approverData } = await supabase
       .from('user_profiles')
       .select('id, email')
-      .eq('id', data.approver_user_id)
+      .eq('id', (data as any).approver_user_id)
       .single()
     approver = approverData
   }
 
   return {
-    ...data,
+    ...(data as any),
     issuer,
     approver,
   } as DisciplinaryActionWithDetails
@@ -176,7 +176,7 @@ export async function createDisciplinaryAction(
   action: Omit<DisciplinaryAction, 'id' | 'created_at' | 'updated_at'>,
   supabase: SupabaseClient<Database>
 ): Promise<DisciplinaryAction> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('disciplinary_actions')
     .insert(action)
     .select()
@@ -192,7 +192,7 @@ export async function updateDisciplinaryAction(
   updates: Partial<DisciplinaryAction>,
   supabase: SupabaseClient<Database>
 ): Promise<DisciplinaryAction> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('disciplinary_actions')
     .update(updates)
     .eq('id', id)
@@ -317,7 +317,7 @@ export async function createRIOHSRule(
   rule: Omit<RIOHSRule, 'id' | 'created_at' | 'updated_at'>,
   supabase: SupabaseClient<Database>
 ): Promise<RIOHSRule> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('riohs_rules')
     .insert(rule)
     .select()
@@ -333,7 +333,7 @@ export async function updateRIOHSRule(
   updates: Partial<RIOHSRule>,
   supabase: SupabaseClient<Database>
 ): Promise<RIOHSRule> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('riohs_rules')
     .update(updates)
     .eq('id', id)

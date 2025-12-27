@@ -71,7 +71,7 @@ export async function createDocumentCategory(
   category: Omit<DocumentCategory, 'id' | 'created_at' | 'updated_at'>,
   supabase: SupabaseClient<Database>
 ): Promise<DocumentCategory> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('document_categories')
     .insert(category)
     .select()
@@ -126,11 +126,11 @@ export async function getDocuments(
     (data || []).map(async (doc) => {
       // Obtener versión actual
       let currentVersion = null
-      if (doc.current_version_id) {
+      if ((doc as any).current_version_id) {
         const { data: versionData } = await supabase
           .from('document_versions')
           .select('*')
-          .eq('id', doc.current_version_id)
+          .eq('id', (doc as any).current_version_id)
           .single()
         currentVersion = versionData
       }
@@ -139,22 +139,22 @@ export async function getDocuments(
       const { data: versionsData } = await supabase
         .from('document_versions')
         .select('*')
-        .eq('document_id', doc.id)
+        .eq('document_id', (doc as any).id)
         .order('version_number', { ascending: false })
 
       // Obtener usuario creador
       let createdByUser = null
-      if (doc.created_by) {
+      if ((doc as any).created_by) {
         const { data: userData } = await supabase
           .from('user_profiles')
           .select('id, email')
-          .eq('id', doc.created_by)
+          .eq('id', (doc as any).created_by)
           .single()
         createdByUser = userData
       }
 
       return {
-        ...doc,
+        ...(doc as any),
         current_version: currentVersion,
         versions: versionsData || [],
         created_by_user: createdByUser,
@@ -191,18 +191,18 @@ export async function getDocument(
 
   // Obtener usuario creador
   let createdByUser = null
-  if (data.created_by) {
+  if ((data as any).created_by) {
     const { data: userData } = await supabase
       .from('user_profiles')
       .select('id, email')
-      .eq('id', data.created_by)
+      .eq('id', (data as any).created_by)
       .single()
     createdByUser = userData
   }
 
   return {
-    ...data,
-    current_version: versionsData?.find((v) => v.is_current) || null,
+    ...(data as any),
+    current_version: versionsData?.find((v: any) => v.is_current) || null,
     versions: versionsData || [],
     created_by_user: createdByUser,
   } as DocumentWithDetails
@@ -213,7 +213,7 @@ export async function createDocument(
   document: Omit<Document, 'id' | 'created_at' | 'updated_at' | 'current_version_id'>,
   supabase: SupabaseClient<Database>
 ): Promise<Document> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('documents')
     .insert(document)
     .select()
@@ -229,7 +229,7 @@ export async function updateDocument(
   updates: Partial<Document>,
   supabase: SupabaseClient<Database>
 ): Promise<Document> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('documents')
     .update(updates)
     .eq('id', id)
@@ -262,18 +262,18 @@ export async function createDocumentVersion(
   supabase: SupabaseClient<Database>
 ): Promise<DocumentVersion> {
   // Obtener el siguiente número de versión
-  const { data: versionData } = await supabase
-    .rpc('get_next_version_number', { p_document_id: version.document_id })
+  const { data: versionData } = await (supabase as any)
+    .rpc('get_next_version_number', { p_document_id: (version as any).document_id })
 
   const versionNumber = versionData || 1
 
   // Si es la primera versión o se marca como vigente, marcar como current
   const isCurrent = version.is_current !== undefined ? version.is_current : versionNumber === 1
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('document_versions')
     .insert({
-      ...version,
+      ...(version as any),
       version_number: versionNumber,
       is_current: isCurrent,
     })
@@ -291,13 +291,13 @@ export async function setCurrentVersion(
   supabase: SupabaseClient<Database>
 ): Promise<void> {
   // Desmarcar todas las versiones del documento
-  await supabase
+  await (supabase as any)
     .from('document_versions')
     .update({ is_current: false })
     .eq('document_id', documentId)
 
   // Marcar la versión seleccionada como vigente
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('document_versions')
     .update({ is_current: true })
     .eq('id', versionId)
