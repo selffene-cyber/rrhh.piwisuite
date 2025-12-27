@@ -36,6 +36,7 @@ const contractTemplates = {
 }
 
 export default function NewContractPage() {
+  const { companyId } = useCurrentCompany()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -74,8 +75,12 @@ export default function NewContractPage() {
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (companyId) {
+      loadData()
+    } else {
+      setEmployees([])
+    }
+  }, [companyId])
 
   useEffect(() => {
     if (searchParams?.get('employee_id')) {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatMonthYear } from '@/lib/utils/date'
 import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaTimes, FaMoneyBillWave, FaTrash, FaChartLine } from 'react-icons/fa'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function AdvancesPage() {
   const { companyId } = useCurrentCompany()
