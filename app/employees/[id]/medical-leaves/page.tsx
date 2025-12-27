@@ -40,7 +40,7 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
       // Cargar empleado
       const { data: empData } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, company_id')
         .eq('id', params.id)
         .single()
       
@@ -49,7 +49,7 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
       // Cargar licencias
       const { data: leavesData, error } = await supabase
         .from('medical_leaves')
-        .select('*')
+        .select('id, employee_id, start_date, end_date, days_count, is_active, status, created_at, updated_at')
         .eq('employee_id', params.id)
         .order('start_date', { ascending: false })
 
@@ -174,7 +174,7 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
       if (!currentStatus) {
         const { data: activeLeaves } = await supabase
           .from('medical_leaves')
-          .select('*')
+          .select('id, is_active')
           .eq('employee_id', params.id)
           .eq('is_active', true)
           .limit(1)

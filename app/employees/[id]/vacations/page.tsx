@@ -45,7 +45,7 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
       // Cargar empleado
       const { data: empData } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, hire_date, company_id')
         .eq('id', params.id)
         .single()
       
@@ -68,7 +68,7 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
       // Cargar vacaciones
       const { data: vacationsData, error } = await supabase
         .from('vacations')
-        .select('*')
+        .select('id, employee_id, start_date, end_date, days_count, status, created_at, updated_at')
         .eq('employee_id', params.id)
         .order('start_date', { ascending: false })
 

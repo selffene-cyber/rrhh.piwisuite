@@ -78,7 +78,13 @@ export default function PayrollPage() {
       const { data, error } = await supabase
         .from('payroll_slips')
         .select(`
-          *,
+          id,
+          employee_id,
+          period_id,
+          days_worked,
+          net_pay,
+          status,
+          created_at,
           employees (full_name, rut, company_id),
           payroll_periods (year, month)
         `)

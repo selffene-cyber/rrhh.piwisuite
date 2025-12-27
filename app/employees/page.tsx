@@ -7,11 +7,17 @@ import { Employee } from '@/types'
 import { FaEye, FaPencilAlt, FaTrash } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
+const ITEMS_PER_PAGE = 50
+
 export default function EmployeesPage() {
   const { company, companyId } = useCurrentCompany()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
+  const totalPages = useMemo(() => Math.ceil(totalCount / ITEMS_PER_PAGE), [totalCount])
 
   useEffect(() => {
     if (companyId) {
@@ -20,18 +26,36 @@ export default function EmployeesPage() {
       setEmployees([])
       setLoading(false)
     }
-  }, [companyId])
+  }, [companyId, currentPage, loadEmployees])
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     if (!companyId) return
     
     try {
       setLoading(true)
+      
+      // Obtener total de registros
+      const { count, error: countError } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+
+      if (countError) {
+        console.error('Error al contar trabajadores:', countError)
+      } else {
+        setTotalCount(count || 0)
+      }
+
+      // Obtener página actual
+      const from = (currentPage - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE - 1
+
       const { data, error: fetchError } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id')
         .eq('company_id', companyId)
         .order('full_name')
+        .range(from, to)
 
       if (fetchError) {
         console.error('Error al cargar trabajadores:', fetchError)
@@ -47,7 +71,7 @@ export default function EmployeesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [companyId, currentPage])
 
   const handleDelete = async (employee: Employee) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar a ${employee.full_name}? Esta acción no se puede deshacer.`)) {
@@ -154,8 +178,31 @@ export default function EmployeesPage() {
         ) : (
           <>
             <p style={{ marginBottom: '16px', color: '#6b7280' }}>
-              Total: {employees.length} trabajador{employees.length !== 1 ? 'es' : ''}
+              Mostrando {employees.length} de {totalCount} trabajador{totalCount !== 1 ? 'es' : ''}
             </p>
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '12px' }}>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="secondary"
+                  style={{ padding: '6px 12px', fontSize: '14px' }}
+                >
+                  Anterior
+                </button>
+                <span style={{ color: '#6b7280', fontSize: '14px' }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="secondary"
+                  style={{ padding: '6px 12px', fontSize: '14px' }}
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
             
             {/* Tabla Desktop */}
             <div className="table-mobile-hidden">

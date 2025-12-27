@@ -79,7 +79,16 @@ export default function OvertimePage() {
       let query = supabase
         .from('overtime_pacts')
         .select(`
-          *,
+          id,
+          employee_id,
+          company_id,
+          start_date,
+          end_date,
+          max_daily_hours,
+          reason,
+          status,
+          pact_number,
+          created_at,
           employees (full_name, rut),
           companies (name)
         `)

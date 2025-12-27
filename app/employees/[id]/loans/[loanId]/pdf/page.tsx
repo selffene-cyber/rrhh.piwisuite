@@ -7,7 +7,7 @@ export default async function LoanPDFPage({ params }: { params: { id: string, lo
   
   const { data: loan, error: loanError } = await supabase
     .from('loans')
-    .select('*')
+    .select('id, employee_id, amount, remaining_amount, installment_amount, installments, interest_rate, loan_date, status, description, authorization_signed, exceeds_legal_limit')
     .eq('id', params.loanId)
     .single()
 
@@ -17,7 +17,7 @@ export default async function LoanPDFPage({ params }: { params: { id: string, lo
 
   const { data: employee } = await supabase
     .from('employees')
-    .select('*')
+    .select('id, full_name, rut, position, hire_date, company_id')
     .eq('id', loan.employee_id)
     .single()
 
@@ -27,7 +27,7 @@ export default async function LoanPDFPage({ params }: { params: { id: string, lo
 
   const { data: company } = await supabase
     .from('companies')
-    .select('*')
+    .select('id, name, rut, address, employer_name')
     .eq('id', employee.company_id)
     .single()
 

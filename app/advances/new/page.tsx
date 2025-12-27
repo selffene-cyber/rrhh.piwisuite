@@ -56,7 +56,7 @@ export default function NewAdvancePage() {
         const companyId = employeesData[0].company_id
         const { data: companyData } = await supabase
           .from('companies')
-          .select('*')
+          .select('id, name, rut, address, employer_name')
           .eq('id', companyId)
           .single()
 

@@ -26,7 +26,7 @@ export default async function AdvancePDFPage({ params }: { params: { id: string 
 
   const { data: company } = await supabase
     .from('companies')
-    .select('*')
+    .select('id, name, rut, address, employer_name')
     .eq('id', employee.company_id)
     .single()
 
