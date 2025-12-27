@@ -332,7 +332,7 @@ export default function NewPayrollPage() {
     // Obtener préstamos activos del trabajador con sus cuotas pendientes
     const { data: activeLoans } = await supabase
       .from('loans')
-      .select('id, installment_amount, remaining_amount, status')
+      .select('id, installment_amount, remaining_amount, status, installments, paid_installments')
       .eq('employee_id', selectedEmployee.id)
       .eq('status', 'active')
       .gt('remaining_amount', 0)
