@@ -37,9 +37,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     marginTop: 20,
     marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000',
-    paddingBottom: 5,
   },
   formRow: {
     flexDirection: 'row',
@@ -83,6 +80,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     marginTop: 5,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 5,
+    gap: 15,
   },
   checkbox: {
     width: 12,
@@ -136,8 +140,12 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
           {company.address && <Text>{company.address}</Text>}
         </View>
 
-        {/* Page Number */}
-        <Text style={styles.pageNumber} render={({ pageNumber }) => `Página ${pageNumber}`} />
+        {/* Page Number - aparece en todas las páginas */}
+        <Text 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} página${totalPages > 1 ? 's' : ''}`}
+          fixed
+        />
 
         {/* Title */}
         <Text style={styles.title}>FICHA DE REGISTRO DE TRABAJADOR</Text>
@@ -148,14 +156,14 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
         {/* Datos Personales */}
         <Text style={styles.subtitle}>I. DATOS PERSONALES</Text>
 
-        <View style={styles.formRow}>
+        <View style={[styles.formRow, { alignItems: 'flex-end' }]}>
           <View style={styles.formField}>
             <Text style={styles.labelRequired}>Nombre Completo *</Text>
             <View style={styles.inputLineLarge} />
           </View>
           <View style={styles.formField}>
             <Text style={styles.labelRequired}>RUT *</Text>
-            <View style={styles.inputLine} />
+            <View style={[styles.inputLine, { minHeight: 24, paddingBottom: 8 }]} />
           </View>
         </View>
 
@@ -171,14 +179,15 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
           </View>
         </View>
 
-        <View style={styles.formFieldFull}>
-          <Text style={styles.label}>Dirección</Text>
-          <View style={styles.inputLineLarge} />
-        </View>
-
-        <View style={styles.formFieldFull}>
-          <Text style={styles.label}>Correo Electrónico</Text>
-          <View style={styles.inputLine} />
+        <View style={styles.formRow}>
+          <View style={styles.formField}>
+            <Text style={styles.label}>Dirección</Text>
+            <View style={styles.inputLineLarge} />
+          </View>
+          <View style={styles.formField}>
+            <Text style={styles.label}>Correo Electrónico</Text>
+            <View style={styles.inputLine} />
+          </View>
         </View>
 
         {/* Datos Bancarios */}
@@ -192,17 +201,19 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
           </View>
           <View style={styles.formField}>
             <Text style={styles.label}>Tipo de Cuenta</Text>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Corriente</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Ahorro</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Vista</Text>
+            <View style={styles.checkboxRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Corriente</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Ahorro</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Vista</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -256,13 +267,15 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
         <View style={styles.formRow}>
           <View style={styles.formField}>
             <Text style={styles.label}>Solicita Anticipo?</Text>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Sí</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>No</Text>
+            <View style={styles.checkboxRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Sí</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>No</Text>
+              </View>
             </View>
           </View>
           <View style={styles.formField}>
@@ -271,45 +284,66 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
             <Text style={styles.note}>Máximo: 50% del sueldo base</Text>
           </View>
         </View>
+      </Page>
+
+      {/* Segunda Página - Previsión y Salud */}
+      <Page size="LETTER" style={styles.page}>
+        {/* Header */}
+        <View style={styles.companyHeader}>
+          <Text>{company.name}</Text>
+          {company.rut && <Text>RUT: {company.rut}</Text>}
+          {company.address && <Text>{company.address}</Text>}
+        </View>
+
+        {/* Page Number - aparece en todas las páginas */}
+        <Text 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} página${totalPages > 1 ? 's' : ''}`}
+          fixed
+        />
 
         {/* Previsión y Salud */}
-        <View style={styles.formRow}>
+        <View style={[styles.formRow, { marginTop: 30 }]}>
           <View style={styles.formField}>
             <Text style={styles.labelRequired}>AFP *</Text>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>PROVIDA</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>HABITAT</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>MODELO</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>CAPITAL</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>PLANVITAL</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>UNO</Text>
+            <View style={styles.checkboxRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>PROVIDA</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>HABITAT</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>MODELO</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>CAPITAL</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>PLANVITAL</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>UNO</Text>
+              </View>
             </View>
           </View>
           <View style={styles.formField}>
             <Text style={styles.labelRequired}>Sistema de Salud *</Text>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>FONASA</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>ISAPRE</Text>
+            <View style={styles.checkboxRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>FONASA</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>ISAPRE</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -326,45 +360,27 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
           <Text style={styles.note}>Ej: 2.4 (para 2.4 UF) - Solo si es ISAPRE</Text>
         </View>
 
-        {/* Estado y Contrato */}
+        {/* Tipo de Contrato */}
         <View style={styles.formRow}>
           <View style={styles.formField}>
-            <Text style={styles.labelRequired}>Estado *</Text>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Activo</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Inactivo</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Licencia Médica</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Renuncia</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Despido</Text>
+            <Text style={styles.label}>Tipo de Contrato</Text>
+            <View style={styles.checkboxRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Indefinido</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Plazo Fijo</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.checkbox} />
+                <Text style={{ fontSize: 9, marginLeft: 5 }}>Otro</Text>
+              </View>
             </View>
           </View>
           <View style={styles.formField}>
-            <Text style={styles.label}>Tipo de Contrato</Text>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Indefinido</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Plazo Fijo</Text>
-            </View>
-            <View style={styles.checkboxField}>
-              <View style={styles.checkbox} />
-              <Text style={{ fontSize: 9 }}>Otro</Text>
-            </View>
+            {/* Espacio vacío para mantener el layout */}
           </View>
         </View>
 
@@ -384,12 +400,19 @@ export function EmployeeFormPDF({ company }: EmployeeFormPDFProps) {
         {/* Observaciones */}
         <Text style={styles.subtitle}>IV. OBSERVACIONES</Text>
         <View style={styles.formFieldFull}>
-          <View style={[styles.inputLineLarge, { minHeight: 80 }]} />
+          <View style={styles.inputLineLarge} />
+        </View>
+        <View style={styles.formFieldFull}>
+          <View style={styles.inputLineLarge} />
+        </View>
+        <View style={styles.formFieldFull}>
+          <View style={styles.inputLineLarge} />
         </View>
 
         {/* Firma */}
-        <View style={{ marginTop: 40, marginBottom: 20 }}>
-          <View style={{ borderTopWidth: 1, borderTopColor: '#000', paddingTop: 5, marginTop: 60 }}>
+        <View style={{ marginTop: 40, marginBottom: 20, alignItems: 'center' }}>
+          <View style={{ width: 200, alignItems: 'center', marginTop: 60 }}>
+            <View style={{ borderTopWidth: 1, borderTopColor: '#000', width: '100%', marginBottom: 5 }} />
             <Text style={{ fontSize: 9, textAlign: 'center' }}>Firma del Trabajador</Text>
           </View>
         </View>

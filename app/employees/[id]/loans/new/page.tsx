@@ -84,19 +84,35 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
 
       const { totalAmount, installmentAmount } = calculateLoan()
 
-      // Generar ID correlativo PT-##
-      const { data: lastLoan } = await supabase
-        .from('loans')
-        .select('loan_number')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+      // Obtener los IDs de los empleados de la empresa para filtrar préstamos
+      if (!employee?.company_id) {
+        alert('Error: No se pudo determinar la empresa del trabajador')
+        return
+      }
 
+      const { data: employeesData } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', employee.company_id)
+
+      const employeeIds = employeesData?.map(emp => emp.id) || []
+
+      // Generar ID correlativo PT-## por empresa
       let loanNumber = 'PT-01'
-      if (lastLoan?.loan_number) {
-        const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
-        const newNumber = lastNumber + 1
-        loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
+      if (employeeIds.length > 0) {
+        const { data: lastLoan } = await supabase
+          .from('loans')
+          .select('loan_number')
+          .in('employee_id', employeeIds)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (lastLoan?.loan_number) {
+          const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
+          const newNumber = lastNumber + 1
+          loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
+        }
       }
 
       const { error } = await supabase

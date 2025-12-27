@@ -10,3 +10,4 @@ COMMENT ON COLUMN employees.account_type IS 'Tipo de cuenta: corriente, ahorro, 
 COMMENT ON COLUMN employees.account_number IS 'Número de cuenta bancaria';
 
 
+

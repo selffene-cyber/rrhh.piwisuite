@@ -10,3 +10,4 @@ COMMENT ON COLUMN contracts.account_type IS 'Tipo de cuenta: corriente, ahorro, 
 COMMENT ON COLUMN contracts.account_number IS 'Número de cuenta bancaria';
 
 
+

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock } from 'react-icons/fa'
 import AlertFab from './AlertFab'
 import CompanySelector from './CompanySelector'
 import './Layout.css'
@@ -176,10 +176,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: '/advances', label: 'Anticipos', icon: FaMoneyBillWave },
         { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
         { href: '/loans', label: 'Gestionar Préstamos', icon: FaHandHoldingUsd },
+        { href: '/overtime', label: 'Gestión Horas Extras', icon: FaClock },
       ]
     },
     { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },
     { href: '/documents', label: 'Banco de Documentos', icon: FaFolderOpen },
+    { href: '/certificates', label: 'Certificados Laborales', icon: FaFileAlt },
     { href: '/settings', label: 'Configuración', icon: FaCog },
   ]
 

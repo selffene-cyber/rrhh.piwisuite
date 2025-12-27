@@ -1,6 +1,7 @@
 'use client'
 
 import { Document, Page, Text, View, StyleSheet, PDFViewer } from '@react-pdf/renderer'
+import { formatDateLegal } from '@/lib/utils/contractText'
 
 const styles = StyleSheet.create({
   page: {
@@ -9,24 +10,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
   },
   header: {
-    marginBottom: 30,
-    textAlign: 'center',
+    marginBottom: 15,
   },
   companyName: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    marginBottom: 5,
+    marginBottom: 3,
   },
   companyInfo: {
-    fontSize: 10,
-    marginBottom: 3,
+    fontSize: 9,
+    marginBottom: 2,
   },
   title: {
     fontSize: 16,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
-    marginTop: 30,
-    marginBottom: 30,
+    marginTop: 15,
+    marginBottom: 39,
     textTransform: 'uppercase',
   },
   body: {
@@ -48,30 +48,10 @@ interface CertificatePDFProps {
   company: any
   issueDate: string
   purpose?: string
+  folioNumber?: string
 }
 
-export default function CertificatePDF({ employee, company, issueDate, purpose }: CertificatePDFProps) {
-  // Función para formatear fecha en formato legible
-  const formatDateReadable = (dateStr: string): string => {
-    if (!dateStr) return '-'
-    try {
-      const date = new Date(dateStr + 'T00:00:00')
-      if (isNaN(date.getTime())) return dateStr
-      
-      const day = date.getDate().toString().padStart(2, '0')
-      const month = date.getMonth() + 1
-      const year = date.getFullYear()
-      
-      const monthNames = [
-        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-      ]
-      
-      return `${day} de ${monthNames[month - 1]} de ${year}`
-    } catch {
-      return dateStr
-    }
-  }
+export default function CertificatePDF({ employee, company, issueDate, purpose, folioNumber }: CertificatePDFProps) {
 
   // Calcular antigüedad
   const hireDate = employee.hire_date ? new Date(employee.hire_date + 'T00:00:00') : null
@@ -124,25 +104,42 @@ export default function CertificatePDF({ employee, company, issueDate, purpose }
       <PDFViewer width="100%" height="100%">
         <Document>
           <Page size="A4" style={styles.page}>
-            {/* Encabezado con datos de la empresa */}
-            <View style={styles.header}>
-              {company && (
-                <>
-                  <Text style={styles.companyName}>{company.name || ''}</Text>
-                  {company.employer_name && (
-                    <Text style={styles.companyInfo}>{company.employer_name}</Text>
-                  )}
-                  {company.rut && (
-                    <Text style={styles.companyInfo}>RUT: {company.rut}</Text>
-                  )}
-                  {company.address && (
-                    <Text style={styles.companyInfo}>{company.address}</Text>
-                  )}
-                  {company.city && (
-                    <Text style={styles.companyInfo}>{company.city}</Text>
-                  )}
-                </>
-              )}
+            {/* Encabezado: empresa a la izquierda, paginador a la derecha - misma altura */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
+              {/* Datos de la empresa - esquina superior izquierda */}
+              <View style={{ flex: 1 }}>
+                {company && (
+                  <>
+                    <Text style={styles.companyName}>{company.name || ''}</Text>
+                    {company.employer_name && (
+                      <Text style={styles.companyInfo}>{company.employer_name}</Text>
+                    )}
+                    {company.rut && (
+                      <Text style={styles.companyInfo}>RUT: {company.rut}</Text>
+                    )}
+                    {company.address && (
+                      <Text style={styles.companyInfo}>{company.address}</Text>
+                    )}
+                    {company.city && (
+                      <Text style={styles.companyInfo}>{company.city}</Text>
+                    )}
+                  </>
+                )}
+              </View>
+
+              {/* Contador de páginas y folio en esquina superior derecha */}
+              <View style={{ width: 200, alignItems: 'flex-end' }}>
+                <Text
+                  style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
+                  render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+                  fixed
+                />
+                {folioNumber && (
+                  <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2, width: '100%' }} fixed>
+                    {folioNumber}
+                  </Text>
+                )}
+              </View>
             </View>
 
             {/* Título */}
@@ -151,19 +148,24 @@ export default function CertificatePDF({ employee, company, issueDate, purpose }
             {/* Cuerpo del certificado */}
             <View style={styles.body}>
               <Text style={styles.paragraph}>
-                Por medio del presente documento, {company?.name || 'la empresa'} certifica que{' '}
+                Por medio del presente documento, <Text style={{ fontFamily: 'Helvetica-Bold' }}>{company?.name || 'la empresa'}</Text> certifica que{' '}
                 <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.full_name || ''}</Text>, 
                 RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.rut || ''}</Text>, 
                 se encuentra trabajando en esta empresa desde el día{' '}
                 <Text style={{ fontFamily: 'Helvetica-Bold' }}>
-                  {formatDateReadable(employee.hire_date)}
-                </Text>, 
-                desempeñando el cargo de <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.position || ''}</Text>, 
+                  {formatDateLegal(employee.hire_date || '')}
+                </Text>.
+              </Text>
+              
+              <Text style={styles.paragraph}>
+                El trabajador{' '}
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>desempeña el cargo</Text> de{' '}
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee.position || ''}</Text>, 
                 bajo un contrato de tipo <Text style={{ fontFamily: 'Helvetica-Bold' }}>{getContractTypeText()}</Text>.
               </Text>
 
               <Text style={styles.paragraph}>
-                A la fecha de emisión de este certificado ({formatDateReadable(issueDate)}), 
+                A la fecha de emisión de este certificado ({formatDateLegal(issueDate)}), 
                 el trabajador cuenta con una antigüedad de <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatAntiguedad()}</Text>{' '}
                 en la empresa.
               </Text>
@@ -182,7 +184,7 @@ export default function CertificatePDF({ employee, company, issueDate, purpose }
             {/* Fecha de emisión */}
             <View style={styles.dateSection}>
               <Text style={{ fontSize: 10 }}>
-                {company?.city || 'Santiago'}, {formatDateReadable(issueDate)}
+                {company?.city || 'Santiago'}, {formatDateLegal(issueDate)}
               </Text>
             </View>
 

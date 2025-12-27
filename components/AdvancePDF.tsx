@@ -1,7 +1,7 @@
 'use client'
 
 import { Document, Page, Text, View, StyleSheet, PDFViewer, pdf } from '@react-pdf/renderer'
-import { formatDate } from '@/lib/utils/date'
+import { formatDate, formatDateReadable } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 
 const styles = StyleSheet.create({
@@ -12,15 +12,12 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 15,
-    borderBottomWidth: 2,
-    borderBottomColor: '#000',
-    paddingBottom: 10,
   },
   title: {
     fontSize: 16,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
     textTransform: 'uppercase',
   },
   section: {
@@ -40,12 +37,8 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   amountBox: {
-    marginTop: 20,
+    marginTop: 24,
     marginBottom: 20,
-    padding: 15,
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#000',
     textAlign: 'center',
   },
   amountText: {
@@ -68,8 +61,6 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 40,
     paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#000',
   },
   signatureRow: {
     flexDirection: 'row',
@@ -107,52 +98,62 @@ export function AdvancePDF({ advance, company, employee }: AdvancePDFProps) {
 
   return (
     <Page size="A4" style={styles.page}>
-      {/* ID del anticipo y paginador en esquina superior derecha */}
-      <View style={{ position: 'absolute', top: 20, right: 40, width: 200, alignItems: 'flex-end' }}>
-        <Text
-          style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
-          render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
-          fixed
-        />
-        <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2, width: '100%' }} fixed>
-          ID Anticipo: {advance.advance_number || `ANT-${advance.id.substring(0, 2).toUpperCase()}`}
-        </Text>
-      </View>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.companyInfo}>{company?.name || 'EMPRESA'}</Text>
-          <Text style={styles.companyInfo}>RUT: {company?.rut || '-'}</Text>
-          {company?.address && <Text style={styles.companyInfo}>{company.address}</Text>}
-          {company?.city && <Text style={styles.companyInfo}>{company.city}</Text>}
+      {/* Encabezado: empresa a la izquierda, paginador a la derecha - misma altura */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
+        {/* Datos de la empresa - esquina superior izquierda */}
+        <View style={{ flex: 1 }}>
+          {company && (
+            <>
+              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 10 }}>{company.name || ''}</Text>
+              {company.employer_name && (
+                <Text style={{ fontSize: 9 }}>{company.employer_name}</Text>
+              )}
+              {company.rut && (
+                <Text style={{ fontSize: 9 }}>RUT: {company.rut}</Text>
+              )}
+              {company.address && (
+                <Text style={{ fontSize: 9 }}>{company.address}</Text>
+              )}
+              {company.city && (
+                <Text style={{ fontSize: 9 }}>{company.city}</Text>
+              )}
+            </>
+          )}
         </View>
+
+        {/* Contador de páginas y ID en esquina superior derecha */}
+        <View style={{ width: 200, alignItems: 'flex-end' }}>
+          <Text
+            style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
+            render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+            fixed
+          />
+          <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2, width: '100%' }} fixed>
+            {advance.advance_number || `ANT-${advance.id.substring(0, 2).toUpperCase()}`}
+          </Text>
+        </View>
+      </View>
 
         {/* Título */}
         <Text style={styles.title}>Anticipo de Remuneración</Text>
 
-        {/* Datos del Trabajador */}
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <Text style={styles.label}>Trabajador:</Text>
-            <Text style={styles.value}>{employee?.full_name || '-'}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>RUT:</Text>
-            <Text style={styles.value}>{employee?.rut || '-'}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Fecha del Anticipo:</Text>
-            <Text style={styles.value}>{formatDate(advance.advance_date)}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Período de Descuento:</Text>
-            <Text style={styles.value}>{monthNames[periodMonth - 1]} {periodYear}</Text>
-          </View>
+        {/* Datos del Trabajador - en prosa legal */}
+        <View style={[styles.section, { marginTop: 24 }]}>
+          <Text style={{ fontSize: 9, lineHeight: 1.4, marginBottom: 10 }}>
+            Por medio del presente documento, <Text style={{ fontFamily: 'Helvetica-Bold' }}>{company?.name || company?.employer_name || 'la empresa'}</Text>, 
+            RUT {company?.rut || ''}, representada legalmente por{' '}
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>{company?.employer_name || ''}</Text>, 
+            en adelante "EL EMPLEADOR", otorga un anticipo de remuneración a{' '}
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.full_name || ''}</Text>, 
+            RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.rut || ''}</Text>, 
+            con fecha {formatDateReadable(advance.advance_date)}, 
+            el cual será descontado íntegramente en la liquidación de sueldo correspondiente al período de{' '}
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>{monthNames[periodMonth - 1]} {periodYear}</Text>.
+          </Text>
           {advance.reason && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Glosa:</Text>
-              <Text style={styles.value}>{advance.reason}</Text>
-            </View>
+            <Text style={{ fontSize: 9, lineHeight: 1.4, marginTop: 10 }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>Glosa:</Text> {advance.reason}
+            </Text>
           )}
         </View>
 
@@ -177,6 +178,12 @@ export function AdvancePDF({ advance, company, employee }: AdvancePDFProps) {
           <View style={styles.signatureRow}>
             <View style={styles.signatureBox}>
               <Text style={styles.signatureLine}>Firma Trabajador</Text>
+              <Text style={{ fontSize: 8, marginTop: 5, textAlign: 'center' }}>
+                {employee?.full_name || ''}
+              </Text>
+              <Text style={{ fontSize: 8, marginTop: 2, textAlign: 'center' }}>
+                RUT: {employee?.rut || ''}
+              </Text>
             </View>
             <View style={styles.signatureBox}>
               <Text style={styles.signatureLine}>Firma Empleador</Text>

@@ -1,7 +1,7 @@
 'use client'
 
 import { Document, Page, Text, View, StyleSheet, PDFViewer } from '@react-pdf/renderer'
-import { formatDate } from '@/lib/utils/date'
+import { formatDate, formatDateReadable } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { MONTHS } from '@/lib/utils/date'
 
@@ -101,80 +101,60 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
       <PDFViewer width="100%" height="100%">
         <Document title={generateFileName()}>
           <Page size="A4" style={styles.page}>
-            {/* Paginador - esquina superior derecha */}
-            <View
-              style={{
-                position: 'absolute',
-                top: 20,
-                right: 40,
-                fontSize: 9,
-                color: '#666',
-                alignItems: 'flex-end',
-              }}
-              fixed
-            >
-              <Text
-                style={{
-                  fontSize: 9,
-                  color: '#666',
-                }}
-                render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
-              />
-              {loan.loan_number && (
-                <Text
-                  style={{
-                    fontSize: 9,
-                    color: '#666',
-                    marginTop: 2,
-                  }}
-                >
-                  {loan.loan_number}
-                </Text>
-              )}
-            </View>
-
-            {/* Encabezado */}
-            <View style={styles.header}>
-              {company && (
-                <>
-                  <Text>{company.name || ''}</Text>
-                  <Text>{company.employer_name || ''}</Text>
-                  <Text>{company.rut || ''}</Text>
-                  {company.address && <Text>{company.address}</Text>}
-                  {company.city && <Text>{company.city}</Text>}
-                </>
-              )}
-              <Text style={styles.title}>CONTRATO DE PRÉSTAMO INTERNO</Text>
-            </View>
-
-            {/* Datos del trabajador */}
-            <View style={styles.section}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                {/* Columna izquierda */}
-                <View style={{ width: '48%' }}>
-                  <View style={[styles.row, { marginBottom: 4 }]}>
-                    <Text style={[styles.label, { fontSize: 8 }]}>NOMBRE:</Text>
-                    <Text style={[styles.value, { fontSize: 8 }]}>{employee?.full_name || ''}</Text>
-                  </View>
-                  <View style={[styles.row, { marginBottom: 4 }]}>
-                    <Text style={[styles.label, { fontSize: 8 }]}>RUT:</Text>
-                    <Text style={[styles.value, { fontSize: 8 }]}>{employee?.rut || ''}</Text>
-                  </View>
-                  <View style={[styles.row, { marginBottom: 4 }]}>
-                    <Text style={[styles.label, { fontSize: 8 }]}>FECHA DE INGRESO:</Text>
-                    <Text style={[styles.value, { fontSize: 8 }]}>
-                      {employee?.hire_date ? formatDate(employee.hire_date, 'dd/MM/yyyy') : ''}
-                    </Text>
-                  </View>
-                </View>
-                {/* Columna derecha */}
-                <View style={{ width: '48%' }}>
-                  <View style={[styles.row, { marginBottom: 4 }]}>
-                    <Text style={[styles.label, { fontSize: 8, width: '25%' }]}>CARGO:</Text>
-                    <Text style={[styles.value, { fontSize: 8, width: '75%' }]}>{employee?.position || ''}</Text>
-                  </View>
-                </View>
+            {/* Encabezado: empresa a la izquierda, paginador a la derecha - misma altura */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
+              {/* Datos de la empresa - esquina superior izquierda */}
+              <View style={{ flex: 1 }}>
+                {company && (
+                  <>
+                    <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 10 }}>{company.name || ''}</Text>
+                    {company.employer_name && (
+                      <Text style={{ fontSize: 9 }}>{company.employer_name}</Text>
+                    )}
+                    {company.rut && (
+                      <Text style={{ fontSize: 9 }}>RUT: {company.rut}</Text>
+                    )}
+                    {company.address && (
+                      <Text style={{ fontSize: 9 }}>{company.address}</Text>
+                    )}
+                    {company.city && (
+                      <Text style={{ fontSize: 9 }}>{company.city}</Text>
+                    )}
+                  </>
+                )}
               </View>
+
+              {/* Contador de páginas y ID en esquina superior derecha */}
+              <View style={{ width: 200, alignItems: 'flex-end' }}>
+                <Text
+                  style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
+                  render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+                  fixed
+                />
+                {loan.loan_number && (
+                  <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2, width: '100%' }} fixed>
+                    {loan.loan_number}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Título */}
+            <Text style={styles.title}>CONTRATO DE PRÉSTAMO INTERNO</Text>
+
+            {/* Datos del trabajador - en prosa legal */}
+            <View style={[styles.section, { marginTop: 15 }]}>
+              <Text style={{ fontSize: 9, lineHeight: 1.4, marginBottom: 10 }}>
+                Entre <Text style={{ fontFamily: 'Helvetica-Bold' }}>{company?.name || company?.employer_name || 'la empresa'}</Text>, 
+                RUT {company?.rut || ''}, representada legalmente por{' '}
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{company?.employer_name || ''}</Text>, 
+                en adelante "EL EMPLEADOR", y{' '}
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.full_name || ''}</Text>, 
+                RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.rut || ''}</Text>, 
+                con cargo de {employee?.position || ''}, 
+                {employee?.hire_date && ` quien ingresó a prestar servicios el día ${formatDateReadable(employee.hire_date)}`}, 
+                en adelante "EL TRABAJADOR", se ha convenido lo siguiente:
+              </Text>
             </View>
 
             {/* Datos del préstamo */}
@@ -191,7 +171,7 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
                   </View>
                   <View style={[styles.row, { marginBottom: 4 }]}>
                     <Text style={[styles.label, { fontSize: 8 }]}>MONTO SOLICITADO:</Text>
-                    <Text style={[styles.value, { fontSize: 8 }]}>{formatCurrency(loan.amount)}</Text>
+                    <Text style={[styles.value, { fontSize: 8, fontFamily: 'Helvetica-Bold' }]}>{formatCurrency(loan.amount)}</Text>
                   </View>
                   <View style={[styles.row, { marginBottom: 4 }]}>
                     <Text style={[styles.label, { fontSize: 8 }]}>TASA DE INTERÉS:</Text>
@@ -214,7 +194,7 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
                   </View>
                   <View style={[styles.row, { marginBottom: 4 }]}>
                     <Text style={[styles.label, { fontSize: 8 }]}>NÚMERO DE CUOTAS:</Text>
-                    <Text style={[styles.value, { fontSize: 8 }]}>{loan.installments}</Text>
+                    <Text style={[styles.value, { fontSize: 8, fontFamily: 'Helvetica-Bold' }]}>{loan.installments}</Text>
                   </View>
                 </View>
               </View>
@@ -258,14 +238,14 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
             </View>
 
             {/* Texto legal */}
-            <View style={styles.footer}>
+            <View style={{ marginTop: 10 }}>
               <Text style={{ marginBottom: 10, fontSize: 9, lineHeight: 1.4 }}>
-                El trabajador <Text style={{ textTransform: 'uppercase' }}>{employee?.full_name || ''}</Text>, 
-                RUT {employee?.rut || ''}, reconoce haber recibido de{' '}
-                <Text style={{ textTransform: 'uppercase' }}>{company?.employer_name || ''}</Text>{' '}
-                la suma de {formatCurrency(loan.amount)} ({numberToWords(Math.round(loan.amount))} pesos), 
-                la cual se compromete a pagar en {loan.installments} cuotas mensuales de{' '}
-                {formatCurrency(loan.installment_amount)} cada una, 
+                El trabajador <Text style={{ fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' }}>{employee?.full_name || ''}</Text>, 
+                RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.rut || ''}</Text>, reconoce haber recibido de{' '}
+                <Text style={{ fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' }}>{company?.name || company?.employer_name || ''}</Text>{' '}
+                la suma de <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatCurrency(loan.amount)}</Text> ({numberToWords(Math.round(loan.amount))} pesos), 
+                la cual se compromete a pagar en <Text style={{ fontFamily: 'Helvetica-Bold' }}>{loan.installments} cuotas mensuales</Text> de{' '}
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatCurrency(loan.installment_amount)}</Text> cada una, 
                 {loan.interest_rate > 0 
                   ? ` con un interés del ${loan.interest_rate}%, resultando un monto total a pagar de ${formatCurrency(loan.total_amount)}.`
                   : ' sin interés.'}
@@ -281,6 +261,20 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
               <Text style={{ marginBottom: 10, fontSize: 9, lineHeight: 1.4 }}>
                 El trabajador declara haber recibido el préstamo señalado y autoriza expresa e irrevocablemente al empleador para descontar el saldo pendiente del mismo, tanto mediante descuentos mensuales por planilla como, en caso de término de la relación laboral por cualquier causa, mediante descuento directo del finiquito, conforme a lo dispuesto en el artículo 58 del Código del Trabajo.
               </Text>
+              
+              {/* Párrafo adicional cuando se supera el límite legal */}
+              {loan.exceeds_legal_limit && loan.authorization_signed && (
+                <Text style={{ marginBottom: 10, fontSize: 9, lineHeight: 1.4, marginTop: 10 }}>
+                  El trabajador <Text style={{ fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' }}>{employee?.full_name || ''}</Text>, 
+                  RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.rut || ''}</Text>, declara estar consciente de que el monto de la cuota mensual 
+                  de <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatCurrency(loan.installment_amount)}</Text> puede exceder el límite legal del 15% de su remuneración devengada 
+                  mensual, conforme a lo establecido en el artículo 58 del Código del Trabajo. En tal caso, el trabajador acepta y autoriza expresamente 
+                  que el empleador descuente el monto máximo permitido por ley en cada liquidación, y que el saldo excedente sea reprogramado automáticamente 
+                  a cuotas siguientes, hasta completar el pago total del préstamo. El trabajador reconoce que esta autorización no elimina la obligación 
+                  del empleador de respetar el límite legal en cada liquidación, y acepta que el sistema realizará la reprogramación automática cuando 
+                  corresponda, sin necesidad de nueva autorización.
+                </Text>
+              )}
             </View>
 
             {/* Firmas */}

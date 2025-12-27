@@ -40,8 +40,14 @@ export default function BulkAdvancesPage() {
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (companyId) {
+      loadData()
+    } else {
+      setEmployees([])
+      setCompany(null)
+      setLoading(false)
+    }
+  }, [companyId])
 
   const loadData = async () => {
     try {
@@ -63,28 +69,12 @@ export default function BulkAdvancesPage() {
       if (employeesError) throw employeesError
       setEmployees(employeesData || [])
 
-      // Cargar empresa
-      if (employeesData && employeesData.length > 0) {
-        const companyId = employeesData[0].company_id
-        if (companyId) {
-          const { data: companyData } = await supabase
-            .from('companies')
-            .select('*')
-            .eq('id', companyId)
-            .single()
-
-          if (companyData) {
-            setCompany(companyData)
-          }
-        }
-      }
-
-      // Si no hay company_id en empleados, obtener la primera empresa
-      if (!company && employeesData && employeesData.length > 0) {
+      // Cargar empresa usando el companyId del hook
+      if (companyId) {
         const { data: companyData } = await supabase
           .from('companies')
           .select('*')
-          .limit(1)
+          .eq('id', companyId)
           .single()
 
         if (companyData) {
@@ -153,25 +143,9 @@ export default function BulkAdvancesPage() {
       // Obtener usuario actual
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Obtener company_id
-      let companyId = company?.id
-      if (!companyId && employees.length > 0) {
-        const firstEmployee = employees[0]
-        companyId = firstEmployee.company_id
-      }
-
+      // Usar el companyId del hook (ya está disponible)
       if (!companyId) {
-        const { data: companyData } = await supabase
-          .from('companies')
-          .select('id')
-          .limit(1)
-          .single()
-
-        if (companyData) {
-          companyId = companyData.id
-        } else {
-          throw new Error('No se encontró una empresa configurada')
-        }
+        throw new Error('No se encontró una empresa seleccionada')
       }
 
       // Obtener último número de anticipo para generar correlativos

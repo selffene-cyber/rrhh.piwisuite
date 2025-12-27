@@ -12,18 +12,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
   },
   header: {
-    marginBottom: 15,
-    paddingBottom: 10,
+    marginBottom: 18,
   },
   title: {
     fontSize: 14,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
+    marginTop: 18,
     marginBottom: 15,
     textTransform: 'uppercase',
   },
   section: {
     marginBottom: 15,
+    marginTop: 0,
   },
   sectionTitle: {
     fontSize: 11,
@@ -109,13 +110,13 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
   footer: {
-    marginTop: 30,
+    marginTop: 24,
     paddingTop: 20,
   },
   signatureRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 40,
+    marginTop: 32,
   },
   signatureBox: {
     width: '45%',
@@ -149,36 +150,42 @@ const SettlementDocument = ({ settlement, employee, company, generateFileName }:
   return (
     <Document title={generateFileName()}>
       <Page size="A4" style={styles.page}>
-        {/* Paginador - esquina superior derecha */}
-        <View style={styles.pagination} fixed>
-          <Text
-            render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
-          />
-          {settlement.settlement_number && (
-            <Text style={{ marginTop: 2, fontSize: 8 }}>
-              {settlement.settlement_number}
-            </Text>
-          )}
+        {/* Encabezado: empresa a la izquierda, paginador a la derecha - misma altura */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          {/* Datos de la empresa - esquina superior izquierda */}
+          <View style={{ flex: 1 }}>
+            {company && (
+              <>
+                <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold' }}>
+                  {company.name || ''}
+                </Text>
+                <Text style={{ fontSize: 9 }}>{company.employer_name || ''}</Text>
+                <Text style={{ fontSize: 9 }}>RUT: {company.rut || ''}</Text>
+                {company.address && <Text style={{ fontSize: 9 }}>{company.address}</Text>}
+                {company.city && <Text style={{ fontSize: 9 }}>{company.city}</Text>}
+              </>
+            )}
+          </View>
+
+          {/* Paginador y ID - esquina superior derecha */}
+          <View style={{ width: 200, alignItems: 'flex-end' }} fixed>
+            <Text
+              style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
+              render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+            />
+            {settlement.settlement_number && (
+              <Text style={{ marginTop: 2, fontSize: 8, color: '#666', textAlign: 'right', width: '100%' }}>
+                {settlement.settlement_number}
+              </Text>
+            )}
+          </View>
         </View>
 
-        {/* Encabezado */}
-        <View style={styles.header}>
-          {company && (
-            <>
-              <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold' }}>
-                {company.name || ''}
-              </Text>
-              <Text style={{ fontSize: 9 }}>{company.employer_name || ''}</Text>
-              <Text style={{ fontSize: 9 }}>RUT: {company.rut || ''}</Text>
-              {company.address && <Text style={{ fontSize: 9 }}>{company.address}</Text>}
-              {company.city && <Text style={{ fontSize: 9 }}>{company.city}</Text>}
-            </>
-          )}
-          <Text style={styles.title}>FINIQUITO</Text>
-        </View>
+        {/* Título */}
+        <Text style={styles.title}>FINIQUITO</Text>
 
         {/* Párrafo introductorio: Relación laboral */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginTop: 13.5 }]}>
           <Text style={{ textAlign: 'justify', lineHeight: 1.5, fontSize: 9 }}>
             Entre <Text style={{ fontFamily: 'Helvetica-Bold' }}>{company?.employer_name || company?.name || 'el empleador'}</Text>, RUT {company?.rut || 'N/A'}, 
             en adelante "el Empleador", y <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.full_name || 'el trabajador'}</Text>, RUT {employee?.rut || 'N/A'}, 
@@ -304,13 +311,13 @@ const SettlementDocument = ({ settlement, employee, company, generateFileName }:
           <View style={styles.signatureRow}>
             <View style={styles.signatureBox}>
               <Text>{employee?.full_name || ''}</Text>
-              <Text style={{ fontSize: 7, marginTop: 20 }}>TRABAJADOR</Text>
-              <Text style={{ fontSize: 7 }}>RUT: {employee?.rut || ''}</Text>
+              <Text style={{ fontSize: 7, marginTop: 5 }}>TRABAJADOR</Text>
+              <Text style={{ fontSize: 7, marginTop: 2 }}>RUT: {employee?.rut || ''}</Text>
             </View>
             <View style={styles.signatureBox}>
               <Text>{company?.employer_name || company?.name || ''}</Text>
-              <Text style={{ fontSize: 7, marginTop: 20 }}>EMPLEADOR</Text>
-              <Text style={{ fontSize: 7 }}>RUT: {company?.rut || ''}</Text>
+              <Text style={{ fontSize: 7, marginTop: 5 }}>EMPLEADOR</Text>
+              <Text style={{ fontSize: 7, marginTop: 2 }}>RUT: {company?.rut || ''}</Text>
             </View>
           </View>
         </View>

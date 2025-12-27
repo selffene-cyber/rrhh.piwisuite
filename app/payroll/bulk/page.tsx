@@ -162,6 +162,25 @@ export default function BulkPayrollPage() {
           // Ajustar días trabajados si hay licencia médica
           const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays)
 
+          // Obtener anticipos del período (firmados o pagados, no descontados aún)
+          const periodStr = `${formData.year}-${String(formData.month).padStart(2, '0')}`
+          const { data: periodAdvances } = await supabase
+            .from('advances')
+            .select('*')
+            .eq('employee_id', employee.id)
+            .eq('period', periodStr)
+            .in('status', ['firmado', 'pagado'])
+            .is('payroll_slip_id', null) // Solo los que no han sido descontados
+
+          // Sumar anticipos del período
+          let totalAdvancesAmount = 0
+          if (periodAdvances && periodAdvances.length > 0) {
+            totalAdvancesAmount = periodAdvances.reduce((sum, adv) => sum + Number(adv.amount || 0), 0)
+          }
+
+          // Sumar anticipos manuales si los hay
+          totalAdvancesAmount += formData.advances
+
           // Obtener préstamos activos del trabajador
           const { data: activeLoans } = await supabase
             .from('loans')
@@ -205,7 +224,7 @@ export default function BulkPayrollPage() {
               mealAllowance: mealAllowance,
               aguinaldo: formData.aguinaldo,
               loans: totalLoansAmount,
-              advances: formData.advances,
+              advances: totalAdvancesAmount,
             },
             indicators,
             formData.year,
@@ -313,6 +332,19 @@ export default function BulkPayrollPage() {
                 })
                 .eq('id', loan.id)
             }
+          }
+
+          // Actualizar anticipos como descontados
+          if (periodAdvances && periodAdvances.length > 0) {
+            const advanceIds = periodAdvances.map(adv => adv.id)
+            await supabase
+              .from('advances')
+              .update({
+                status: 'descontado',
+                payroll_slip_id: slip.id,
+                discounted_at: new Date().toISOString(),
+              })
+              .in('id', advanceIds)
           }
 
           newSlips.push({ ...slip, employee_name: employee.full_name })

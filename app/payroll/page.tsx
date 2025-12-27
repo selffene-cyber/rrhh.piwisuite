@@ -11,18 +11,46 @@ export default function PayrollPage() {
   const { company: currentCompany } = useCurrentCompany()
   const [payrollSlips, setPayrollSlips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [employees, setEmployees] = useState<any[]>([])
   const [filterYear, setFilterYear] = useState<number | ''>('')
   const [filterMonth, setFilterMonth] = useState<number | ''>('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'issued' | 'sent'>('all')
+  const [filterEmployee, setFilterEmployee] = useState<string>('')
+
+  useEffect(() => {
+    if (currentCompany) {
+      loadEmployees()
+      loadPayrollSlips()
+    } else {
+      setPayrollSlips([])
+      setEmployees([])
+      setLoading(false)
+    }
+  }, [currentCompany])
 
   useEffect(() => {
     if (currentCompany) {
       loadPayrollSlips()
-    } else {
-      setPayrollSlips([])
-      setLoading(false)
     }
-  }, [currentCompany, filterYear, filterMonth, filterStatus])
+  }, [currentCompany, filterYear, filterMonth, filterStatus, filterEmployee])
+
+  const loadEmployees = async () => {
+    if (!currentCompany) return
+
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, full_name, rut')
+        .eq('company_id', currentCompany.id)
+        .eq('status', 'active')
+        .order('full_name', { ascending: true })
+
+      if (error) throw error
+      setEmployees(data || [])
+    } catch (error: any) {
+      console.error('Error al cargar trabajadores:', error)
+    }
+  }
 
   const loadPayrollSlips = async () => {
     if (!currentCompany) return
@@ -76,6 +104,12 @@ export default function PayrollPage() {
       if (filterMonth) {
         filtered = filtered.filter((slip: any) => 
           slip.payroll_periods && slip.payroll_periods.month === filterMonth
+        )
+      }
+
+      if (filterEmployee) {
+        filtered = filtered.filter((slip: any) => 
+          slip.employee_id === filterEmployee
         )
       }
 
@@ -194,6 +228,20 @@ export default function PayrollPage() {
         <h2>Filtros</h2>
         <div className="form-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           <div className="form-group">
+            <label>Trabajador</label>
+            <select
+              value={filterEmployee}
+              onChange={(e) => setFilterEmployee(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.full_name} - {emp.rut}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
             <label>Año</label>
             <select
               value={filterYear}
@@ -249,7 +297,7 @@ export default function PayrollPage() {
         {payrollSlips.length === 0 ? (
           <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
             No hay liquidaciones que coincidan con los filtros seleccionados.
-            {filterStatus === 'all' && !filterYear && !filterMonth && (
+            {filterStatus === 'all' && !filterYear && !filterMonth && !filterEmployee && (
               <> <Link href="/payroll/new">Crear una nueva</Link></>
             )}
           </p>
