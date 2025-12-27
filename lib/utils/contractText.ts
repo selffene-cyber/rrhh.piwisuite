@@ -74,10 +74,10 @@ export function generateContractText(contract: any, employee: any, company: any)
   }
 
   // Párrafo inicial
-  let text = `En ${company?.city || 'Santiago'}, a ${contractDate}, entre ${company?.name || 'EMPRESA'}, R.U.T ${company?.rut || 'N/A'}, representado legalmente por ${company?.employer_name || 'REPRESENTANTE LEGAL'}, cédula de identidad ${company?.rut || 'N/A'}, ambos con domicilio en ${company?.address || 'N/A'}${company?.city ? `, comuna de ${company.city}` : ''}, en adelante el "Empleador" y ${genderPrefix}: *${employee?.full_name || 'N/A'}*, con Rut: ${employee?.rut || 'N/A'}, de nacionalidad ${nationality}. ${birthDate ? `Con fecha de nacimiento el ${birthDate}, ` : ''}domiciliado(a) en ${employee?.address || 'N/A'}, de estado civil ${maritalStatus}, en adelante "Trabajador". Se ha convenido el siguiente CONTRATO DE TRABAJO, para cuyo efecto, las partes convienen denominarse respectivamente *EMPLEADOR* Y *TRABAJADOR*.\n\n`
+  let text = `En ${company?.city || 'Santiago'}, a ${contractDate}, entre *${company?.name || 'EMPRESA'}*, R.U.T ${company?.rut || 'N/A'}, representado legalmente por ${company?.employer_name || 'REPRESENTANTE LEGAL'}, cédula de identidad ${company?.rut || 'N/A'}, ambos con domicilio en ${company?.address || 'N/A'}${company?.city ? `, comuna de ${company.city}` : ''}, en adelante el "Empleador" y ${genderPrefix}: *${employee?.full_name || 'N/A'}*, con Rut: ${employee?.rut || 'N/A'}, de nacionalidad ${nationality}. ${birthDate ? `Con fecha de nacimiento el ${birthDate}, ` : ''}domiciliado(a) en ${employee?.address || 'N/A'}, de estado civil ${maritalStatus}, en adelante "Trabajador". Se ha convenido el siguiente CONTRATO DE TRABAJO, para cuyo efecto, las partes convienen denominarse respectivamente *EMPLEADOR* Y *TRABAJADOR*.\n\n`
 
   // PRIMERO: Cargo y funciones
-  text += `PRIMERO: El trabajador se compromete y obliga a prestar servicios como ${contract.position || 'N/A'} o función similar, que tenga directa relación con el cargo ya indicado, este trabajo se realizará en ${contract.work_location || 'las instalaciones de la empresa'}, así como en las diferentes faenas y trabajos particulares que ${company?.name || 'la empresa'} estime conveniente y necesario. Pudiendo ser trasladado a otro lugar, tanto dentro y/o fuera de la región, no importando menoscabo para el TRABAJADOR.`
+  text += `PRIMERO: El trabajador se compromete y obliga a prestar servicios como *${contract.position || 'N/A'}* o función similar, que tenga directa relación con el cargo ya indicado, este trabajo se realizará en ${contract.work_location || 'las instalaciones de la empresa'}, así como en las diferentes faenas y trabajos particulares que ${company?.name || 'la empresa'} estime conveniente y necesario. Pudiendo ser trasladado a otro lugar, tanto dentro y/o fuera de la región, no importando menoscabo para el TRABAJADOR.`
   if (contract.position_description) {
     text += ` ${contract.position_description}`
   }
@@ -109,7 +109,7 @@ export function generateContractText(contract: any, employee: any, company: any)
     }
   }
   
-  text += `El trabajador cumplirá una jornada semanal ordinaria máxima de cuarenta horas, conforme a lo establecido en la Ley N° 21.561, que modifica el Código del Trabajo en materia de jornada laboral. Esta jornada se distribuirá de lunes a viernes, de acuerdo a la siguiente distribución referencial diaria: ${scheduleText}. El horario de ingreso será a las ${startTime} horas.\n\n`
+  text += `El trabajador cumplirá una jornada semanal ordinaria máxima de cuarenta horas, conforme a lo establecido en la Ley N° 21.561, que modifica el Código del Trabajo en materia de jornada laboral. Esta jornada se distribuirá de lunes a viernes, de acuerdo a la siguiente distribución referencial diaria: *${scheduleText}*. El horario de ingreso será a las *${startTime}* horas.\n\n`
   
   const lunchMinutes = contract.lunch_break_duration || 60
   const lunchHours = Math.floor(lunchMinutes / 60)
@@ -144,9 +144,12 @@ export function generateContractText(contract: any, employee: any, company: any)
   
   const paymentDay = contract.payment_periodicity === 'mensual' ? '5' : contract.payment_periodicity === 'quincenal' ? '5 y 20' : 'cada viernes'
   const paymentMethod = contract.payment_method === 'transferencia' 
-    ? `transferencia bancaria${contract.bank_name ? ` en ${contract.bank_name}${contract.account_type ? `, cuenta ${contract.account_type === 'corriente' ? 'corriente' : contract.account_type === 'ahorro' ? 'de ahorro' : 'vista'}${contract.account_number ? ` N° ${contract.account_number}` : ''}` : ''}` : ''}`
+    ? `transferencia bancaria${contract.bank_name ? ` en *${contract.bank_name}*${contract.account_type ? `, cuenta *${contract.account_type === 'corriente' ? 'corriente' : contract.account_type === 'ahorro' ? 'de ahorro' : 'vista'}*${contract.account_number ? ` N° *${contract.account_number}*` : ''}` : ''}` : ''}`
     : contract.payment_method === 'efectivo' ? 'efectivo' : 'cheque'
   text += `Las remuneraciones se pagarán los días ${paymentDay} de cada mes por período vencido, mediante ${paymentMethod}.\n\n`
+  
+  text += `Sin perjuicio de la remuneración imponible pactada, el empleador podrá pagar al trabajador asignaciones por concepto de movilización y colación, las cuales no constituyen remuneración para ningún efecto legal, de conformidad a lo dispuesto en el artículo 41 inciso segundo del Código del Trabajo, por cuanto tienen como único objeto compensar gastos efectivos en que el trabajador incurra con ocasión de la prestación de sus servicios.\n\n`
+  text += `Dichas asignaciones se devengarán exclusivamente por día efectivamente trabajado, encontrándose condicionadas a la asistencia real del trabajador, a la faena, lugar de prestación de servicios, jornada o sistema de turnos aplicable. En consecuencia, su monto, forma de cálculo o procedencia podrán variar según dichas condiciones operativas, manteniendo siempre su carácter compensatorio y no incorporándose a la base de cálculo de remuneraciones, indemnizaciones, cotizaciones previsionales ni otros beneficios laborales.\n\n`
 
   // QUINTO: Descuentos legales
   text += `QUINTO: El trabajador acepta y autoriza al empleador para que éste practique de sus remuneraciones los descuentos a que se refiere el inciso primero del artículo 58 del código del trabajo como, asimismo, descuente el tiempo no trabajado debido a inasistencia, atrasos o permisos; además de las multas señaladas en el reglamento interno de orden higiene y seguridad.\n\n`

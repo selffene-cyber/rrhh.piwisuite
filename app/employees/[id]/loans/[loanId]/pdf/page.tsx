@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import LoanPDF from '@/components/LoanPDF'
 
 export default async function LoanPDFPage({ params }: { params: { id: string, loanId: string } }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   const { data: loan, error: loanError } = await supabase
     .from('loans')

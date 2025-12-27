@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Layout from '@/components/Layout'
+import { CompanyProvider } from '@/lib/contexts/CompanyContext'
 
 export const metadata: Metadata = {
   title: 'Sistema de Remuneraciones - Chile',
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <Layout>{children}</Layout>
+        <CompanyProvider>
+          <Layout>{children}</Layout>
+        </CompanyProvider>
       </body>
     </html>
   )

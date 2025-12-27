@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd } from 'react-icons/fa'
+import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen } from 'react-icons/fa'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
@@ -361,16 +361,25 @@ export default function HomePage() {
       let taxMonthUsed = nextMonthNum
       let taxYearUsed = nextYear
       try {
-        const { getTaxBrackets } = await import('@/lib/services/taxBracketsScraper')
-        const bracketsNext = await getTaxBrackets(nextYear, nextMonthNum, 'MENSUAL')
-        if (!bracketsNext || bracketsNext.length === 0) {
-          const now = new Date()
-          const currentYear = now.getFullYear()
-          const currentMonth = now.getMonth() + 1
-          const bracketsCurrent = await getTaxBrackets(currentYear, currentMonth, 'MENSUAL')
-          if (bracketsCurrent && bracketsCurrent.length > 0) {
-            taxMonthUsed = currentMonth
-            taxYearUsed = currentYear
+        // Llamar a API route en lugar de importar directamente
+        const responseNext = await fetch(`/api/tax-brackets?year=${nextYear}&month=${nextMonthNum}&period_type=MENSUAL`)
+        if (responseNext.ok) {
+          const dataNext = await responseNext.json()
+          const bracketsNext = dataNext.brackets || null
+          if (!bracketsNext || bracketsNext.length === 0) {
+            const now = new Date()
+            const currentYear = now.getFullYear()
+            const currentMonth = now.getMonth() + 1
+            // Llamar a API route en lugar de importar directamente
+            const responseCurrent = await fetch(`/api/tax-brackets?year=${currentYear}&month=${currentMonth}&period_type=MENSUAL`)
+            if (responseCurrent.ok) {
+              const dataCurrent = await responseCurrent.json()
+              const bracketsCurrent = dataCurrent.brackets || null
+              if (bracketsCurrent && bracketsCurrent.length > 0) {
+                taxMonthUsed = currentMonth
+                taxYearUsed = currentYear
+              }
+            }
           }
         }
       } catch (error) {
@@ -555,54 +564,66 @@ export default function HomePage() {
       }}
       className="stats-grid"
       >
-        <div className="card" style={{ 
-          background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-          color: 'white',
-          border: 'none'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <p style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>Trabajadores Activos</p>
-              <p style={{ fontSize: '36px', fontWeight: 'bold', margin: 0 }}>
-                {employeesCount || 0}
-              </p>
-            </div>
-            <div style={{ 
-              width: '56px', 
-              height: '56px', 
-              borderRadius: '12px', 
-              background: 'rgba(255, 255, 255, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaUsers size={24} />
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            borderRadius: '12px',
+            border: '2px solid #3b82f6'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#1e40af', marginBottom: '8px', fontWeight: '500' }}>
+                  TRABAJADORES ACTIVOS
+                </p>
+                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#1e3a8a', margin: 0 }}>
+                  {employeesCount || 0}
+                </p>
+              </div>
+              <div style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '12px', 
+                background: 'rgba(255, 255, 255, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#1e40af'
+              }}>
+                <FaUsers size={24} />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="card" style={{ 
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-          color: 'white',
-          border: 'none'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <p style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>Liquidaciones Confirmadas</p>
-              <p style={{ fontSize: '36px', fontWeight: 'bold', margin: 0 }}>
-                {payrollCount || 0}
-              </p>
-            </div>
-            <div style={{ 
-              width: '56px', 
-              height: '56px', 
-              borderRadius: '12px', 
-              background: 'rgba(255, 255, 255, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaFileInvoiceDollar size={24} />
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            borderRadius: '12px',
+            border: '2px solid #10b981'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#065f46', marginBottom: '8px', fontWeight: '500' }}>
+                  LIQUIDACIONES CONFIRMADAS
+                </p>
+                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#064e3b', margin: 0 }}>
+                  {payrollCount || 0}
+                </p>
+              </div>
+              <div style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '12px', 
+                background: 'rgba(255, 255, 255, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#065f46'
+              }}>
+                <FaFileInvoiceDollar size={24} />
+              </div>
             </div>
           </div>
         </div>
@@ -611,7 +632,7 @@ export default function HomePage() {
       {/* Accesos Rápidos */}
       <div className="card" style={{ marginBottom: '32px' }}>
         <h2 style={{ marginBottom: '20px' }}>Accesos Rápidos</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
           <Link href="/employees" style={{ textDecoration: 'none' }}>
             <div style={{
               padding: '20px',
@@ -788,53 +809,8 @@ export default function HomePage() {
             </div>
           </Link>
 
-          <Link href="/settings" style={{ textDecoration: 'none' }}>
-            <div style={{
-              padding: '20px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px',
-              background: 'white',
-              transition: 'all 0.2s ease',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              height: '88px',
-              boxSizing: 'border-box'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#2563eb'
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(37, 99, 235, 0.1)'
-              e.currentTarget.style.transform = 'translateY(-2px)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#e5e7eb'
-              e.currentTarget.style.boxShadow = 'none'
-              e.currentTarget.style.transform = 'translateY(0)'
-            }}
-            >
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '10px',
-                background: '#f3f4f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#6b7280'
-              }}>
-                <FaCog size={20} />
-              </div>
-              <div>
-                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Configuración</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ajustes sistema</div>
-              </div>
-            </div>
-          </Link>
-        </div>
-        {/* Segunda fila - Anticipos y Préstamos */}
-        <div style={{ display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap' }}>
-          <Link href="/advances" style={{ textDecoration: 'none', width: '200px' }}>
+          {/* Anticipos */}
+          <Link href="/advances" style={{ textDecoration: 'none' }}>
             <div style={{
               padding: '20px',
               border: '1px solid #e5e7eb',
@@ -877,7 +853,139 @@ export default function HomePage() {
               </div>
             </div>
           </Link>
-          <Link href="/loans" style={{ textDecoration: 'none', width: '200px' }}>
+          {/* Cartas de Amonestación */}
+          <Link href="/disciplinary-actions" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#f59e0b'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(245, 158, 11, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#fef3c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#f59e0b'
+              }}>
+                <FaExclamationTriangle size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Cartas de Amonestación</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Gestionar amonestaciones</div>
+              </div>
+            </div>
+          </Link>
+          {/* Permisos */}
+          <Link href="/permissions" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#3b82f6'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(59, 130, 246, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#dbeafe',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#3b82f6'
+              }}>
+                <FaCalendarCheck size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Permisos</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Gestionar permisos</div>
+              </div>
+            </div>
+          </Link>
+          {/* Banco de Documentos */}
+          <Link href="/documents" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#059669'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(5, 150, 105, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#d1fae5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#059669'
+              }}>
+                <FaFolderOpen size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Banco de Documentos</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Gestionar documentos</div>
+              </div>
+            </div>
+          </Link>
+          <Link href="/loans" style={{ textDecoration: 'none' }}>
             <div style={{
               padding: '20px',
               border: '1px solid #e5e7eb',
@@ -917,6 +1025,50 @@ export default function HomePage() {
               <div>
                 <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Gestionar Préstamos</div>
                 <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver préstamos</div>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/settings" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#2563eb'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(37, 99, 235, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#6b7280'
+              }}>
+                <FaCog size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Configuración</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Ajustes sistema</div>
               </div>
             </div>
           </Link>

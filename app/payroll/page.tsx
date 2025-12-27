@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { FaEye, FaTrash } from 'react-icons/fa'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function PayrollPage() {
+  const { company: currentCompany } = useCurrentCompany()
   const [payrollSlips, setPayrollSlips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filterYear, setFilterYear] = useState<number | ''>('')
@@ -14,19 +16,45 @@ export default function PayrollPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'issued' | 'sent'>('all')
 
   useEffect(() => {
-    loadPayrollSlips()
-  }, [filterYear, filterMonth, filterStatus])
+    if (currentCompany) {
+      loadPayrollSlips()
+    } else {
+      setPayrollSlips([])
+      setLoading(false)
+    }
+  }, [currentCompany, filterYear, filterMonth, filterStatus])
 
   const loadPayrollSlips = async () => {
+    if (!currentCompany) return
+
     try {
       setLoading(true)
+      
+      // Primero obtener los IDs de los empleados de la empresa actual
+      const { data: employees, error: employeesError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', currentCompany.id)
+
+      if (employeesError) throw employeesError
+
+      if (!employees || employees.length === 0) {
+        setPayrollSlips([])
+        setLoading(false)
+        return
+      }
+
+      const employeeIds = employees.map(emp => emp.id)
+
+      // Obtener las liquidaciones solo de los empleados de la empresa actual
       const { data, error } = await supabase
         .from('payroll_slips')
         .select(`
           *,
-          employees (full_name, rut),
+          employees (full_name, rut, company_id),
           payroll_periods (year, month)
         `)
+        .in('employee_id', employeeIds)
         .order('created_at', { ascending: false })
         .limit(200)
 
@@ -121,6 +149,19 @@ export default function PayrollPage() {
 
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
+
+  if (!currentCompany) {
+    return (
+      <div>
+        <h1>Liquidaciones de Sueldo</h1>
+        <div className="card">
+          <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
+            Seleccione una empresa para ver las liquidaciones.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

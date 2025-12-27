@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClientForAPI } from '@/lib/supabase/server-api'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClientForAPI(request)
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get('company_id')
 

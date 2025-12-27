@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import AdvancePDFViewer from '@/components/AdvancePDF'
 
 export default async function AdvancePDFPage({ params }: { params: { id: string } }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   const { data: advance, error: advanceError } = await supabase
     .from('advances')

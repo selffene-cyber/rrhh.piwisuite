@@ -28,6 +28,7 @@ export async function calculatePayroll(
     aguinaldo = 0,
     loans = 0,
     advances = 0,
+    permissionDiscount = 0,
   } = input
 
   // Sueldo base proporcional a días trabajados (redondear hacia arriba)
@@ -289,7 +290,8 @@ export async function calculatePayroll(
   const otherDeductions = {
     loans: Math.ceil(loans),
     advances: Math.ceil(advances),
-    total: Math.ceil(loans + advances),
+    permissionDiscount: Math.ceil(permissionDiscount),
+    total: Math.ceil(loans + advances + permissionDiscount),
   }
 
   // Total haberes (ya están redondeados arriba)

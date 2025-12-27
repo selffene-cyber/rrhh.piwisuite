@@ -108,17 +108,15 @@ export function AdvancePDF({ advance, company, employee }: AdvancePDFProps) {
   return (
     <Page size="A4" style={styles.page}>
       {/* ID del anticipo y paginador en esquina superior derecha */}
-      <View style={{ position: 'absolute', top: 20, right: 40 }}>
+      <View style={{ position: 'absolute', top: 20, right: 40, width: 200, alignItems: 'flex-end' }}>
         <Text
-          style={{ fontSize: 9, color: '#666', textAlign: 'right' }}
+          style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
           render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
           fixed
         />
-        {advance.advance_number && (
-          <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2 }} fixed>
-            ID Anticipo: {advance.advance_number}
-          </Text>
-        )}
+        <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2, width: '100%' }} fixed>
+          ID Anticipo: {advance.advance_number || `ANT-${advance.id.substring(0, 2).toUpperCase()}`}
+        </Text>
       </View>
 
         {/* Header */}

@@ -196,23 +196,56 @@ export default function VacationsDashboardPage() {
           </div>
           
           <div className="card" style={{ marginBottom: '24px' }}>
-            <h3>Resumen de Vacaciones</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
-              <div>
-                <label style={{ fontSize: '12px', color: '#6b7280' }}>Total Acumulado</label>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0369a1' }}>
+            <h3 style={{ marginBottom: '16px' }}>Resumen de Vacaciones</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div style={{
+                padding: '20px',
+                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                borderRadius: '12px',
+                border: '2px solid #3b82f6'
+              }}>
+                <p style={{ fontSize: '12px', color: '#1e40af', marginBottom: '8px', fontWeight: '500' }}>
+                  TOTAL ACUMULADO
+                </p>
+                <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#1e3a8a', margin: 0 }}>
                   {selectedEmployeeData.totalAccumulated.toFixed(2)} días
                 </p>
               </div>
-              <div>
-                <label style={{ fontSize: '12px', color: '#6b7280' }}>Total Usado</label>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc2626' }}>
+              <div style={{
+                padding: '20px',
+                background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                borderRadius: '12px',
+                border: '2px solid #ef4444'
+              }}>
+                <p style={{ fontSize: '12px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
+                  TOTAL USADO
+                </p>
+                <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
                   {selectedEmployeeData.totalUsed} días
                 </p>
               </div>
-              <div>
-                <label style={{ fontSize: '12px', color: '#6b7280' }}>Total Disponible</label>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: selectedEmployeeData.totalAvailable >= 0 ? '#059669' : '#dc2626' }}>
+              <div style={{
+                padding: '20px',
+                background: selectedEmployeeData.totalAvailable >= 0 
+                  ? 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)'
+                  : 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                borderRadius: '12px',
+                border: selectedEmployeeData.totalAvailable >= 0 ? '2px solid #10b981' : '2px solid #ef4444'
+              }}>
+                <p style={{ 
+                  fontSize: '12px', 
+                  color: selectedEmployeeData.totalAvailable >= 0 ? '#065f46' : '#991b1b', 
+                  marginBottom: '8px', 
+                  fontWeight: '500' 
+                }}>
+                  TOTAL DISPONIBLE
+                </p>
+                <p style={{ 
+                  fontSize: '28px', 
+                  fontWeight: 'bold', 
+                  color: selectedEmployeeData.totalAvailable >= 0 ? '#064e3b' : '#7f1d1d', 
+                  margin: 0 
+                }}>
                   {selectedEmployeeData.totalAvailable.toFixed(2)} días
                 </p>
               </div>
@@ -282,53 +315,62 @@ export default function VacationsDashboardPage() {
             gap: '16px', 
             marginBottom: '24px' 
           }}>
-            <div className="card" style={{ 
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              border: 'none'
-            }}>
-              <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>
-                Trabajadores con Múltiples Períodos
-              </div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold' }}>
-                {stats.workersWithMultiplePeriods}
-              </div>
-              <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>
-                {employees.length > 0 
-                  ? `${((stats.workersWithMultiplePeriods / employees.length) * 100).toFixed(0)}% del total`
-                  : '0%'}
-              </div>
-            </div>
-
-            <div className="card" style={{ 
-              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-              color: 'white',
-              border: 'none'
-            }}>
-              <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>
-                Total Días Acumulados
-              </div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold' }}>
-                {stats.totalAccumulated.toFixed(0)}
-              </div>
-              <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>
-                Entre todos los trabajadores
+            <div className="card" style={{ padding: 0 }}>
+              <div style={{
+                padding: '20px',
+                background: 'linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%)',
+                borderRadius: '12px',
+                border: '2px solid #8b5cf6'
+              }}>
+                <p style={{ fontSize: '12px', color: '#6b21a8', marginBottom: '8px', fontWeight: '500' }}>
+                  TRABAJADORES CON MÚLTIPLES PERÍODOS
+                </p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#581c87', margin: 0, marginBottom: '8px' }}>
+                  {stats.workersWithMultiplePeriods}
+                </p>
+                <p style={{ fontSize: '12px', color: '#6b21a8', margin: 0 }}>
+                  {employees.length > 0 
+                    ? `${((stats.workersWithMultiplePeriods / employees.length) * 100).toFixed(0)}% del total`
+                    : '0%'}
+                </p>
               </div>
             </div>
 
-            <div className="card" style={{ 
-              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-              color: 'white',
-              border: 'none'
-            }}>
-              <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>
-                Con Saldo Negativo
+            <div className="card" style={{ padding: 0 }}>
+              <div style={{
+                padding: '20px',
+                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                borderRadius: '12px',
+                border: '2px solid #f59e0b'
+              }}>
+                <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px', fontWeight: '500' }}>
+                  TOTAL DÍAS ACUMULADOS
+                </p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#78350f', margin: 0, marginBottom: '8px' }}>
+                  {stats.totalAccumulated.toFixed(0)}
+                </p>
+                <p style={{ fontSize: '12px', color: '#92400e', margin: 0 }}>
+                  Entre todos los trabajadores
+                </p>
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold' }}>
-                {stats.workersWithNegativeBalance}
-              </div>
-              <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>
-                Días de períodos futuros
+            </div>
+
+            <div className="card" style={{ padding: 0 }}>
+              <div style={{
+                padding: '20px',
+                background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
+                borderRadius: '12px',
+                border: '2px solid #ec4899'
+              }}>
+                <p style={{ fontSize: '12px', color: '#9f1239', marginBottom: '8px', fontWeight: '500' }}>
+                  CON SALDO NEGATIVO
+                </p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#831843', margin: 0, marginBottom: '8px' }}>
+                  {stats.workersWithNegativeBalance}
+                </p>
+                <p style={{ fontSize: '12px', color: '#9f1239', margin: 0 }}>
+                  Días de períodos futuros
+                </p>
               </div>
             </div>
           </div>

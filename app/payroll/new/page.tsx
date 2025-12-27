@@ -39,6 +39,7 @@ export default function NewPayrollPage() {
   const [loansToPay, setLoansToPay] = useState<any[]>([])
   const [medicalLeaveDays, setMedicalLeaveDays] = useState(0)
   const [vacationDays, setVacationDays] = useState(0)
+  const [permissionDaysWithoutPay, setPermissionDaysWithoutPay] = useState(0)
   const [periodAdvances, setPeriodAdvances] = useState<any[]>([])
 
   useEffect(() => {
@@ -160,11 +161,57 @@ export default function NewPayrollPage() {
       }
     }
 
-    // Ajustar días trabajados si hay licencia médica
+    // Obtener permisos sin goce de sueldo del período (aprobados, no aplicados aún)
+    const { data: periodPermissions } = await supabase
+      .from('permissions')
+      .select('*, permission_types (*)')
+      .eq('employee_id', selectedEmployee.id)
+      .eq('status', 'approved')
+      .eq('applied_to_payroll', false)
+      .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
+
+    // Calcular días de permisos sin goce en el período
+    let permissionDaysWithoutPay = 0
+    let totalPermissionDiscount = 0
+    const permissionsToApply: any[] = []
+
+    if (periodPermissions && periodPermissions.length > 0) {
+      for (const permission of periodPermissions) {
+        const permType = permission.permission_types
+        // Solo considerar permisos sin goce de sueldo
+        if (permType && permType.affects_payroll) {
+          const permStart = new Date(permission.start_date)
+          const permEnd = new Date(permission.end_date)
+          
+          // Calcular intersección entre período y permiso
+          const overlapStart = permStart > periodStart ? permStart : periodStart
+          const overlapEnd = permEnd < periodEnd ? permEnd : periodEnd
+          
+          if (overlapStart <= overlapEnd) {
+            const diffTime = overlapEnd.getTime() - overlapStart.getTime()
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+            permissionDaysWithoutPay += diffDays
+            
+            // Calcular descuento: (sueldo_base / 30) * días_permiso
+            const discount = Math.round((selectedEmployee.base_salary / 30) * diffDays)
+            totalPermissionDiscount += discount
+            
+            permissionsToApply.push({
+              ...permission,
+              days_in_period: diffDays,
+              discount_amount: discount,
+            })
+          }
+        }
+      }
+    }
+
+    // Ajustar días trabajados si hay licencia médica o permisos sin goce
     // NOTA: Las vacaciones NO descuentan días trabajados (se pagan como días normales)
-    const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays)
+    const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays - permissionDaysWithoutPay)
     setMedicalLeaveDays(leaveDays)
     setVacationDays(vacationDays)
+    setPermissionDaysWithoutPay(permissionDaysWithoutPay)
 
     // Obtener préstamos activos del trabajador
     const { data: activeLoans } = await supabase
@@ -242,15 +289,20 @@ export default function NewPayrollPage() {
         aguinaldo: formData.aguinaldo,
         loans: totalLoansAmount,
         advances: totalAdvancesAmount,
+        permissionDiscount: totalPermissionDiscount, // Descuento por permisos sin goce
       },
       indicators,
       formData.year,
       formData.month
     )
 
-    // Guardar información de préstamos y anticipos para usar al guardar
+    // Guardar información de préstamos, anticipos y permisos para usar al guardar
     setLoansToPay(loansToPay)
-    setCalculation({ ...result, periodAdvances: periodAdvances || [] })
+    setCalculation({ 
+      ...result, 
+      periodAdvances: periodAdvances || [],
+      periodPermissions: permissionsToApply,
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -333,6 +385,26 @@ export default function NewPayrollPage() {
         }
       }
 
+      // Marcar permisos como aplicados y linkearlos a la liquidación
+      if (calculation.periodPermissions && calculation.periodPermissions.length > 0) {
+        for (const permission of calculation.periodPermissions) {
+          const { error: permissionError } = await supabase
+            .from('permissions')
+            .update({
+              status: 'applied',
+              applied_to_payroll: true,
+              payroll_slip_id: slip.id,
+              discount_amount: permission.discount_amount,
+            })
+            .eq('id', permission.id)
+
+          if (permissionError) {
+            console.error('Error al actualizar permiso:', permissionError)
+            // No lanzamos error, solo lo registramos
+          }
+        }
+      }
+
       // Crear ítems de liquidación
       console.log('Cálculo completo:', calculation)
       console.log('Descuentos legales:', calculation.legalDeductions)
@@ -344,9 +416,15 @@ export default function NewPayrollPage() {
         { 
           type: 'taxable_earning', 
           category: 'sueldo_base', 
-          description: medicalLeaveDays > 0 
-            ? `Sueldo Base Días Trabajados (${effectiveDaysWorked} días - ${medicalLeaveDays} días licencia médica)` 
-            : 'Sueldo Base Días Trabajados', 
+          description: (() => {
+            const parts = []
+            if (medicalLeaveDays > 0) parts.push(`${medicalLeaveDays} días licencia médica`)
+            if (permissionDaysWithoutPay > 0) parts.push(`${permissionDaysWithoutPay} días permiso sin goce`)
+            if (parts.length > 0) {
+              return `Sueldo Base Días Trabajados (${effectiveDaysWorked} días - ${parts.join(', ')})`
+            }
+            return 'Sueldo Base Días Trabajados'
+          })(),
           amount: calculation.taxableEarnings.baseSalary 
         },
         { type: 'taxable_earning', category: 'gratificacion', description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
@@ -380,6 +458,13 @@ export default function NewPayrollPage() {
         // Otros descuentos
         { type: 'other_deduction', category: 'prestamo', description: 'Préstamo', amount: calculation.otherDeductions.loans },
         { type: 'other_deduction', category: 'anticipo', description: 'Anticipo', amount: calculation.otherDeductions.advances },
+        // Descuento por permisos sin goce de sueldo
+        ...(calculation.otherDeductions.permissionDiscount && calculation.otherDeductions.permissionDiscount > 0 ? [{
+          type: 'other_deduction' as const,
+          category: 'permiso_sin_goce',
+          description: 'Descuento Permiso sin Goce de Sueldo',
+          amount: calculation.otherDeductions.permissionDiscount
+        }] : []),
       ].filter(item => item.amount > 0)
 
       const { error: itemsError } = await supabase

@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClientForAPI } from '@/lib/supabase/server-api'
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClientForAPI(request)
     const { id } = params
 
     const { error } = await supabase

@@ -1,10 +1,10 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClientForAPI(request)
     
     // Verificar que el usuario esté autenticado y sea super admin
     const { data: { user } } = await supabase.auth.getUser()

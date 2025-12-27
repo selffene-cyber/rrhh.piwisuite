@@ -35,6 +35,7 @@ export type PayrollCalculationInput = {
   // Otros descuentos
   loans?: number
   advances?: number
+  permissionDiscount?: number // Descuento por permisos sin goce de sueldo
 }
 
 export type PayrollCalculationResult = {
@@ -65,6 +66,7 @@ export type PayrollCalculationResult = {
   otherDeductions: {
     loans: number
     advances: number
+    permissionDiscount?: number
     total: number
   }
   netPay: number

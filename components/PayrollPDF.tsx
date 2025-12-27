@@ -147,6 +147,16 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
   }
   
   const otherDeductions = slip.payroll_items?.filter((item: any) => item.type === 'other_deduction') || []
+  
+  // Calcular total de otros descuentos dinámicamente
+  const otherDeductionsFromItems = otherDeductions
+    .filter((item: any) => item.category !== 'prestamo' && item.category !== 'anticipo')
+    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  
+  const loansTotal = (loanPayments || []).reduce((sum: number, lp: any) => sum + Number(lp.amount || 0), 0)
+  const advancesTotal = (advances || []).reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
+  
+  const calculatedTotalOtherDeductions = otherDeductionsFromItems + loansTotal + advancesTotal
 
   return (
     <Document title={generateFileName()}>
@@ -371,80 +381,73 @@ const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, gen
                 </View>
 
                 <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 5, fontSize: 8 }}>OTROS DESCUENTOS</Text>
-                {otherDeductions.map((item: any) => {
-                  // Si es un préstamo, mostrar con detalle
-                  if (item.category === 'prestamo' && loanPayments && loanPayments.length > 0) {
-                    const totalLoans = loanPayments.reduce((sum: number, lp: any) => sum + Number(lp.amount || 0), 0)
-                    return (
-                      <View key={item.id} style={{ marginBottom: 4 }}>
-                        <View style={[styles.row, { marginBottom: 2 }]}>
-                          <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>PRESTAMO:</Text>
-                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>{formatCurrency(totalLoans)}</Text>
+                {/* Mostrar préstamos una sola vez si existen */}
+                {loanPayments && loanPayments.length > 0 && (
+                  <View style={{ marginBottom: 4 }}>
+                    <View style={[styles.row, { marginBottom: 2 }]}>
+                      <Text style={{ width: '55%', fontSize: 7 }}>PRESTAMO:</Text>
+                      <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
+                        {formatCurrency(loanPayments.reduce((sum: number, lp: any) => sum + Number(lp.amount || 0), 0))}
+                      </Text>
+                    </View>
+                    {loanPayments.map((lp: any, idx: number) => {
+                      const loan = lp.loans
+                      return (
+                        <View key={lp.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
+                          <Text style={{ width: '55%', fontSize: 6 }}>
+                            {loan?.loan_number || 'PT-XX'} - Cuota {lp.installment_number}/{loan?.installments || 0}
+                          </Text>
+                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 6 }}>{formatCurrency(lp.amount || 0)}</Text>
                         </View>
-                        {loanPayments.map((lp: any, idx: number) => {
-                          const loan = lp.loans
-                          return (
-                            <View key={lp.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
-                              <Text style={{ width: '55%', fontSize: 6 }}>
-                                {loan?.loan_number || 'PT-XX'} - Cuota {lp.installment_number}/{loan?.installments || 0}
-                              </Text>
-                              <Text style={{ width: '45%', textAlign: 'right', fontSize: 6 }}>{formatCurrency(lp.amount || 0)}</Text>
-                            </View>
-                          )
-                        })}
+                      )
+                    })}
+                  </View>
+                )}
+                {/* Mostrar anticipos una sola vez si existen */}
+                {advances && advances.length > 0 && (
+                  <View style={{ marginBottom: 4 }}>
+                    <View style={[styles.row, { marginBottom: 2 }]}>
+                      <Text style={{ width: '55%', fontSize: 7 }}>ANTICIPO:</Text>
+                      <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
+                        {formatCurrency(advances.reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0))}
+                      </Text>
+                    </View>
+                    {advances.map((adv: any, idx: number) => (
+                      <View key={adv.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
+                        <Text style={{ width: '55%', fontSize: 6 }}>
+                          {adv.advance_number || `ANT-${adv.id.substring(0, 8).toUpperCase()}`} - {formatDate(adv.advance_date)}
+                        </Text>
+                        <Text style={{ width: '45%', textAlign: 'right', fontSize: 6 }}>{formatCurrency(adv.amount || 0)}</Text>
                       </View>
-                    )
-                  }
-                  // Si es un anticipo, mostrar con detalle
-                  if (item.category === 'anticipo' && advances && advances.length > 0) {
-                    const totalAdvances = advances.reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
-                    return (
-                      <View key={item.id} style={{ marginBottom: 4 }}>
-                        <View style={[styles.row, { marginBottom: 2 }]}>
-                          <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>ANTICIPO:</Text>
-                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>{formatCurrency(totalAdvances)}</Text>
-                        </View>
-                        {advances.map((adv: any, idx: number) => (
-                          <View key={adv.id || idx} style={[styles.row, { marginBottom: 1, marginLeft: 8 }]}>
-                            <Text style={{ width: '55%', fontSize: 6 }}>
-                              {adv.advance_number || `ANT-${adv.id.substring(0, 8).toUpperCase()}`} - {formatDate(adv.advance_date)}
-                            </Text>
-                            <Text style={{ width: '45%', textAlign: 'right', fontSize: 6 }}>{formatCurrency(adv.amount || 0)}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )
-                  }
-                  return (
+                    ))}
+                  </View>
+                )}
+                {/* Mostrar otros descuentos que no sean préstamos ni anticipos */}
+                {otherDeductions
+                  .filter((item: any) => item.category !== 'prestamo' && item.category !== 'anticipo')
+                  .map((item: any) => (
                     <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
                       <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
                       <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
                     </View>
-                  )
-                })}
-                {otherDeductions.length === 0 && (
-                  <>
-                    <View style={[styles.row, { marginBottom: 2 }]}>
-                      <Text style={{ width: '55%', fontSize: 7 }}>PRESTAMO:</Text>
-                      <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>0</Text>
-                    </View>
-                    <View style={[styles.row, { marginBottom: 2 }]}>
-                      <Text style={{ width: '55%', fontSize: 7 }}>ANTICIPO:</Text>
-                      <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>0</Text>
-                    </View>
-                  </>
+                  ))}
+                {otherDeductions.length === 0 && (!loanPayments || loanPayments.length === 0) && (!advances || advances.length === 0) && (
+                  <View style={[styles.row, { marginBottom: 2 }]}>
+                    <Text style={{ width: '55%', fontSize: 7 }}>No hay otros descuentos</Text>
+                    <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>0</Text>
+                  </View>
                 )}
                 <View style={[styles.row, { marginTop: 3, marginBottom: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 3 }]}>
                   <View style={{ width: '55%' }}>
                     <Text style={{ fontSize: 7 }}>TOTAL OTROS</Text>
                     <Text style={{ fontSize: 7 }}>DESCUENTOS:</Text>
                   </View>
-                  <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(slip.total_other_deductions)}</Text>
+                  <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(calculatedTotalOtherDeductions)}</Text>
                 </View>
 
                 <View style={[styles.row, { marginTop: 5, fontFamily: 'Helvetica-Bold', borderTopWidth: 2, borderTopColor: '#000', paddingTop: 5 }]}>
                   <Text style={{ width: '55%', fontSize: 8 }}>TOTAL DESCUENTOS:</Text>
-                  <Text style={{ width: '45%', textAlign: 'right', fontSize: 8 }}>{formatCurrency(slip.total_deductions)}</Text>
+                  <Text style={{ width: '45%', textAlign: 'right', fontSize: 8 }}>{formatCurrency(Number(slip.total_legal_deductions || 0) + calculatedTotalOtherDeductions)}</Text>
                 </View>
               </View>
 
@@ -594,33 +597,33 @@ export default function PayrollPDF({ slip, company, vacations, loanPayments = []
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
-      <div style={{ 
-        position: 'absolute', 
-        top: '10px', 
-        right: '10px', 
-        zIndex: 1000,
-        padding: '8px 16px',
-        background: '#2563eb',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontFamily: 'Helvetica-Bold'
-      }}>
-        <button 
-          onClick={handleDownload}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'white',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontFamily: 'Helvetica-Bold'
-          }}
-        >
-          Descargar PDF
-        </button>
-      </div>
+      <button 
+        onClick={handleDownload}
+        style={{
+          position: 'absolute',
+          top: '-30px',
+          right: '16px',
+          zIndex: 1000,
+          padding: '8px 12px',
+          background: '#2563eb',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: '500',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          transition: 'background-color 0.2s'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = '#1d4ed8'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = '#2563eb'
+        }}
+      >
+        Descargar PDF
+      </button>
       <PDFViewer width="100%" height="100%">
         <PayrollDocument 
           slip={slip} 

@@ -1,14 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+// Re-exportar desde archivos separados para evitar problemas con next/headers
+// Server Components deben importar desde server-component.ts
+// API Routes deben importar desde server-api.ts
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-export const createServerClient = () => {
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
+export { createServerClient } from './server-component'
+export { createServerClientForAPI } from './server-api'
 
 

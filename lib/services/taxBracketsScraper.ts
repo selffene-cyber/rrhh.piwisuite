@@ -250,14 +250,20 @@ export async function scrapeTaxBrackets(
 /**
  * Guarda los tramos en la base de datos (historial completo)
  * Solo inserta si los datos son diferentes al último registro
+ * NOTA: Esta función debe llamarse desde una API route, no desde un Client Component
  */
 export async function saveTaxBrackets(
   year: number,
   month: number,
-  brackets: ScrapedTaxBrackets[]
+  brackets: ScrapedTaxBrackets[],
+  supabaseClient?: any // Opcional: si se proporciona, se usa ese cliente
 ): Promise<void> {
-  const { createServerClient } = await import('@/lib/supabase/server')
-  const supabaseClient = createServerClient()
+  // Si no se proporciona cliente, intentar obtenerlo (solo funciona en Server Components o API Routes)
+  if (!supabaseClient) {
+    // Dynamic import para evitar problemas en build
+    const serverModule = await import('@/lib/supabase/server-component')
+    supabaseClient = await serverModule.createServerClient()
+  }
   
   console.log(`Guardando ${brackets.length} tipos de períodos para ${month}/${year}`)
   
@@ -328,14 +334,20 @@ export async function saveTaxBrackets(
 
 /**
  * Obtiene los tramos desde la base de datos (versión más reciente)
+ * NOTA: Esta función debe llamarse desde una API route, no desde un Client Component
  */
 export async function getTaxBrackets(
   year: number,
   month: number,
-  periodType: 'MENSUAL' | 'QUINCENAL' | 'SEMANAL' | 'DIARIO' = 'MENSUAL'
+  periodType: 'MENSUAL' | 'QUINCENAL' | 'SEMANAL' | 'DIARIO' = 'MENSUAL',
+  supabaseClient?: any // Opcional: si se proporciona, se usa ese cliente
 ): Promise<TaxBracket[] | null> {
-  const { createServerClient } = await import('@/lib/supabase/server')
-  const supabaseClient = createServerClient()
+  // Si no se proporciona cliente, intentar obtenerlo (solo funciona en Server Components o API Routes)
+  if (!supabaseClient) {
+    // Dynamic import para evitar problemas en build
+    const serverModule = await import('@/lib/supabase/server-component')
+    supabaseClient = await serverModule.createServerClient()
+  }
   
   const { data, error } = await supabaseClient
     .from('tax_brackets')

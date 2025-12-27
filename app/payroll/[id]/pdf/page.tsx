@@ -29,10 +29,21 @@ export default function PayrollPDFPage({ params }: { params: { id: string } }) {
 
       if (slipError) throw slipError
 
+      // Obtener la empresa del empleado de la liquidación
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('company_id')
+        .eq('id', slipData.employee_id)
+        .single()
+
+      if (!employee) {
+        throw new Error('Empleado no encontrado')
+      }
+
       const { data: companyData } = await supabase
         .from('companies')
         .select('*')
-        .limit(1)
+        .eq('id', employee.company_id)
         .single()
 
       setSlip(slipData)

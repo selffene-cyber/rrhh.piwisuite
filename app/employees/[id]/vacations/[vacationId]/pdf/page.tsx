@@ -7,7 +7,7 @@ export default async function VacationPDFPage({
 }: { 
   params: { id: string, vacationId: string } 
 }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   // Cargar empleado
   const { data: employee, error: employeeError } = await supabase

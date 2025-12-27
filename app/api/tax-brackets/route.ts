@@ -64,6 +64,15 @@ export async function GET(request: NextRequest) {
       throw error
     }
     
+    // Si se especificó year y month, devolver solo el más reciente con brackets
+    if (year && month) {
+      const latest = data && data.length > 0 ? data[0] : null
+      if (latest && latest.brackets) {
+        return NextResponse.json({ brackets: latest.brackets })
+      }
+      return NextResponse.json({ brackets: null })
+    }
+    
     return NextResponse.json({ data })
   } catch (error: any) {
     console.error('Error al obtener tramos:', error)

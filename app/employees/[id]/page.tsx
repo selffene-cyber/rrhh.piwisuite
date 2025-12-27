@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation'
 import ContractsHistory from './contracts-history'
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   const { data: employee, error } = await supabase
     .from('employees')
@@ -287,6 +287,30 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           </Link>
         </div>
         <ContractsHistory employeeId={params.id} />
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>Cartas de Amonestación</h2>
+          <Link href={`/employees/${params.id}/disciplinary-actions/new`}>
+            <button>Nueva Amonestación</button>
+          </Link>
+        </div>
+        <Link href={`/employees/${params.id}/disciplinary-actions`}>
+          <button className="secondary" style={{ marginTop: '8px' }}>Ver Todas las Amonestaciones</button>
+        </Link>
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>Permisos</h2>
+          <Link href={`/employees/${params.id}/permissions/new`}>
+            <button>Nuevo Permiso</button>
+          </Link>
+        </div>
+        <Link href={`/employees/${params.id}/permissions`}>
+          <button className="secondary" style={{ marginTop: '8px' }}>Ver Todos los Permisos</button>
+        </Link>
       </div>
 
       <div className="card">

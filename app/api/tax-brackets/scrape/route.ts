@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       
       // Verificar que se guardaron
       const { createServerClient } = await import('@/lib/supabase/server')
-      const verifyClient = createServerClient()
+      const verifyClient = await createServerClient()
       const { data: verifyData } = await verifyClient
         .from('tax_brackets')
         .select('*')

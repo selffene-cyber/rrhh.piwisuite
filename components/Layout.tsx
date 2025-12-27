@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd } from 'react-icons/fa'
 import AlertFab from './AlertFab'
+import CompanySelector from './CompanySelector'
 import './Layout.css'
 
 // Componente de icono de pingüino en estilo de líneas
@@ -43,11 +44,13 @@ const PenguinIcon = ({ size = 32 }: { size?: number }) => (
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [remuneracionesOpen, setRemuneracionesOpen] = useState(false)
+  const [trabajadoresOpen, setTrabajadoresOpen] = useState(false)
   const hasLoaded = useRef(false)
 
   // Si estamos en login, no hacer nada - SALIR INMEDIATAMENTE
@@ -132,8 +135,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // Verificar si estamos en una página de remuneraciones para mantener abierto el submenú
   useEffect(() => {
-    if (pathname?.startsWith('/payroll') || pathname?.startsWith('/advances')) {
+    if (pathname?.startsWith('/payroll') || pathname?.startsWith('/advances') || pathname?.startsWith('/loans')) {
       setRemuneracionesOpen(true)
+    }
+    // Verificar si estamos en una página de trabajadores para mantener abierto el submenú
+    if (pathname?.startsWith('/vacations') || 
+        pathname?.startsWith('/permissions') || 
+        pathname?.startsWith('/disciplinary-actions')) {
+      setTrabajadoresOpen(true)
     }
   }, [pathname])
 
@@ -142,22 +151,41 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     label: string
     icon: any
     subItems?: Array<{ href: string; label: string; icon: any }>
+    openState?: boolean
+    setOpenState?: (open: boolean) => void
   }> = [
     { href: '/', label: 'Inicio', icon: FaHome },
-    { href: '/employees', label: 'Trabajadores', icon: FaUsers },
+    {
+      label: 'Trabajadores',
+      icon: FaUsers,
+      openState: trabajadoresOpen,
+      setOpenState: setTrabajadoresOpen,
+      subItems: [
+        { href: '/employees', label: 'Lista de Trabajadores', icon: FaUsers },
+        { href: '/vacations', label: 'Gestionar Vacaciones', icon: FaUmbrellaBeach },
+        { href: '/permissions', label: 'Permisos', icon: FaCalendarCheck },
+        { href: '/disciplinary-actions', label: 'Cartas de Amonestación', icon: FaExclamationTriangle },
+      ]
+    },
     {
       label: 'Remuneraciones',
       icon: FaMoneyBillWave,
+      openState: remuneracionesOpen,
+      setOpenState: setRemuneracionesOpen,
       subItems: [
         { href: '/advances', label: 'Anticipos', icon: FaMoneyBillWave },
         { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
+        { href: '/loans', label: 'Gestionar Préstamos', icon: FaHandHoldingUsd },
       ]
     },
+    { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },
+    { href: '/documents', label: 'Banco de Documentos', icon: FaFolderOpen },
     { href: '/settings', label: 'Configuración', icon: FaCog },
   ]
 
-  // Agregar link de administración si es super admin
+  // Agregar links de administración si es super admin
   if (userProfile?.role === 'super_admin') {
+    navItems.push({ href: '/admin/companies', label: 'Empresas', icon: FaUserShield })
     navItems.push({ href: '/admin/users', label: 'Usuarios', icon: FaUserShield })
   }
 
@@ -220,19 +248,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               const isParentActive = item.subItems.some(subItem => 
                 pathname === subItem.href || pathname?.startsWith(subItem.href + '/')
               )
+              const isOpen = item.openState ?? false
+              const toggleOpen = item.setOpenState ?? (() => {})
               
               return (
                 <div key={item.label} className="sidebar-nav-group">
                   <button
                     className={`sidebar-nav-item ${isParentActive ? 'active' : ''}`}
-                    onClick={() => setRemuneracionesOpen(!remuneracionesOpen)}
+                    onClick={() => toggleOpen(!isOpen)}
                     title={item.label}
                   >
                     <Icon size={20} />
                     <span className="sidebar-nav-label">{item.label}</span>
-                    {remuneracionesOpen ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                    {isOpen ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
                   </button>
-                  {remuneracionesOpen && (
+                  {isOpen && (
                     <div className="sidebar-nav-subitems">
                       {item.subItems.map((subItem) => {
                         const SubIcon = subItem.icon
@@ -281,6 +311,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Header */}
         <header className="header-modern">
           <div className="header-left">
+            <button 
+              className="back-button" 
+              onClick={() => router.back()}
+              title="Volver"
+            >
+              <FaArrowLeft size={16} />
+              <span className="back-button-text">Volver</span>
+            </button>
             <div className="search-container">
               <FaSearch className="search-icon" />
               <input 
@@ -291,6 +329,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="header-right">
+            {user && <CompanySelector />}
             <button className="icon-button" title="Notificaciones">
               <FaBell size={18} />
             </button>

@@ -248,17 +248,58 @@
   top: 0;
   z-index: 100;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  /* Prevenir duplicación visual */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
 .header-left {
   flex: 1;
   max-width: 500px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transform: translateY(-1px);
+}
+
+.back-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.back-button-text {
+  font-weight: 500;
 }
 
 .search-container {
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1;
 }
 
 .search-icon {
@@ -295,19 +336,28 @@
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  border: none;
-  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
   color: #374151;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .icon-button:hover {
-  background: #e5e7eb;
-  color: #2563eb;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transform: translateY(-1px);
+}
+
+.icon-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
 }
 
 .user-profile {
@@ -425,6 +475,16 @@
   .search-container {
     max-width: 300px;
   }
+
+  .back-button-text {
+    display: none;
+  }
+
+  .back-button {
+    padding: 8px 12px;
+    width: 40px;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 768px) {
@@ -493,6 +553,16 @@
   .search-container {
     max-width: 100%;
     flex: 1;
+  }
+
+  .back-button-text {
+    display: none;
+  }
+
+  .back-button {
+    padding: 8px 12px;
+    width: 40px;
+    justify-content: center;
   }
 
   .search-input {

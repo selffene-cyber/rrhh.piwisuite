@@ -9,7 +9,7 @@ export default async function CertificatePDFPage({
   params: { id: string }
   searchParams: { issue_date?: string, purpose?: string }
 }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   const { data: employee, error: empError } = await supabase
     .from('employees')

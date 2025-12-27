@@ -5,7 +5,7 @@ import PayrollDetailClient from './client-page'
 export const revalidate = 0 // Deshabilitar cache para esta página
 
 export default async function PayrollDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   // Forzar recarga sin cache
   const { data: slip, error } = await supabase
@@ -23,10 +23,21 @@ export default async function PayrollDetailPage({ params }: { params: { id: stri
     notFound()
   }
 
+  // Obtener la empresa del empleado de la liquidación
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('company_id')
+    .eq('id', slip.employee_id)
+    .single()
+
+  if (!employee) {
+    notFound()
+  }
+
   const { data: company } = await supabase
     .from('companies')
     .select('*')
-    .limit(1)
+    .eq('id', employee.company_id)
     .single()
 
   // Obtener vacaciones del período si existe

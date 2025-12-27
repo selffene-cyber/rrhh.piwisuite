@@ -11,6 +11,8 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
   const router = useRouter()
   const pathname = usePathname()
   const [slip, setSlip] = useState(initialSlip)
+  const [currentAdvances, setCurrentAdvances] = useState(advances || [])
+  const [currentLoanPayments, setCurrentLoanPayments] = useState(loanPayments || [])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -40,6 +42,35 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
             console.log('Estado actualizado detectado:', slipData.status, 'anterior:', initialSlip.status)
           }
           setSlip(slipData)
+
+          // Recargar anticipos
+          const { data: advancesData, error: advancesError } = await supabase
+            .from('advances')
+            .select('*')
+            .eq('payroll_slip_id', slipData.id)
+            .order('advance_date', { ascending: true })
+
+          if (advancesError) {
+            console.error('Error al cargar anticipos:', advancesError)
+          } else {
+            setCurrentAdvances(advancesData || [])
+          }
+
+          // Recargar préstamos
+          const { data: loanPaymentsData, error: loanPaymentsError } = await supabase
+            .from('loan_payments')
+            .select(`
+              *,
+              loans (*)
+            `)
+            .eq('payroll_slip_id', slipData.id)
+            .order('installment_number', { ascending: true })
+
+          if (loanPaymentsError) {
+            console.error('Error al cargar préstamos:', loanPaymentsError)
+          } else {
+            setCurrentLoanPayments(loanPaymentsData || [])
+          }
         }
       } catch (error) {
         console.error('Error al recargar liquidación:', error)
@@ -396,16 +427,16 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
                 </tr>
               ))}
               {/* Mostrar anticipos descontados con detalle expandible */}
-              {advances && advances.length > 0 && (
+              {currentAdvances && currentAdvances.length > 0 && (
                 <>
                   <tr>
                     <td colSpan={2} style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                       <details style={{ cursor: 'pointer' }}>
                         <summary style={{ fontWeight: '600', padding: '4px 0' }}>
-                          Anticipos ${advances.reduce((sum, adv) => sum + Number(adv.amount), 0).toLocaleString('es-CL')}
+                          Anticipos ${currentAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0).toLocaleString('es-CL')}
                         </summary>
                         <div style={{ marginTop: '8px', paddingLeft: '16px' }}>
-                          {advances.map((advance) => (
+                          {currentAdvances.map((advance) => (
                             <div key={advance.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#6b7280' }}>
                               <span>
                                 {formatDate(advance.advance_date)} - {advance.advance_number || `Anticipo #${advance.id.substring(0, 8).toUpperCase()}`}
@@ -422,16 +453,16 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
                 </>
               )}
               {/* Mostrar préstamos descontados con detalle expandible */}
-              {loanPayments && loanPayments.length > 0 && (
+              {currentLoanPayments && currentLoanPayments.length > 0 && (
                 <>
                   <tr>
                     <td colSpan={2} style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                       <details style={{ cursor: 'pointer' }}>
                         <summary style={{ fontWeight: '600', padding: '4px 0' }}>
-                          Préstamos ${loanPayments.reduce((sum, lp) => sum + Number(lp.amount), 0).toLocaleString('es-CL')}
+                          Préstamos ${currentLoanPayments.reduce((sum, lp) => sum + Number(lp.amount), 0).toLocaleString('es-CL')}
                         </summary>
                         <div style={{ marginTop: '8px', paddingLeft: '16px' }}>
-                          {loanPayments.map((loanPayment) => {
+                          {currentLoanPayments.map((loanPayment) => {
                             const loan = loanPayment.loans
                             return (
                               <div key={loanPayment.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#6b7280' }}>
@@ -450,7 +481,7 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
                   </tr>
                 </>
               )}
-              {otherDeductions.length === 0 && (!advances || advances.length === 0) && (!loanPayments || loanPayments.length === 0) && (
+              {otherDeductions.length === 0 && (!currentAdvances || currentAdvances.length === 0) && (!currentLoanPayments || currentLoanPayments.length === 0) && (
                 <tr>
                   <td colSpan={2} style={{ textAlign: 'center', color: '#6b7280' }}>No hay otros descuentos</td>
                 </tr>

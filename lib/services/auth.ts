@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server-component'
 
 export interface UserProfile {
   id: string
@@ -40,7 +40,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
  */
 export async function getCurrentUserProfileServer(): Promise<UserProfile | null> {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return null

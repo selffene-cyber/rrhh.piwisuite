@@ -9,6 +9,11 @@ export type Database = {
           rut: string
           address: string | null
           city: string | null
+          owner_id: string | null
+          status: 'active' | 'inactive' | 'suspended'
+          subscription_tier: 'basic' | 'pro' | 'enterprise'
+          max_users: number | null
+          max_employees: number | null
           created_at: string
           updated_at: string
         }
@@ -19,6 +24,11 @@ export type Database = {
           rut: string
           address?: string | null
           city?: string | null
+          owner_id?: string | null
+          status?: 'active' | 'inactive' | 'suspended'
+          subscription_tier?: 'basic' | 'pro' | 'enterprise'
+          max_users?: number | null
+          max_employees?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -29,6 +39,49 @@ export type Database = {
           rut?: string
           address?: string | null
           city?: string | null
+          owner_id?: string | null
+          status?: 'active' | 'inactive' | 'suspended'
+          subscription_tier?: 'basic' | 'pro' | 'enterprise'
+          max_users?: number | null
+          max_employees?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      company_users: {
+        Row: {
+          id: string
+          user_id: string
+          company_id: string
+          role: 'owner' | 'admin' | 'user'
+          status: 'active' | 'inactive' | 'pending'
+          invited_by: string | null
+          invited_at: string
+          joined_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          company_id: string
+          role?: 'owner' | 'admin' | 'user'
+          status?: 'active' | 'inactive' | 'pending'
+          invited_by?: string | null
+          invited_at?: string
+          joined_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          company_id?: string
+          role?: 'owner' | 'admin' | 'user'
+          status?: 'active' | 'inactive' | 'pending'
+          invited_by?: string | null
+          invited_at?: string
+          joined_at?: string | null
           created_at?: string
           updated_at?: string
         }
