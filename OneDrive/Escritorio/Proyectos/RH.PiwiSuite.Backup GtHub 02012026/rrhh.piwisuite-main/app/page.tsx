@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock } from 'react-icons/fa'
+import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock, FaStethoscope } from 'react-icons/fa'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
@@ -21,10 +21,15 @@ const formatDataDate = (year: number, month: number): string => {
 
 export default function HomePage() {
   const { companyId } = useCurrentCompany()
-  const [employeesCount, setEmployeesCount] = useState(0)
-  const [payrollCount, setPayrollCount] = useState(0)
+  const [activeEmployeesCount, setActiveEmployeesCount] = useState(0)
+  const [medicalLeaveEmployeesCount, setMedicalLeaveEmployeesCount] = useState(0)
+  const [permissionEmployeesCount, setPermissionEmployeesCount] = useState(0)
+  const [pendingPayrollCount, setPendingPayrollCount] = useState(0)
+  const [confirmedPayrollCount, setConfirmedPayrollCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [monthlyData, setMonthlyData] = useState<any[]>([])
+  const [monthlyDetailedData, setMonthlyDetailedData] = useState<any[]>([])
+  const [chartView, setChartView] = useState<'net' | 'detailed' | 'employer'>('net')
   const [projectedAmount, setProjectedAmount] = useState<number>(0)
   const [projectedLegalDeductions, setProjectedLegalDeductions] = useState<{
     afp: number
@@ -51,6 +56,26 @@ export default function HomePage() {
     unemploymentInsurance: ''
   })
   const [projectedEmployerContributions, setProjectedEmployerContributions] = useState<number>(0)
+  const [projectedEmployerContributionsBreakdown, setProjectedEmployerContributionsBreakdown] = useState<{
+    afp: number
+    sis: number
+    afc: number
+    total: number
+  }>({
+    afp: 0,
+    sis: 0,
+    afc: 0,
+    total: 0
+  })
+  const [employerContributionRates, setEmployerContributionRates] = useState<{
+    afp: number
+    sis: number
+    afc: number
+  }>({
+    afp: 0,
+    sis: 0,
+    afc: 0
+  })
   const [employeesRanking, setEmployeesRanking] = useState<any[]>([])
   const [sortColumn, setSortColumn] = useState<string>('antiguedad')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -97,59 +122,104 @@ export default function HomePage() {
     try {
       // Obtener estadísticas básicas
       if (!companyId) {
-        setEmployeesCount(0)
-        setPayrollCount(0)
+        setActiveEmployeesCount(0)
+        setMedicalLeaveEmployeesCount(0)
+        setPermissionEmployeesCount(0)
+        setPendingPayrollCount(0)
+        setConfirmedPayrollCount(0)
         setLoading(false)
         return
       }
       
-      // Paralelizar consultas de empleados y liquidaciones
-      const [employeesResult, payrollResult] = await Promise.all([
-        // Obtener empleados activos
-        supabase
-          .from('employees')
-          .select('id', { count: 'exact' })
-          .eq('status', 'active')
-          .eq('company_id', companyId),
-        
-        // Obtener IDs de empleados para consulta de liquidaciones
-        supabase
-          .from('employees')
-          .select('id')
-          .eq('company_id', companyId)
-          .eq('status', 'active')
-      ])
-
-      if (employeesResult.error) {
-        console.error('Error al contar trabajadores:', employeesResult.error)
-        setEmployeesCount(0)
-      } else {
-        setEmployeesCount(employeesResult.count || employeesResult.data?.length || 0)
+      // Obtener todos los IDs de empleados de la empresa
+      const { data: allEmployees, error: employeesError } = await supabase
+        .from('employees')
+        .select('id, status')
+        .eq('company_id', companyId)
+      
+      if (employeesError) {
+        console.error('Error al cargar trabajadores:', employeesError)
+        setActiveEmployeesCount(0)
+        setMedicalLeaveEmployeesCount(0)
+        setPermissionEmployeesCount(0)
+        setPendingPayrollCount(0)
+        setConfirmedPayrollCount(0)
+        setLoading(false)
+        return
       }
 
-      // Contar liquidaciones emitidas o enviadas
-      const employeeIds = payrollResult.data?.map(emp => emp.id) || []
+      const employeeIds = allEmployees?.map(emp => emp.id) || []
       
-      if (employeeIds.length > 0) {
-        const { count, error: payrollError } = await supabase
-          .from('payroll_slips')
-          .select('id', { count: 'exact', head: true })
-          .in('employee_id', employeeIds)
-          .in('status', ['issued', 'sent'])
+      // Contar trabajadores activos
+      const activeCount = allEmployees?.filter(emp => emp.status === 'active').length || 0
+      setActiveEmployeesCount(activeCount)
 
-        if (payrollError) {
-          console.error('Error al contar liquidaciones:', payrollError)
-          setPayrollCount(0)
+      // Contar trabajadores con licencia médica
+      const medicalLeaveCount = allEmployees?.filter(emp => emp.status === 'licencia_medica').length || 0
+      setMedicalLeaveEmployeesCount(medicalLeaveCount)
+
+      // Contar trabajadores con permiso laboral (trabajadores con permisos activos en el mes actual)
+      const today = new Date()
+      const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+      const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      
+      const { data: currentPermissions, error: permissionsError } = await supabase
+        .from('permissions')
+        .select('employee_id')
+        .in('employee_id', employeeIds)
+        .eq('status', 'approved')
+        .lte('start_date', currentMonthEnd.toISOString().split('T')[0])
+        .gte('end_date', currentMonthStart.toISOString().split('T')[0])
+      
+      if (!permissionsError && currentPermissions) {
+        const uniqueEmployeesWithPermissions = new Set(currentPermissions.map(p => p.employee_id))
+        setPermissionEmployeesCount(uniqueEmployeesWithPermissions.size)
+      } else {
+        setPermissionEmployeesCount(0)
+      }
+
+      // Contar liquidaciones pendientes y confirmadas
+      if (employeeIds.length > 0) {
+        const [pendingResult, confirmedResult] = await Promise.all([
+          // Liquidaciones pendientes (draft - no emitidas)
+          supabase
+            .from('payroll_slips')
+            .select('id', { count: 'exact', head: true })
+            .in('employee_id', employeeIds)
+            .eq('status', 'draft'),
+          
+          // Liquidaciones confirmadas (issued o sent - emitidas)
+          supabase
+            .from('payroll_slips')
+            .select('id', { count: 'exact', head: true })
+            .in('employee_id', employeeIds)
+            .in('status', ['issued', 'sent'])
+        ])
+
+        if (pendingResult.error) {
+          console.error('Error al contar liquidaciones pendientes:', pendingResult.error)
+          setPendingPayrollCount(0)
         } else {
-          setPayrollCount(count || 0)
+          setPendingPayrollCount(pendingResult.count || 0)
+        }
+
+        if (confirmedResult.error) {
+          console.error('Error al contar liquidaciones confirmadas:', confirmedResult.error)
+          setConfirmedPayrollCount(0)
+        } else {
+          setConfirmedPayrollCount(confirmedResult.count || 0)
         }
       } else {
-        setPayrollCount(0)
+        setPendingPayrollCount(0)
+        setConfirmedPayrollCount(0)
       }
     } catch (error) {
       console.error('Error al cargar estadísticas:', error)
-      setEmployeesCount(0)
-      setPayrollCount(0)
+      setActiveEmployeesCount(0)
+      setMedicalLeaveEmployeesCount(0)
+      setPermissionEmployeesCount(0)
+      setPendingPayrollCount(0)
+      setConfirmedPayrollCount(0)
     } finally {
       setLoading(false)
     }
@@ -184,7 +254,11 @@ export default function HomePage() {
         .from('payroll_slips')
         .select(`
           net_pay,
+          total_earnings,
+          taxable_base,
+          total_legal_deductions,
           payroll_periods (year, month),
+          employees!inner(afp, contract_type),
           created_at
         `)
         .in('employee_id', employeeIds)
@@ -197,36 +271,121 @@ export default function HomePage() {
         return
       }
 
-      // Agrupar por mes/año y sumar net_pay
-      const monthlyMap = new Map<string, number>()
+      // Agrupar por mes/año y calcular totales
+      const monthlyMap = new Map<string, {
+        netPay: number
+        totalEarnings: number
+        taxableBase: number
+        legalDeductions: number
+        employerContributions: number
+        employees: Array<{ afp: string, contract_type: string, taxable_base: number }>
+      }>()
 
       payrollSlips?.forEach((slip: any) => {
-        if (slip.payroll_periods) {
+        if (slip.payroll_periods && slip.employees) {
           const key = `${slip.payroll_periods.year}-${slip.payroll_periods.month}`
-          const current = monthlyMap.get(key) || 0
-          monthlyMap.set(key, current + (slip.net_pay || 0))
+          const current = monthlyMap.get(key) || {
+            netPay: 0,
+            totalEarnings: 0,
+            taxableBase: 0,
+            legalDeductions: 0,
+            employerContributions: 0,
+            employees: []
+          }
+          
+          current.netPay += (slip.net_pay || 0)
+          current.totalEarnings += (slip.total_earnings || 0)
+          current.taxableBase += (slip.taxable_base || 0)
+          current.legalDeductions += (slip.total_legal_deductions || 0)
+          current.employees.push({
+            afp: slip.employees.afp || '',
+            contract_type: slip.employees.contract_type || 'indefinido',
+            taxable_base: slip.taxable_base || 0
+          })
+          
+          monthlyMap.set(key, current)
         }
       })
 
-      // Generar datos para los últimos 12 meses
-      const data: any[] = []
+      // Calcular aportes del empleador para cada mes
+      const detailedData: any[] = []
+      const simpleData: any[] = []
+      
       for (let i = 11; i >= 0; i--) {
         const date = new Date()
         date.setMonth(date.getMonth() - i)
         const year = date.getFullYear()
         const month = date.getMonth() + 1
         const key = `${year}-${month}`
-        const total = monthlyMap.get(key) || 0
+        const monthData = monthlyMap.get(key) || {
+          netPay: 0,
+          totalEarnings: 0,
+          taxableBase: 0,
+          legalDeductions: 0,
+          employerContributions: 0,
+          employees: []
+        }
 
-        data.push({
-          month: `${MONTHS[month - 1]?.substring(0, 3)} ${year}`,
-          total: Math.round(total),
+        // Calcular aportes del empleador para este mes
+        let employerContributions = 0
+        if (monthData.employees.length > 0) {
+          // Obtener indicadores del período
+          let indicatorMonth = month - 1
+          let indicatorYear = year
+          if (indicatorMonth === 0) {
+            indicatorMonth = 12
+            indicatorYear = year - 1
+          }
+          
+          try {
+            const indicators = await getCachedIndicators(indicatorYear, indicatorMonth)
+            
+            for (const emp of monthData.employees) {
+              const taxableBase = emp.taxable_base
+              
+              // AFP empleador: 0.1%
+              const afpRates = getAFPRate(emp.afp || '', indicators)
+              const afpEmployer = taxableBase * (afpRates.empleador / 100)
+              
+              // SIS: según indicadores
+              const sisRate = getSISRate(indicators)
+              const sisEmployer = taxableBase * (sisRate / 100)
+              
+              // AFC: según tipo de contrato
+              const afcRate = getUnemploymentInsuranceEmployerRate(emp.contract_type, indicators)
+              const afcEmployer = taxableBase * (afcRate / 100)
+              
+              employerContributions += (afpEmployer + sisEmployer + afcEmployer)
+            }
+          } catch (error) {
+            console.warn(`Error al calcular aportes empleador para ${year}-${month}:`, error)
+          }
+        }
+
+        const monthLabel = `${MONTHS[month - 1]?.substring(0, 3)} ${year}`
+        
+        simpleData.push({
+          month: monthLabel,
+          total: Math.round(monthData.netPay),
+          year,
+          monthNum: month
+        })
+
+        detailedData.push({
+          month: monthLabel,
+          netPay: Math.round(monthData.netPay),
+          totalEarnings: Math.round(monthData.totalEarnings),
+          taxableBase: Math.round(monthData.taxableBase),
+          legalDeductions: Math.round(monthData.legalDeductions),
+          employerContributions: Math.round(employerContributions),
+          totalWithEmployer: Math.round(monthData.totalEarnings + employerContributions),
           year,
           monthNum: month
         })
       }
 
-      setMonthlyData(data)
+      setMonthlyData(simpleData)
+      setMonthlyDetailedData(detailedData)
     } catch (error) {
       console.error('Error al cargar datos mensuales:', error)
     }
@@ -234,6 +393,25 @@ export default function HomePage() {
 
   const calculateProjection = async () => {
     try {
+      if (!companyId) {
+        setProjectedAmount(0)
+        setProjectedLegalDeductions({
+          afp: 0,
+          health: 0,
+          uniqueTax: 0,
+          unemploymentInsurance: 0,
+          total: 0
+        })
+        setProjectedEmployerContributionsBreakdown({
+          afp: 0,
+          sis: 0,
+          afc: 0,
+          total: 0
+        })
+        setProjectedEmployerContributions(0)
+        return
+      }
+
       // Obtener trabajadores activos con todos sus datos
       const { data: activeEmployees, error: employeesError } = await supabase
         .from('employees')
@@ -250,6 +428,7 @@ export default function HomePage() {
           advance_amount
         `)
         .eq('status', 'active')
+        .eq('company_id', companyId)
 
       if (employeesError || !activeEmployees || activeEmployees.length === 0) {
         setProjectedAmount(0)
@@ -282,17 +461,22 @@ export default function HomePage() {
       }
       const indicators = await getCachedIndicators(indicatorYear, indicatorMonth)
 
-      // Obtener vacaciones y licencias del mes siguiente
+      // Obtener IDs de empleados de la empresa actual para filtrar vacaciones y licencias
+      const employeeIds = activeEmployees.map(emp => emp.id)
+
+      // Obtener vacaciones y licencias del mes siguiente (solo de empleados de la empresa actual)
       const { data: nextMonthVacations } = await supabase
         .from('vacations')
         .select('employee_id, start_date, end_date, days_count')
         .in('status', ['aprobada', 'tomada'])
+        .in('employee_id', employeeIds)
         .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
 
       const { data: nextMonthLeaves } = await supabase
         .from('medical_leaves')
         .select('employee_id, start_date, end_date, days_count')
         .eq('is_active', true)
+        .in('employee_id', employeeIds)
         .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
 
       // Calcular días de vacaciones/licencias por trabajador
@@ -334,6 +518,15 @@ export default function HomePage() {
       let totalUniqueTax = 0
       let totalUnemploymentInsurance = 0
       let totalEmployerContributions = 0
+      let totalEmployerAFP = 0
+      let totalEmployerSIS = 0
+      let totalEmployerAFC = 0
+      
+      // Variables para almacenar las tasas (se usarán las del último trabajador o promedio)
+      let afpEmployerRate = 0.1 // Por defecto 0.1%
+      let sisEmployerRate = 0
+      let totalTaxableBaseForAFC = 0 // Para calcular promedio ponderado de AFC
+      let totalAFCRateWeighted = 0 // Suma ponderada de tasas AFC
 
       for (const employee of activeEmployees) {
         // Días trabajados: 30 menos vacaciones y licencias
@@ -394,15 +587,23 @@ export default function HomePage() {
         
         // AFP empleador: 0.1%
         const afpRates = getAFPRate(employee.afp || '', indicators)
+        afpEmployerRate = afpRates.empleador // Guardar tasa (es constante: 0.1%)
         const afpEmployer = taxableBase * (afpRates.empleador / 100)
+        totalEmployerAFP += afpEmployer
         
-        // SIS: 1.49%
+        // SIS: según indicadores (típicamente 1.49%)
         const sisRate = getSISRate(indicators)
+        sisEmployerRate = sisRate // Guardar tasa
         const sisEmployer = taxableBase * (sisRate / 100)
+        totalEmployerSIS += sisEmployer
         
         // AFC: según tipo de contrato (2.40% indefinido, 3.00% plazo fijo)
-        const afcEmployerRate = getUnemploymentInsuranceEmployerRate(employee.contract_type, indicators)
-        const afcEmployer = taxableBase * (afcEmployerRate / 100)
+        // Calcular promedio ponderado por base imponible
+        const afcRate = getUnemploymentInsuranceEmployerRate(employee.contract_type, indicators)
+        totalTaxableBaseForAFC += taxableBase
+        totalAFCRateWeighted += (afcRate * taxableBase) // Ponderar tasa por base imponible
+        const afcEmployer = taxableBase * (afcRate / 100)
+        totalEmployerAFC += afcEmployer
         
         // Total aportes empleador para este trabajador
         totalEmployerContributions += (afpEmployer + sisEmployer + afcEmployer)
@@ -455,6 +656,22 @@ export default function HomePage() {
         unemploymentInsurance: formatDataDate(indicatorYear, indicatorMonth)
       })
       setProjectedEmployerContributions(Math.round(totalEmployerContributions))
+      
+      // Calcular promedio ponderado de AFC
+      const afcEmployerRate = totalTaxableBaseForAFC > 0 ? totalAFCRateWeighted / totalTaxableBaseForAFC : 0
+      
+      // Usar las tasas reales de los indicadores (ya calculadas en el loop)
+      setProjectedEmployerContributionsBreakdown({
+        afp: Math.round(totalEmployerAFP),
+        sis: Math.round(totalEmployerSIS),
+        afc: Math.round(totalEmployerAFC),
+        total: Math.round(totalEmployerContributions)
+      })
+      setEmployerContributionRates({
+        afp: afpEmployerRate,
+        sis: sisEmployerRate,
+        afc: afcEmployerRate
+      })
     } catch (error) {
       console.error('Error al calcular proyección:', error)
       setProjectedAmount(0)
@@ -466,6 +683,17 @@ export default function HomePage() {
         total: 0
       })
       setProjectedEmployerContributions(0)
+      setProjectedEmployerContributionsBreakdown({
+        afp: 0,
+        sis: 0,
+        afc: 0,
+        total: 0
+      })
+      setEmployerContributionRates({
+        afp: 0,
+        sis: 0,
+        afc: 0
+      })
     }
   }
 
@@ -628,6 +856,11 @@ export default function HomePage() {
     )
   }
 
+  // Calcular el mes siguiente para mostrar en los títulos
+  const nextMonth = new Date()
+  nextMonth.setMonth(nextMonth.getMonth() + 1)
+  const nextMonthName = MONTHS[nextMonth.getMonth()]
+
   return (
     <div>
       <div style={{ marginBottom: '32px' }}>
@@ -642,8 +875,8 @@ export default function HomePage() {
       {/* Cards de Estadísticas */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-        gap: '24px', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
+        gap: '20px', 
         marginBottom: '32px'
       }}
       className="stats-grid"
@@ -661,7 +894,7 @@ export default function HomePage() {
                   TRABAJADORES ACTIVOS
                 </p>
                 <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#1e3a8a', margin: 0 }}>
-                  {employeesCount || 0}
+                  {activeEmployeesCount || 0}
                 </p>
               </div>
               <div style={{ 
@@ -680,6 +913,106 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Card 2: Trabajadores con Licencia Médica */}
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '12px',
+            border: '2px solid #f59e0b'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px', fontWeight: '500' }}>
+                  CON LICENCIA MÉDICA
+                </p>
+                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>
+                  {medicalLeaveEmployeesCount || 0}
+                </p>
+              </div>
+              <div style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '12px', 
+                background: 'rgba(255, 255, 255, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#92400e'
+              }}>
+                <FaStethoscope size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Trabajadores con Permiso Laboral */}
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)',
+            borderRadius: '12px',
+            border: '2px solid #6366f1'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#4338ca', marginBottom: '8px', fontWeight: '500' }}>
+                  CON PERMISO LABORAL
+                </p>
+                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#312e81', margin: 0 }}>
+                  {permissionEmployeesCount || 0}
+                </p>
+              </div>
+              <div style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '12px', 
+                background: 'rgba(255, 255, 255, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#4338ca'
+              }}>
+                <FaCalendarCheck size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Liquidaciones Pendientes */}
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+            borderRadius: '12px',
+            border: '2px solid #ef4444'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
+                  LIQUIDACIONES PENDIENTES
+                </p>
+                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
+                  {pendingPayrollCount || 0}
+                </p>
+              </div>
+              <div style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '12px', 
+                background: 'rgba(255, 255, 255, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#991b1b'
+              }}>
+                <FaClock size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Liquidaciones Confirmadas */}
         <div className="card" style={{ padding: 0 }}>
           <div style={{
             padding: '20px',
@@ -693,7 +1026,7 @@ export default function HomePage() {
                   LIQUIDACIONES CONFIRMADAS
                 </p>
                 <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#064e3b', margin: 0 }}>
-                  {payrollCount || 0}
+                  {confirmedPayrollCount || 0}
                 </p>
               </div>
               <div style={{ 
@@ -1157,6 +1490,50 @@ export default function HomePage() {
               </div>
             </div>
           </Link>
+          {/* Licencias Médicas */}
+          <Link href="/medical-leaves" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              height: '88px',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#ef4444'
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(239, 68, 68, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#e5e7eb'
+              e.currentTarget.style.boxShadow = 'none'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            >
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '10px',
+                background: '#fee2e2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ef4444'
+              }}>
+                <FaStethoscope size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Licencias Médicas</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Gestionar licencias</div>
+              </div>
+            </div>
+          </Link>
           <Link href="/loans" style={{ textDecoration: 'none' }}>
             <div style={{
               padding: '20px',
@@ -1249,65 +1626,238 @@ export default function HomePage() {
 
       {/* Gráfico de Remuneraciones Mensuales */}
       <div className="card" style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '10px',
-            background: '#eff6ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#2563eb'
-          }}>
-            <FaChartLine size={24} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '10px',
+              background: '#eff6ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#2563eb'
+            }}>
+              <FaChartLine size={24} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Remuneraciones Mensuales</h2>
+              <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
+                {chartView === 'net' ? 'Total líquido pagado mes a mes (últimos 12 meses)' :
+                 chartView === 'detailed' ? 'Desglose completo mes a mes (últimos 12 meses)' :
+                 'Aportes del empleador mes a mes (últimos 12 meses)'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Remuneraciones Mensuales</h2>
-            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Total pagado mes a mes (últimos 12 meses)</p>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setChartView('net')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: chartView === 'net' ? '#2563eb' : 'white',
+                color: chartView === 'net' ? 'white' : '#374151',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: chartView === 'net' ? '600' : '400',
+                transition: 'all 0.2s'
+              }}
+            >
+              Líquido
+            </button>
+            <button
+              onClick={() => setChartView('detailed')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: chartView === 'detailed' ? '#2563eb' : 'white',
+                color: chartView === 'detailed' ? 'white' : '#374151',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: chartView === 'detailed' ? '600' : '400',
+                transition: 'all 0.2s'
+              }}
+            >
+              Completo
+            </button>
+            <button
+              onClick={() => setChartView('employer')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: chartView === 'employer' ? '#f59e0b' : 'white',
+                color: chartView === 'employer' ? 'white' : '#374151',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: chartView === 'employer' ? '600' : '400',
+                transition: 'all 0.2s'
+              }}
+            >
+              Aportes Empleador
+            </button>
           </div>
         </div>
-        {monthlyData.length > 0 ? (
+        {chartView === 'net' && monthlyData.length > 0 ? (
           <div style={{ width: '100%', height: '300px', minHeight: '250px' }}>
             <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="month" 
-                stroke="#6b7280"
-                style={{ fontSize: '12px' }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis 
-                stroke="#6b7280"
-                style={{ fontSize: '12px' }}
-                tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
-              />
-              <Tooltip 
-                formatter={(value: number | undefined) => {
-                  if (value === undefined) return ['$0', 'Total Pagado']
-                  return [`$${value.toLocaleString('es-CL')}`, 'Total Pagado']
-                }}
-                contentStyle={{ 
-                  backgroundColor: '#fff', 
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '12px'
-                }}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="total" 
-                stroke="#2563eb" 
-                strokeWidth={3}
-                dot={{ fill: '#2563eb', r: 4 }}
-                name="Total Pagado"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+              <LineChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
+                />
+                <Tooltip 
+                  formatter={(value: number | undefined) => {
+                    if (value === undefined) return ['$0', 'Total Líquido']
+                    return [`$${value.toLocaleString('es-CL')}`, 'Total Líquido']
+                  }}
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="total" 
+                  stroke="#2563eb" 
+                  strokeWidth={3}
+                  dot={{ fill: '#2563eb', r: 4 }}
+                  name="Total Líquido Pagado"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : chartView === 'detailed' && monthlyDetailedData.length > 0 ? (
+          <div style={{ width: '100%', height: '300px', minHeight: '250px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyDetailedData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
+                />
+                <Tooltip 
+                  formatter={(value: number | undefined, name: string) => {
+                    if (value === undefined) return ['$0', name]
+                    return [`$${value.toLocaleString('es-CL')}`, name]
+                  }}
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="totalEarnings" 
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  dot={{ fill: '#10b981', r: 3 }}
+                  name="Total Haberes"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="legalDeductions" 
+                  stroke="#ef4444" 
+                  strokeWidth={2}
+                  dot={{ fill: '#ef4444', r: 3 }}
+                  name="Descuentos Legales"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="employerContributions" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2}
+                  dot={{ fill: '#f59e0b', r: 3 }}
+                  name="Aportes Empleador"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="netPay" 
+                  stroke="#2563eb" 
+                  strokeWidth={3}
+                  dot={{ fill: '#2563eb', r: 4 }}
+                  name="Líquido Pagado"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="totalWithEmployer" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={{ fill: '#8b5cf6', r: 3 }}
+                  name="Total con Aportes Empleador"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : chartView === 'employer' && monthlyDetailedData.length > 0 ? (
+          <div style={{ width: '100%', height: '300px', minHeight: '250px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyDetailedData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
+                />
+                <Tooltip 
+                  formatter={(value: number | undefined) => {
+                    if (value === undefined) return ['$0', 'Aportes Empleador']
+                    return [`$${value.toLocaleString('es-CL')}`, 'Aportes Empleador']
+                  }}
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="employerContributions" 
+                  stroke="#f59e0b" 
+                  strokeWidth={3}
+                  dot={{ fill: '#f59e0b', r: 4 }}
+                  name="Total Aportes Empleador"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         ) : (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
@@ -1332,7 +1882,7 @@ export default function HomePage() {
             <FaChartLine size={24} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Proyección del Mes Siguiente</h2>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Proyección de sueldos para el mes de {nextMonthName}</h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
               Estimación basada en trabajadores activos, vacaciones y licencias
             </p>
@@ -1397,7 +1947,7 @@ export default function HomePage() {
             <FaFileInvoiceDollar size={24} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Imposiciones y Leyes Sociales</h2>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Imposiciones y Leyes Sociales - {nextMonthName}</h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
               Descuentos legales proyectados por concepto
             </p>
@@ -1534,25 +2084,153 @@ export default function HomePage() {
             <p style={{ fontSize: '12px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
               TOTAL IMPOSICIONES
             </p>
-            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#7f1d1d', margin: 0, marginBottom: '16px' }}>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
               ${projectedLegalDeductions.total.toLocaleString('es-CL')}
             </p>
             <div style={{
               marginTop: '12px',
-              padding: '12px',
-              background: 'rgba(255, 255, 255, 0.6)',
-              borderRadius: '8px',
-              border: '1px solid rgba(239, 68, 68, 0.3)'
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#991b1b'
             }}>
-              <p style={{ fontSize: '10px', color: '#991b1b', marginBottom: '6px', fontWeight: '600' }}>
-                Monto Incluido Aportes del Empleador:
-              </p>
-              <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
-                ${(projectedLegalDeductions.total + projectedEmployerContributions).toLocaleString('es-CL')}
-              </p>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Total descuentos legales</p>
+              <p style={{ margin: '2px 0' }}>del trabajador</p>
             </div>
           </div>
         </div>
+
+        {/* Segunda Fila: Aportes del Empleador */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '16px',
+          marginTop: '24px'
+        }}>
+          {/* Card AFP Empleador */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)',
+            borderRadius: '12px',
+            border: '2px solid #6366f1'
+          }}>
+            <p style={{ fontSize: '12px', color: '#312e81', marginBottom: '8px', fontWeight: '500' }}>
+              AFP EMPLEADOR
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#1e1b4b', margin: 0, marginBottom: '4px' }}>
+              ${projectedEmployerContributionsBreakdown.afp.toLocaleString('es-CL')}
+            </p>
+            <p style={{ fontSize: '14px', color: '#4338ca', margin: 0, marginBottom: '12px', fontWeight: '600' }}>
+              {employerContributionRates.afp.toFixed(2)}%
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#312e81'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: AFP</p>
+              <p style={{ margin: '2px 0' }}>Vía: Previred</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.afp || 'Cargando...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card SIS Empleador */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+            borderRadius: '12px',
+            border: '2px solid #10b981'
+          }}>
+            <p style={{ fontSize: '12px', color: '#065f46', marginBottom: '8px', fontWeight: '500' }}>
+              SIS EMPLEADOR
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#064e3b', margin: 0, marginBottom: '4px' }}>
+              ${projectedEmployerContributionsBreakdown.sis.toLocaleString('es-CL')}
+            </p>
+            <p style={{ fontSize: '14px', color: '#059669', margin: 0, marginBottom: '12px', fontWeight: '600' }}>
+              {employerContributionRates.sis.toFixed(2)}%
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#065f46'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: AFP</p>
+              <p style={{ margin: '2px 0' }}>Vía: Previred</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.afp || 'Cargando...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card AFC Empleador */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
+            borderRadius: '12px',
+            border: '2px solid #ec4899'
+          }}>
+            <p style={{ fontSize: '12px', color: '#9f1239', marginBottom: '8px', fontWeight: '500' }}>
+              AFC EMPLEADOR
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#831843', margin: 0, marginBottom: '4px' }}>
+              ${projectedEmployerContributionsBreakdown.afc.toLocaleString('es-CL')}
+            </p>
+            <p style={{ fontSize: '14px', color: '#db2777', margin: 0, marginBottom: '12px', fontWeight: '600' }}>
+              {employerContributionRates.afc.toFixed(2)}%
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#9f1239'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Se paga dónde: AFC</p>
+              <p style={{ margin: '2px 0' }}>Vía: Previred</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', fontStyle: 'italic' }}>
+                Datos: {dataDates.unemploymentInsurance || 'Cargando...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card Total Aportes Empleador */}
+          <div style={{
+            padding: '20px',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '12px',
+            border: '2px solid #f59e0b'
+          }}>
+            <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px', fontWeight: '500' }}>
+              TOTAL APORTES EMPLEADOR
+            </p>
+            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>
+              ${projectedEmployerContributionsBreakdown.total.toLocaleString('es-CL')}
+            </p>
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              background: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#92400e'
+            }}>
+              <p style={{ margin: '2px 0', fontWeight: '600' }}>Total aportes del empleador</p>
+              <p style={{ margin: '2px 0' }}>AFP + SIS + AFC</p>
+            </div>
+          </div>
+        </div>
+
         <div style={{
           marginTop: '16px',
           padding: '12px',
@@ -1564,7 +2242,7 @@ export default function HomePage() {
             * Proyección basada en trabajadores activos del mes siguiente (sin préstamos ni anticipos)
           </p>
           <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
-            * El total de imposiciones con aporte de empleador incluye: Imposiciones del trabajador (AFP, Salud/ISAPRE, Impuesto Único, Seguro de Cesantía) + Aportes del empleador (AFP, SIS, AFC según tipo de contrato). Todos los valores se obtienen de los indicadores actualizados de Previred.
+            * Los aportes del empleador (AFP, SIS, AFC) son adicionales a los descuentos legales del trabajador y se calculan sobre la base imponible. Todos los valores y porcentajes se obtienen de los indicadores actualizados de Previred.
           </p>
         </div>
       </div>

@@ -191,9 +191,14 @@ export default function VacationsDashboardPage() {
           <FaUmbrellaBeach size={28} color="#f59e0b" />
           Dashboard de Vacaciones
         </h1>
-        <Link href="/">
-          <button className="secondary">Volver al Dashboard</button>
-        </Link>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link href="/vacations/new">
+            <button>Nueva Solicitud</button>
+          </Link>
+          <Link href="/">
+            <button className="secondary">Volver al Dashboard</button>
+          </Link>
+        </div>
       </div>
 
       {showEmployeeDetail && selectedEmployeeData ? (

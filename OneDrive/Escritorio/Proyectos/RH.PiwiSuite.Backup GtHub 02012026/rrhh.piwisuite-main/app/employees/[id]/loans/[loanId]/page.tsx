@@ -22,7 +22,7 @@ export default function LoanDetailPage({ params }: { params: { id: string, loanI
       // Cargar préstamo
       const { data: loanData, error: loanError } = await supabase
         .from('loans')
-        .select('id, employee_id, amount, remaining_amount, installment_amount, installments, interest_rate, loan_date, status, created_at')
+        .select('id, employee_id, amount, total_amount, remaining_amount, installment_amount, installments, paid_installments, interest_rate, loan_date, status, description, created_at')
         .eq('id', params.loanId)
         .single()
 
@@ -106,37 +106,37 @@ export default function LoanDetailPage({ params }: { params: { id: string, loanI
         <div className="form-row">
           <div className="form-group">
             <label>Monto Solicitado</label>
-            <p>${loan.amount.toLocaleString('es-CL')}</p>
+            <p>${(loan.amount || 0).toLocaleString('es-CL')}</p>
           </div>
           <div className="form-group">
             <label>Tasa de Interés</label>
-            <p>{loan.interest_rate}%</p>
+            <p>{loan.interest_rate || 0}%</p>
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
             <label>Total a Pagar</label>
-            <p style={{ fontWeight: 'bold', fontSize: '18px' }}>${loan.total_amount.toLocaleString('es-CL')}</p>
+            <p style={{ fontWeight: 'bold', fontSize: '18px' }}>${(loan.total_amount || 0).toLocaleString('es-CL')}</p>
           </div>
           <div className="form-group">
             <label>Número de Cuotas</label>
-            <p>{loan.installments}</p>
+            <p>{loan.installments || 0}</p>
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
             <label>Valor por Cuota</label>
-            <p style={{ fontWeight: 'bold' }}>${loan.installment_amount.toLocaleString('es-CL')}</p>
+            <p style={{ fontWeight: 'bold' }}>${(loan.installment_amount || 0).toLocaleString('es-CL')}</p>
           </div>
           <div className="form-group">
             <label>Cuotas Pagadas</label>
-            <p>{loan.paid_installments} / {loan.installments}</p>
+            <p>{(loan.paid_installments || 0)} / {loan.installments || 0}</p>
           </div>
         </div>
         <div className="form-group">
           <label>Monto Pendiente</label>
           <p style={{ fontWeight: 'bold', fontSize: '18px', color: '#dc2626' }}>
-            ${loan.remaining_amount.toLocaleString('es-CL')}
+            ${(loan.remaining_amount || 0).toLocaleString('es-CL')}
           </p>
         </div>
         {loan.description && (

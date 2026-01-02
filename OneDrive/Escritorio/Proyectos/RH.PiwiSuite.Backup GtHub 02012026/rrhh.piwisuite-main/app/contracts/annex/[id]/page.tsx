@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { FaEdit, FaFilePdf, FaCheck } from 'react-icons/fa'
+import { generateAnnexText } from '@/lib/utils/annexText'
 
 export default function AnnexDetailPage() {
   const router = useRouter()
@@ -206,7 +207,11 @@ export default function AnnexDetailPage() {
       <div className="card" style={{ marginBottom: '24px' }}>
         <h2>Contenido del Anexo</h2>
         <div className="form-group">
-          <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{annex.content}</p>
+          <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+            {contract && employee && company 
+              ? generateAnnexText(annex, contract, employee, company)
+              : annex.content || 'Cargando contenido...'}
+          </p>
         </div>
       </div>
 

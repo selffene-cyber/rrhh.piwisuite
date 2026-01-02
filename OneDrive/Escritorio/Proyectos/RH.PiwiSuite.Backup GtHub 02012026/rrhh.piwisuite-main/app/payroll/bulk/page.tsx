@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { getCurrentMonthYear } from '@/lib/utils/date'
+import { getCurrentMonthYear, MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
+import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import Link from 'next/link'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
@@ -20,16 +21,40 @@ export default function BulkPayrollPage() {
     month: getCurrentMonthYear().month,
     days_worked: 30,
     days_leave: 0,
-    bonuses: 0,
-    overtime: 0,
+    bonus_name: '',
+    bonus_amount: 0,
+    overtime_hours: 0,
     vacation: 0,
     transportation: 0,
     meal_allowance: 0,
-    aguinaldo: 0,
     advances: 0,
   })
   const [generatedSlips, setGeneratedSlips] = useState<any[]>([])
   const [processing, setProcessing] = useState(false)
+  const [overtimePactStats, setOvertimePactStats] = useState<{
+    withPact: number
+    withoutPact: number
+    pendingList: Array<{ id: string; full_name: string; rut: string }>
+  } | null>(null)
+  const [showPendingList, setShowPendingList] = useState(false)
+
+  // Lista de bonos disponibles (misma que en liquidación individual)
+  const availableBonuses = [
+    'Bono de Producción',
+    'Bono de Cumplimiento de Metas / KPI',
+    'Bono de Desempeño',
+    'Bono de Asistencia',
+    'Bono de Puntualidad',
+    'Bono de Responsabilidad',
+    'Bono por Turno',
+    'Bono por Trabajo en Altura',
+    'Bono por Trabajo en Faena',
+    'Bono de Disponibilidad',
+    'Bono por Zona / Zona Extrema',
+    'Bono de Permanencia',
+    'Bono de Retención',
+    'Bono de Riesgo',
+  ]
 
   useEffect(() => {
     if (companyId) {
@@ -40,6 +65,13 @@ export default function BulkPayrollPage() {
     }
   }, [companyId])
 
+  useEffect(() => {
+    if (companyId && employees.length > 0) {
+      checkOvertimePacts()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, employees.length, formData.year, formData.month])
+
   const loadEmployees = async () => {
     try {
       if (!companyId) {
@@ -49,8 +81,8 @@ export default function BulkPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, base_salary, transportation, meal_allowance, afp, health_system, health_plan_percentage, contract_type')
-        .eq('status', 'active')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, afp, health_system, health_plan_percentage, contract_type, status, termination_date')
+        .in('status', ['active', 'licencia_medica']) // Solo activos o con licencia médica
         .eq('company_id', companyId)
         .order('full_name')
 
@@ -60,6 +92,44 @@ export default function BulkPayrollPage() {
       alert('Error al cargar trabajadores: ' + error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkOvertimePacts = async () => {
+    if (!companyId || employees.length === 0) return
+
+    try {
+      const periodStart = new Date(formData.year, formData.month - 1, 1)
+      const periodEnd = new Date(formData.year, formData.month, 0)
+
+      // Obtener todos los pactos activos para el período
+      const { data: pacts } = await supabase
+        .from('overtime_pacts')
+        .select('employee_id, status')
+        .eq('status', 'active')
+        .lte('start_date', periodEnd.toISOString().split('T')[0])
+        .gte('end_date', periodStart.toISOString().split('T')[0])
+
+      const employeesWithPact = new Set((pacts || []).map((p: any) => p.employee_id))
+      const withPact = employees.filter((emp: any) => employeesWithPact.has(emp.id)).length
+      const withoutPact = employees.length - withPact
+
+      // Lista de trabajadores sin pacto
+      const pendingList = employees
+        .filter((emp: any) => !employeesWithPact.has(emp.id))
+        .map((emp: any) => ({
+          id: emp.id,
+          full_name: emp.full_name,
+          rut: emp.rut,
+        }))
+
+      setOvertimePactStats({
+        withPact,
+        withoutPact,
+        pendingList,
+      })
+    } catch (error) {
+      console.error('Error al verificar pactos de horas extra:', error)
     }
   }
 
@@ -114,8 +184,24 @@ export default function BulkPayrollPage() {
       }
 
       // Procesar cada trabajador
+      const periodStart = new Date(formData.year, formData.month - 1, 1)
+      
       for (const employee of employees) {
         try {
+          // Validar que el trabajador no haya renunciado o sido despedido antes del período
+          if (employee.status === 'renuncia' || employee.status === 'despido') {
+            if (employee.termination_date) {
+              const terminationDate = new Date(employee.termination_date)
+              if (terminationDate < periodStart) {
+                console.log(`Omitiendo ${employee.full_name}: ${employee.status === 'renuncia' ? 'renunció' : 'fue despedido'} el ${terminationDate.toLocaleDateString('es-CL')}, antes del período`)
+                continue
+              }
+            } else {
+              console.log(`Omitiendo ${employee.full_name}: tiene estado "${employee.status}" pero no tiene fecha de término registrada`)
+              continue
+            }
+          }
+
           // Verificar si ya existe una liquidación para este trabajador y período
           const { data: existingSlip } = await supabase
             .from('payroll_slips')
@@ -130,7 +216,6 @@ export default function BulkPayrollPage() {
           }
 
           // Obtener licencias médicas activas para el período
-          const periodStart = new Date(formData.year, formData.month - 1, 1)
           const periodEnd = new Date(formData.year, formData.month, 0)
           
           const { data: medicalLeaves } = await supabase
@@ -209,6 +294,26 @@ export default function BulkPayrollPage() {
           const transportation = formData.transportation > 0 ? formData.transportation : (employee.transportation || 0)
           const mealAllowance = formData.meal_allowance > 0 ? formData.meal_allowance : (employee.meal_allowance || 0)
           
+          // Calcular monto de horas extras automáticamente según sueldo del trabajador
+          // Según ley chilena: primera hora 50% adicional, siguientes 100% adicional
+          // Valor hora normal = (sueldo base / 30) / 8 (asumiendo 8 horas diarias)
+          let overtimeAmount = 0
+          if (formData.overtime_hours > 0) {
+            const dailySalary = employee.base_salary / 30
+            const hourlySalary = dailySalary / 8
+            if (formData.overtime_hours === 1) {
+              // Primera hora: 50% adicional
+              overtimeAmount = hourlySalary * 1.5
+            } else {
+              // Primera hora: 50% adicional, siguientes: 100% adicional
+              overtimeAmount = (hourlySalary * 1.5) + (hourlySalary * 2 * (formData.overtime_hours - 1))
+            }
+            overtimeAmount = Math.ceil(overtimeAmount)
+          }
+
+          // Usar el bono seleccionado si existe
+          const bonusAmount = formData.bonus_name && formData.bonus_amount > 0 ? formData.bonus_amount : 0
+          
           const calculation = await calculatePayroll(
             {
               baseSalary: employee.base_salary,
@@ -217,12 +322,12 @@ export default function BulkPayrollPage() {
               afp: employee.afp,
               healthSystem: employee.health_system,
               healthPlanPercentage: employee.health_plan_percentage || 0,
-              bonuses: formData.bonuses,
-              overtime: formData.overtime,
+              bonuses: bonusAmount,
+              overtime: overtimeAmount,
               vacation: formData.vacation,
               transportation: transportation,
               mealAllowance: mealAllowance,
-              aguinaldo: formData.aguinaldo,
+              aguinaldo: 0,
               loans: totalLoansAmount,
               advances: totalAdvancesAmount,
             },
@@ -263,8 +368,20 @@ export default function BulkPayrollPage() {
             // Haberes imponibles
             { type: 'taxable_earning', category: 'sueldo_base', description: 'Sueldo Base Días Trabajados', amount: calculation.taxableEarnings.baseSalary },
             { type: 'taxable_earning', category: 'gratificacion', description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
-            { type: 'taxable_earning', category: 'bonos', description: 'Bonos', amount: calculation.taxableEarnings.bonuses },
-            { type: 'taxable_earning', category: 'horas_extras', description: 'Horas Extras', amount: calculation.taxableEarnings.overtime },
+            // Bono con nombre si fue seleccionado
+            ...(formData.bonus_name && bonusAmount > 0 ? [{
+              type: 'taxable_earning' as const,
+              category: 'bono',
+              description: formData.bonus_name,
+              amount: bonusAmount,
+            }] : []),
+            // Horas extras con descripción detallada (calculadas automáticamente según sueldo)
+            ...(formData.overtime_hours > 0 && overtimeAmount > 0 ? [{
+              type: 'taxable_earning' as const,
+              category: 'horas_extras',
+              description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`,
+              amount: overtimeAmount,
+            }] : []),
             { type: 'taxable_earning', category: 'vacaciones', description: 'Vacaciones', amount: calculation.taxableEarnings.vacation },
             // Haberes no imponibles
             { type: 'non_taxable_earning', category: 'movilizacion', description: 'Movilización', amount: calculation.nonTaxableEarnings.transportation },
@@ -450,13 +567,11 @@ export default function BulkPayrollPage() {
               value={formData.month}
               onChange={(e) => setFormData({ ...formData, month: parseInt(e.target.value) })}
             >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <option key={m} value={m}>{m}</option>
+              {MONTHS.map((month, index) => (
+                <option key={index + 1} value={index + 1}>{month}</option>
               ))}
             </select>
           </div>
-        </div>
-        <div className="form-row">
           <div className="form-group">
             <label>Días Trabajados *</label>
             <input
@@ -478,16 +593,39 @@ export default function BulkPayrollPage() {
             />
           </div>
         </div>
+
+        {/* Título: Montos Generales de Bonificaciones */}
+        <h3 style={{ marginTop: '24px', marginBottom: '16px', fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+          Montos Generales de Bonificaciones
+        </h3>
+
+        {/* Fila 2: Bonos y Horas Extras */}
         <div className="form-row">
           <div className="form-group">
             <label>Bonos</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.bonuses}
-              onChange={(e) => setFormData({ ...formData, bonuses: parseFloat(e.target.value) || 0 })}
-            />
+            <select
+              value={formData.bonus_name}
+              onChange={(e) => setFormData({ ...formData, bonus_name: e.target.value })}
+            >
+              <option value="">Seleccionar tipo de bono</option>
+              {availableBonuses.map((bonus) => (
+                <option key={bonus} value={bonus}>{bonus}</option>
+              ))}
+            </select>
+            {formData.bonus_name && (
+              <input
+                type="text"
+                placeholder="Monto del bono"
+                value={formatNumberForInput(formData.bonus_amount)}
+                onChange={(e) => setFormData({ ...formData, bonus_amount: parseFormattedNumber(e.target.value) })}
+                style={{ marginTop: '8px' }}
+              />
+            )}
+            {formData.bonus_name && formData.bonus_amount > 0 && (
+              <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', marginBottom: 0 }}>
+                Este bono se aplicará a todos los trabajadores
+              </p>
+            )}
           </div>
           <div className="form-group">
             <label>Horas Extras</label>
@@ -495,52 +633,108 @@ export default function BulkPayrollPage() {
               type="number"
               min="0"
               step="0.01"
-              value={formData.overtime}
-              onChange={(e) => setFormData({ ...formData, overtime: parseFloat(e.target.value) || 0 })}
+              placeholder="Número de horas"
+              value={formData.overtime_hours}
+              onChange={(e) => setFormData({ ...formData, overtime_hours: parseFloat(e.target.value) || 0 })}
             />
+            {formData.overtime_hours > 0 && (
+              <small style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginTop: '4px' }}>
+                El monto se calculará automáticamente para cada trabajador según su sueldo base y términos del contrato (primera hora 50% adicional, siguientes 100% adicional).
+              </small>
+            )}
+            {overtimePactStats && (
+              <div style={{ 
+                marginTop: '12px', 
+                padding: '12px', 
+                borderRadius: '6px',
+                border: overtimePactStats.withoutPact > 0 ? '1px solid #f59e0b' : '1px solid #10b981',
+                background: overtimePactStats.withoutPact > 0 ? '#fef3c7' : '#d1fae5'
+              }}>
+                <strong style={{ 
+                  color: overtimePactStats.withoutPact > 0 ? '#92400e' : '#065f46', 
+                  display: 'block', 
+                  marginBottom: '4px', 
+                  fontSize: '12px' 
+                }}>
+                  {overtimePactStats.withoutPact > 0 ? '⚠️' : '✅'} Estado de Pactos de Horas Extra
+                </strong>
+                <p style={{ margin: 0, fontSize: '11px', color: overtimePactStats.withoutPact > 0 ? '#78350f' : '#047857' }}>
+                  Trabajadores con pacto activo: {overtimePactStats.withPact} | 
+                  Sin pacto: {overtimePactStats.withoutPact}
+                </p>
+                {overtimePactStats.withoutPact > 0 && (
+                  <div style={{ marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowPendingList(!showPendingList)}
+                      style={{ 
+                        padding: '4px 8px', 
+                        fontSize: '10px', 
+                        background: '#f59e0b', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '4px', 
+                        cursor: 'pointer' 
+                      }}
+                    >
+                      {showPendingList ? 'Ocultar' : 'Ver'} Lista de Pendientes ({overtimePactStats.pendingList.length})
+                    </button>
+                    {showPendingList && (
+                      <div style={{ 
+                        marginTop: '8px', 
+                        padding: '8px', 
+                        background: 'white', 
+                        borderRadius: '4px', 
+                        border: '1px solid #e5e7eb',
+                        maxHeight: '200px',
+                        overflowY: 'auto'
+                      }}>
+                        {overtimePactStats.pendingList.map((emp) => (
+                          <div key={emp.id} style={{ fontSize: '10px', padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
+                            {emp.full_name} ({emp.rut})
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Vacaciones</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.vacation}
-              onChange={(e) => setFormData({ ...formData, vacation: parseFloat(e.target.value) || 0 })}
-            />
-          </div>
+
+        {/* Fila 3: Movilización, Colación, Anticipo y Vacaciones */}
+        <div className="form-row" style={{ marginTop: '16px' }}>
           <div className="form-group">
             <label>Movilización</label>
             <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.transportation}
-              onChange={(e) => setFormData({ ...formData, transportation: parseFloat(e.target.value) || 0 })}
+              type="text"
+              value={formatNumberForInput(formData.transportation)}
+              onChange={(e) => setFormData({ ...formData, transportation: parseFormattedNumber(e.target.value) })}
             />
           </div>
-        </div>
-        <div className="form-row">
           <div className="form-group">
             <label>Colación</label>
             <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.meal_allowance}
-              onChange={(e) => setFormData({ ...formData, meal_allowance: parseFloat(e.target.value) || 0 })}
+              type="text"
+              value={formatNumberForInput(formData.meal_allowance)}
+              onChange={(e) => setFormData({ ...formData, meal_allowance: parseFormattedNumber(e.target.value) })}
             />
           </div>
           <div className="form-group">
             <label>Anticipo</label>
             <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.advances}
-              onChange={(e) => setFormData({ ...formData, advances: parseFloat(e.target.value) || 0 })}
+              type="text"
+              value={formatNumberForInput(formData.advances)}
+              onChange={(e) => setFormData({ ...formData, advances: parseFormattedNumber(e.target.value) })}
+            />
+          </div>
+          <div className="form-group">
+            <label>Vacaciones</label>
+            <input
+              type="text"
+              value={formatNumberForInput(formData.vacation)}
+              onChange={(e) => setFormData({ ...formData, vacation: parseFormattedNumber(e.target.value) })}
             />
           </div>
         </div>

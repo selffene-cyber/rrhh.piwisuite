@@ -14,8 +14,19 @@ export function formatDateLegal(dateStr: string): string {
   return `${day} de ${month} del ${year}`
 }
 
+import { parseAnnexContent, generateAnnexTextFromClauses } from './annexClauses'
+
 // Generar texto completo del anexo en formato legal chileno
 export function generateAnnexText(annex: any, contract: any, employee: any, company: any): string {
+  // Intentar parsear el contenido como JSON con cláusulas
+  const parsed = parseAnnexContent(annex.content || '')
+  
+  if (parsed.isJson && parsed.clauses) {
+    // Usar las cláusulas individuales
+    return generateAnnexTextFromClauses(parsed.clauses as any, annex, contract, employee, company)
+  }
+
+  // Formato legacy: texto plano
   const annexDate = formatDateLegal(annex.start_date)
   
   const getAnnexTypeText = (type: string) => {

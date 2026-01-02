@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot } from 'react-icons/fa'
 import AlertFab from './AlertFab'
 import CompanySelector from './CompanySelector'
+import AIChatWidget from './AIChatWidget'
+import NotificationsDropdown from './NotificationsDropdown'
 import './Layout.css'
 
 // Componente de icono de pingüino en estilo de líneas
@@ -51,6 +53,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [remuneracionesOpen, setRemuneracionesOpen] = useState(false)
   const [trabajadoresOpen, setTrabajadoresOpen] = useState(false)
+  const [aiChatOpen, setAiChatOpen] = useState(false)
   const hasLoaded = useRef(false)
 
   // Si estamos en login, no hacer nada - SALIR INMEDIATAMENTE
@@ -141,7 +144,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Verificar si estamos en una página de trabajadores para mantener abierto el submenú
     if (pathname?.startsWith('/vacations') || 
         pathname?.startsWith('/permissions') || 
-        pathname?.startsWith('/disciplinary-actions')) {
+        pathname?.startsWith('/disciplinary-actions') ||
+        pathname?.startsWith('/certificates')) {
       setTrabajadoresOpen(true)
     }
   }, [pathname])
@@ -165,6 +169,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: '/vacations', label: 'Gestionar Vacaciones', icon: FaUmbrellaBeach },
         { href: '/permissions', label: 'Permisos', icon: FaCalendarCheck },
         { href: '/disciplinary-actions', label: 'Cartas de Amonestación', icon: FaExclamationTriangle },
+        { href: '/certificates', label: 'Certificados Laborales', icon: FaFileAlt },
       ]
     },
     {
@@ -181,7 +186,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     },
     { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },
     { href: '/documents', label: 'Banco de Documentos', icon: FaFolderOpen },
-    { href: '/certificates', label: 'Certificados Laborales', icon: FaFileAlt },
+    { href: '/reports', label: 'Reportes', icon: FaChartBar },
     { href: '/settings', label: 'Configuración', icon: FaCog },
   ]
 
@@ -332,9 +337,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="header-right">
             {user && <CompanySelector />}
-            <button className="icon-button" title="Notificaciones">
-              <FaBell size={18} />
-            </button>
+            {user && <NotificationsDropdown />}
             {user && (
               <div className="user-profile">
                 <div className="user-avatar">
@@ -364,6 +367,45 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Alert Fab - Botón flotante de alertas */}
         {/* <AlertFab /> */}
         {/* Desactivado temporalmente - genera demasiadas alertas sin sentido */}
+
+        {/* Botón flotante del Asistente IA */}
+        {user && (
+          <>
+            <button
+              onClick={() => setAiChatOpen(true)}
+              style={{
+                position: 'fixed',
+                bottom: '20px',
+                right: '20px',
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                transition: 'all 0.3s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'
+              }}
+              title="Abrir Asistente IA"
+            >
+              <FaRobot size={24} />
+            </button>
+            <AIChatWidget isOpen={aiChatOpen} onClose={() => setAiChatOpen(false)} />
+          </>
+        )}
       </div>
     </div>
   )

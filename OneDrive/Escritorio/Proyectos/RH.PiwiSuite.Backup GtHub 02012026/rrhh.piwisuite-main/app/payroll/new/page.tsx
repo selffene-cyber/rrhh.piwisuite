@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
-import { getCurrentMonthYear, MONTHS } from '@/lib/utils/date'
+import { getCurrentMonthYear, MONTHS, formatDate } from '@/lib/utils/date'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
@@ -112,7 +112,7 @@ export default function NewPayrollPage() {
     } else {
       setEmployees([])
     }
-  }, [companyId])
+  }, [companyId, formData.year, formData.month]) // Recargar cuando cambie el período
 
   useEffect(() => {
     if (formData.employee_id && selectedEmployee) {
@@ -130,14 +130,34 @@ export default function NewPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type')
-        .eq('status', 'active')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type, status, termination_date')
+        .in('status', ['active', 'licencia_medica', 'renuncia', 'despido']) // Incluir renuncia/despido para validar después
         .eq('company_id', companyId)
         .order('full_name')
 
       if (error) throw error
 
-      setEmployees(data || [])
+      // Filtrar empleados que renunciaron/despedidos antes del período seleccionado
+      const periodStart = new Date(formData.year, formData.month - 1, 1)
+      const filteredEmployees = (data || []).filter((emp: any) => {
+        // Si está activo o con licencia médica, incluirlo
+        if (emp.status === 'active' || emp.status === 'licencia_medica') {
+          return true
+        }
+        
+        // Si renunció o fue despedido, solo incluirlo si la fecha de término es posterior o igual al inicio del período
+        if (emp.status === 'renuncia' || emp.status === 'despido') {
+          if (!emp.termination_date) {
+            return false // Sin fecha de término, no incluirlo
+          }
+          const terminationDate = new Date(emp.termination_date)
+          return terminationDate >= periodStart
+        }
+        
+        return false
+      })
+
+      setEmployees(filteredEmployees)
 
       if (employeeIdParam && data) {
         const employee = data.find((e: any) => e.id === employeeIdParam)
@@ -504,6 +524,22 @@ export default function NewPayrollPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedEmployee || !calculation) return
+
+    // Validar que el trabajador no haya renunciado o sido despedido antes del período
+    if (selectedEmployee.status === 'renuncia' || selectedEmployee.status === 'despido') {
+      if (!selectedEmployee.termination_date) {
+        alert(`No se puede crear una liquidación para ${selectedEmployee.full_name} porque tiene estado "${selectedEmployee.status === 'renuncia' ? 'Renuncia' : 'Despido'}" pero no tiene fecha de término registrada. Por favor, complete la fecha de término en la ficha del trabajador.`)
+        return
+      }
+
+      const terminationDate = new Date(selectedEmployee.termination_date)
+      const periodStart = new Date(formData.year, formData.month - 1, 1)
+      
+      if (terminationDate < periodStart) {
+        alert(`No se puede crear una liquidación para ${selectedEmployee.full_name} en el período ${MONTHS[formData.month - 1]} ${formData.year} porque ${selectedEmployee.status === 'renuncia' ? 'renunció' : 'fue despedido'} el ${terminationDate.toLocaleDateString('es-CL')}, antes del inicio del período.`)
+        return
+      }
+    }
 
     setSaving(true)
 

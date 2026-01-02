@@ -30,7 +30,7 @@ export default function LoansPage({ params }: { params: { id: string } }) {
       // Cargar préstamos
       const { data: loansData, error } = await supabase
         .from('loans')
-        .select('id, employee_id, amount, remaining_amount, installment_amount, installments, interest_rate, loan_date, status, created_at')
+        .select('id, employee_id, amount, total_amount, remaining_amount, installment_amount, installments, paid_installments, interest_rate, loan_date, status, issued_at, created_at')
         .eq('employee_id', params.id)
         .order('created_at', { ascending: false })
 
@@ -126,13 +126,13 @@ export default function LoansPage({ params }: { params: { id: string } }) {
               {loans.map((loan: any) => (
                 <tr key={loan.id}>
                   <td>{formatDate(loan.loan_date)}</td>
-                  <td>${loan.amount.toLocaleString('es-CL')}</td>
-                  <td>{loan.interest_rate}%</td>
-                  <td>${loan.total_amount.toLocaleString('es-CL')}</td>
-                  <td>{loan.installments}</td>
-                  <td>${loan.installment_amount.toLocaleString('es-CL')}</td>
-                  <td>{loan.paid_installments} / {loan.installments}</td>
-                  <td>${loan.remaining_amount.toLocaleString('es-CL')}</td>
+                  <td>${(loan.amount || 0).toLocaleString('es-CL')}</td>
+                  <td>{loan.interest_rate || 0}%</td>
+                  <td>${(loan.total_amount || 0).toLocaleString('es-CL')}</td>
+                  <td>{loan.installments || 0}</td>
+                  <td>${(loan.installment_amount || 0).toLocaleString('es-CL')}</td>
+                  <td>{(loan.paid_installments || 0)} / {loan.installments || 0}</td>
+                  <td>${(loan.remaining_amount || 0).toLocaleString('es-CL')}</td>
                   <td>
                     <span className={`badge ${loan.status}`}>
                       {loan.status === 'active' ? 'Activo' : loan.status === 'paid' ? 'Pagado' : 'Cancelado'}

@@ -77,11 +77,10 @@ export function generateContractText(contract: any, employee: any, company: any)
   let text = `En ${company?.city || 'Santiago'}, a ${contractDate}, entre *${company?.name || 'EMPRESA'}*, R.U.T ${company?.rut || 'N/A'}, representado legalmente por ${company?.employer_name || 'REPRESENTANTE LEGAL'}, cédula de identidad ${company?.rut || 'N/A'}, ambos con domicilio en ${company?.address || 'N/A'}${company?.city ? `, comuna de ${company.city}` : ''}, en adelante el "Empleador" y ${genderPrefix}: *${employee?.full_name || 'N/A'}*, con Rut: ${employee?.rut || 'N/A'}, de nacionalidad ${nationality}. ${birthDate ? `Con fecha de nacimiento el ${birthDate}, ` : ''}domiciliado(a) en ${employee?.address || 'N/A'}, de estado civil ${maritalStatus}, en adelante "Trabajador". Se ha convenido el siguiente CONTRATO DE TRABAJO, para cuyo efecto, las partes convienen denominarse respectivamente *EMPLEADOR* Y *TRABAJADOR*.\n\n`
 
   // PRIMERO: Cargo y funciones
-  text += `PRIMERO: El trabajador se compromete y obliga a prestar servicios como *${contract.position || 'N/A'}* o función similar, que tenga directa relación con el cargo ya indicado, este trabajo se realizará en ${contract.work_location || 'las instalaciones de la empresa'}, así como en las diferentes faenas y trabajos particulares que ${company?.name || 'la empresa'} estime conveniente y necesario. Pudiendo ser trasladado a otro lugar, tanto dentro y/o fuera de la región, no importando menoscabo para el TRABAJADOR.`
-  if (contract.position_description) {
-    text += ` ${contract.position_description}`
+  text += `PRIMERO: El trabajador se compromete y obliga a prestar servicios como *${contract.position || 'N/A'}* o función similar, que tenga directa relación con el cargo ya indicado, este trabajo se realizará en ${contract.work_location || 'las instalaciones de la empresa'}, así como en las diferentes faenas y trabajos particulares que ${company?.name || 'la empresa'} estime conveniente y necesario. Pudiendo ser trasladado a otro lugar, tanto dentro y/o fuera de la región, no importando menoscabo para el TRABAJADOR.\n\n`
+  if (contract.position_description && contract.position_description.trim()) {
+    text += `Descripción de principales funciones:\n\n${contract.position_description}\n\n`
   }
-  text += '\n\n'
 
   // SEGUNDO: Jornada de trabajo (conforme a Ley 21.561)
   text += `SEGUNDO: Jornada de trabajo.\n\n`
@@ -139,6 +138,35 @@ export function generateContractText(contract: any, employee: any, company: any)
       text += `b. *Gratificación*: Se pagará una gratificación fija mensual de *$ ${formatCurrency(contract.gratuity_amount)} (${numberToWords(Math.round(contract.gratuity_amount)).toLowerCase()} pesos)*.\n\n`
     } else {
       text += `b. *Gratificación*: Se pagará de acuerdo con la modalidad del artículo 50 del código del trabajo, esto es el *25% de la remuneración* devengada por el trabajador, con un *tope de 4.75 ingresos mínimos* mensuales, la cual se pagará mensualmente en el equivalente a un duodécimo de los 4.75 ingresos mínimos mensuales. Con este pago se entenderá cumplida la obligación de la empresa de pagar gratificación legal.\n\n`
+    }
+  }
+  
+  // Procesar bonos desde other_allowances
+  if (contract.other_allowances && contract.other_allowances.trim()) {
+    // Formato esperado: "Bono 1: $monto1; Bono 2: $monto2"
+    const bonuses = contract.other_allowances.split(';').map(b => b.trim()).filter(b => b)
+    if (bonuses.length > 0) {
+      let bonusLetter = 'c'
+      bonuses.forEach((bonus) => {
+        // Buscar patrón: "Nombre del Bono: $monto" o "Nombre del Bono: $ monto"
+        const match = bonus.match(/^(.+?):\s*\$\s*(.+)$/)
+        if (match) {
+          const bonusName = match[1].trim()
+          let bonusAmount = match[2].trim()
+          // Remover puntos (separadores de miles) y convertir a número
+          // El formato puede ser: "100.000" o "100000"
+          bonusAmount = bonusAmount.replace(/\./g, '').replace(/,/g, '.')
+          const amountNum = parseFloat(bonusAmount) || 0
+          if (amountNum > 0) {
+            text += `${bonusLetter}. *${bonusName}*: Se pagará un ${bonusName.toLowerCase()} de *$ ${formatCurrency(amountNum)} (${numberToWords(Math.round(amountNum)).toLowerCase()} pesos)*.\n\n`
+            bonusLetter = String.fromCharCode(bonusLetter.charCodeAt(0) + 1)
+          }
+        } else {
+          // Si no coincide el formato, agregarlo como está
+          text += `${bonusLetter}. ${bonus}\n\n`
+          bonusLetter = String.fromCharCode(bonusLetter.charCodeAt(0) + 1)
+        }
+      })
     }
   }
   

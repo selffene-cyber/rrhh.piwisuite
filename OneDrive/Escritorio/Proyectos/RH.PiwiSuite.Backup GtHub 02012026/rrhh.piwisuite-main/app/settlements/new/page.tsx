@@ -234,13 +234,43 @@ export default function NewSettlementPage() {
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: '500' }}>
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                fontSize: '14px', 
+                fontWeight: '500',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }}>
+                <div style={{
+                  position: 'relative',
+                  width: '48px',
+                  height: '24px',
+                  borderRadius: '12px',
+                  background: formData.notice_given ? '#3b82f6' : '#d1d5db',
+                  transition: 'background-color 0.2s ease',
+                  cursor: 'pointer'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '2px',
+                    left: formData.notice_given ? '26px' : '2px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    background: 'white',
+                    transition: 'left 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                  }} />
+                </div>
+                <span>Se dio aviso previo</span>
                 <input
                   type="checkbox"
                   checked={formData.notice_given}
                   onChange={(e) => setFormData({ ...formData, notice_given: e.target.checked })}
+                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
                 />
-                Se dio aviso previo
               </label>
             </div>
 

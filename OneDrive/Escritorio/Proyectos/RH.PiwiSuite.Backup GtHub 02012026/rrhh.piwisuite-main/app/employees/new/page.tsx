@@ -1,14 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
+import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { CostCenter } from '@/types'
+import { getCostCenters, createCostCenter, isCompanyAdmin } from '@/lib/services/costCenterService'
+import { isSuperAdmin } from '@/lib/services/auth'
+import { FaPlus, FaTimes } from 'react-icons/fa'
 
 export default function NewEmployeePage() {
   const router = useRouter()
+  const { companyId } = useCurrentCompany()
   const [loading, setLoading] = useState(false)
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showCreateCCModal, setShowCreateCCModal] = useState(false)
+  const [newCCData, setNewCCData] = useState({ code: '', name: '', description: '' })
+  const [creatingCC, setCreatingCC] = useState(false)
   const [formData, setFormData] = useState({
     full_name: '',
     rut: '',
@@ -21,7 +32,7 @@ export default function NewEmployeePage() {
     account_number: '',
     hire_date: '',
     position: '',
-    cost_center: '',
+    cost_center_id: '',
     afp: 'PROVIDA',
     health_system: 'FONASA',
     health_plan: '',
@@ -36,6 +47,94 @@ export default function NewEmployeePage() {
     contract_end_date: '',
     contract_other: '',
   })
+
+  useEffect(() => {
+    if (companyId) {
+      loadCostCenters()
+      checkAdminStatus()
+    }
+  }, [companyId])
+
+  const checkAdminStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    try {
+      const superAdmin = await isSuperAdmin()
+      if (superAdmin) {
+        setIsAdmin(true)
+        return
+      }
+
+      if (companyId) {
+        const admin = await isCompanyAdmin(user.id, companyId, supabase)
+        setIsAdmin(admin)
+      }
+    } catch (error) {
+      console.error('Error verificando permisos:', error)
+    }
+  }
+
+  const loadCostCenters = async () => {
+    if (!companyId) return
+
+    try {
+      const data = await getCostCenters(companyId, supabase, false)
+      setCostCenters(data)
+    } catch (error) {
+      console.error('Error al cargar centros de costo:', error)
+    }
+  }
+
+  const handleCreateCostCenter = async () => {
+    if (!companyId) return
+    if (!newCCData.code.trim() || !newCCData.name.trim()) {
+      alert('El código y nombre son obligatorios')
+      return
+    }
+
+    setCreatingCC(true)
+    try {
+      const newCC = await createCostCenter(companyId, {
+        code: newCCData.code.toUpperCase(),
+        name: newCCData.name,
+        description: newCCData.description || undefined,
+        status: 'active',
+      }, supabase)
+
+      // Agregar el nuevo CC a la lista y seleccionarlo
+      setCostCenters([...costCenters, newCC])
+      setFormData({ ...formData, cost_center_id: newCC.id })
+      setShowCreateCCModal(false)
+      setNewCCData({ code: '', name: '', description: '' })
+      alert('Centro de costo creado correctamente')
+    } catch (error: any) {
+      alert('Error al crear centro de costo: ' + error.message)
+    } finally {
+      setCreatingCC(false)
+    }
+  }
+
+  // Funciones para formatear números con separador de miles
+  const formatNumber = (value: string | number): string => {
+    if (!value && value !== 0) return ''
+    const numValue = typeof value === 'string' ? parseFloat(value.replace(/\./g, '')) : value
+    if (isNaN(numValue)) return ''
+    return numValue.toLocaleString('es-CL')
+  }
+
+  const parseFormattedNumber = (value: string): string => {
+    // Remover puntos (separadores de miles) y dejar solo números
+    return value.replace(/\./g, '')
+  }
+
+  const handleNumberChange = (field: 'base_salary' | 'transportation' | 'meal_allowance', value: string) => {
+    // Permitir solo números y puntos
+    const cleaned = value.replace(/[^\d.]/g, '')
+    // Remover puntos para obtener el número puro
+    const numericValue = parseFormattedNumber(cleaned)
+    setFormData({ ...formData, [field]: numericValue })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,7 +202,7 @@ export default function NewEmployeePage() {
       if (formData.bank_name?.trim()) employeeData.bank_name = formData.bank_name.trim()
       if (formData.account_type?.trim()) employeeData.account_type = formData.account_type.trim()
       if (formData.account_number?.trim()) employeeData.account_number = formData.account_number.trim()
-      if (formData.cost_center?.trim()) employeeData.cost_center = formData.cost_center.trim()
+      if (formData.cost_center_id) employeeData.cost_center_id = formData.cost_center_id
       if (formData.health_plan?.trim()) employeeData.health_plan = formData.health_plan.trim()
       
       // Porcentaje del plan ISAPRE
@@ -286,88 +385,152 @@ export default function NewEmployeePage() {
             </div>
             <div className="form-group">
               <label>Centro de Costo</label>
-              <input
-                type="text"
-                value={formData.cost_center}
-                onChange={(e) => setFormData({ ...formData, cost_center: e.target.value })}
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                <select
+                  value={formData.cost_center_id}
+                  onChange={(e) => setFormData({ ...formData, cost_center_id: e.target.value })}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="">Seleccione un centro de costo</option>
+                  {costCenters.map((cc) => (
+                    <option key={cc.id} value={cc.id}>
+                      {cc.code} - {cc.name}
+                    </option>
+                  ))}
+                </select>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateCCModal(true)}
+                    style={{
+                      padding: '10px 12px',
+                      background: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '14px',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Crear nuevo centro de costo"
+                  >
+                    <FaPlus size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-          {/* Fila 5: Sueldo base, Movilización, Colación */}
+          {/* Fila 5: Sueldo base, Movilización, Colación, Solicita Anticipo, Monto del Anticipo */}
           <div className="form-row">
-            <div className="form-group">
+            <div className="form-group" style={{ flex: '0 0 18%' }}>
               <label>Sueldo Base *</label>
               <input
-                type="number"
+                type="text"
                 required
-                min="0"
-                step="1"
-                value={formData.base_salary}
-                onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
+                value={formatNumber(formData.base_salary)}
+                onChange={(e) => handleNumberChange('base_salary', e.target.value)}
+                placeholder="0"
+                style={{ textAlign: 'right' }}
               />
+              <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                Remuneración fija mensual del trabajador antes de descuentos legales y otros conceptos
+              </small>
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ flex: '0 0 15%' }}>
               <label>Movilización</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.transportation}
-                onChange={(e) => setFormData({ ...formData, transportation: e.target.value })}
+                type="text"
+                value={formatNumber(formData.transportation)}
+                onChange={(e) => handleNumberChange('transportation', e.target.value)}
                 placeholder="0"
+                style={{ textAlign: 'right' }}
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ flex: '0 0 15%' }}>
               <label>Colación</label>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.meal_allowance}
-                onChange={(e) => setFormData({ ...formData, meal_allowance: e.target.value })}
+                type="text"
+                value={formatNumber(formData.meal_allowance)}
+                onChange={(e) => handleNumberChange('meal_allowance', e.target.value)}
                 placeholder="0"
+                style={{ textAlign: 'right' }}
               />
             </div>
-          </div>
-          <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '-12px', marginBottom: '16px' }}>
-            Movilización y Colación aparecerán precargados en las liquidaciones
-          </small>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Solicita Anticipo?</label>
-              <select
-                value={formData.requests_advance ? 'yes' : 'no'}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  requests_advance: e.target.value === 'yes',
-                  advance_amount: e.target.value === 'no' ? '0' : formData.advance_amount
-                })}
-              >
-                <option value="no">No</option>
-                <option value="yes">Sí</option>
-              </select>
-              <small style={{ color: '#6b7280', fontSize: '12px' }}>
+            <div className="form-group" style={{ flex: '0 0 20%' }}>
+              <label style={{ display: 'block', marginBottom: '8px' }}>¿Solicita Anticipo?</label>
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                fontSize: '14px', 
+                fontWeight: '500',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }}>
+                <div style={{
+                  position: 'relative',
+                  width: '48px',
+                  height: '24px',
+                  borderRadius: '12px',
+                  background: formData.requests_advance ? '#3b82f6' : '#d1d5db',
+                  transition: 'background-color 0.2s ease',
+                  cursor: 'pointer'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '2px',
+                    left: formData.requests_advance ? '26px' : '2px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    background: 'white',
+                    transition: 'left 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                  }} />
+                </div>
+                <span>{formData.requests_advance ? 'Sí' : 'No'}</span>
+                <input
+                  type="checkbox"
+                  checked={formData.requests_advance}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    requests_advance: e.target.checked,
+                    advance_amount: !e.target.checked ? '0' : formData.advance_amount
+                  })}
+                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                />
+              </label>
+              <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '4px' }}>
                 Este valor aparecerá precargado en las liquidaciones
               </small>
             </div>
             {formData.requests_advance && (
-              <div className="form-group">
+              <div className="form-group" style={{ flex: '0 0 18%' }}>
                 <label>Monto del Anticipo *</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  min="0"
-                  step="1"
-                  max={formData.base_salary ? (parseFloat(formData.base_salary) * 0.5).toString() : ''}
-                  value={formData.advance_amount}
+                  value={formatNumber(formData.advance_amount)}
                   onChange={(e) => {
-                    const value = e.target.value
+                    const cleaned = e.target.value.replace(/[^\d.]/g, '')
+                    const numericValue = parseFormattedNumber(cleaned)
                     const maxAdvance = formData.base_salary ? parseFloat(formData.base_salary) * 0.5 : 0
-                    if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= maxAdvance)) {
-                      setFormData({ ...formData, advance_amount: value })
+                    const numValue = parseFloat(numericValue) || 0
+                    if (numericValue === '' || (numValue >= 0 && numValue <= maxAdvance)) {
+                      setFormData({ ...formData, advance_amount: numericValue })
                     }
                   }}
                   placeholder="0"
+                  style={{ textAlign: 'right' }}
                 />
                 <small style={{ color: '#6b7280', fontSize: '12px' }}>
                   Máximo: ${formData.base_salary ? (parseFloat(formData.base_salary) * 0.5).toLocaleString('es-CL') : '0'} (50% del sueldo base)
@@ -375,6 +538,9 @@ export default function NewEmployeePage() {
               </div>
             )}
           </div>
+          <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '-12px', marginBottom: '16px' }}>
+            Movilización y Colación aparecerán precargados en las liquidaciones
+          </small>
           {/* Fila 6: AFP, Sistema de salud, Plan de salud */}
           <div className="form-row">
             <div className="form-group">
@@ -433,7 +599,20 @@ export default function NewEmployeePage() {
               </small>
             </div>
           )}
+          {/* Fila 8: Tipo de contrato, Estado */}
           <div className="form-row">
+            <div className="form-group">
+              <label>Tipo de Contrato *</label>
+              <select
+                required
+                value={formData.contract_type}
+                onChange={(e) => setFormData({ ...formData, contract_type: e.target.value as 'plazo_fijo' | 'indefinido' | 'otro' })}
+              >
+                <option value="indefinido">Indefinido</option>
+                <option value="plazo_fijo">Plazo Fijo</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
             <div className="form-group">
               <label>Estado *</label>
               <select
@@ -450,6 +629,34 @@ export default function NewEmployeePage() {
             </div>
           </div>
 
+          {formData.contract_type === 'plazo_fijo' && (
+            <div className="form-group">
+              <label>Fecha de Término del Contrato *</label>
+              <input
+                type="date"
+                required
+                value={formData.contract_end_date}
+                onChange={(e) => setFormData({ ...formData, contract_end_date: e.target.value })}
+              />
+              <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                El sistema te alertará cuando el contrato esté próximo a vencer
+              </small>
+            </div>
+          )}
+
+          {formData.contract_type === 'otro' && (
+            <div className="form-group">
+              <label>Especificar Tipo de Contrato *</label>
+              <input
+                type="text"
+                required
+                value={formData.contract_other}
+                onChange={(e) => setFormData({ ...formData, contract_other: e.target.value })}
+                placeholder="Ej: Por obra, Honorarios, etc."
+              />
+            </div>
+          )}
+
           <div style={{ marginTop: '32px', display: 'flex', gap: '16px' }}>
             <button type="submit" disabled={loading}>
               {loading ? 'Guardando...' : 'Guardar Trabajador'}
@@ -464,6 +671,129 @@ export default function NewEmployeePage() {
           </div>
         </form>
       </div>
+
+      {/* Modal para crear nuevo Centro de Costo */}
+      {showCreateCCModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Crear Nuevo Centro de Costo</h2>
+              <button
+                onClick={() => {
+                  setShowCreateCCModal(false)
+                  setNewCCData({ code: '', name: '', description: '' })
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: '#6b7280'
+                }}
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                Código *
+              </label>
+              <input
+                type="text"
+                value={newCCData.code}
+                onChange={(e) => setNewCCData({ ...newCCData, code: e.target.value.toUpperCase() })}
+                placeholder="CC-001"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                Nombre *
+              </label>
+              <input
+                type="text"
+                value={newCCData.name}
+                onChange={(e) => setNewCCData({ ...newCCData, name: e.target.value })}
+                placeholder="Planta Coquimbo"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                Descripción
+              </label>
+              <textarea
+                value={newCCData.description}
+                onChange={(e) => setNewCCData({ ...newCCData, description: e.target.value })}
+                placeholder="Descripción del centro de costo"
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateCCModal(false)
+                  setNewCCData({ code: '', name: '', description: '' })
+                }}
+                className="secondary"
+                disabled={creatingCC}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCostCenter}
+                disabled={creatingCC || !newCCData.code.trim() || !newCCData.name.trim()}
+              >
+                {creatingCC ? 'Creando...' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

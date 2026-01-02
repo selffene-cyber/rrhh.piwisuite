@@ -5,6 +5,65 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import DateInput from '@/components/DateInput'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { generateAnnexClauseText, generateAnnexTextFromClauses, serializeAnnexClauses } from '@/lib/utils/annexClauses'
+
+// Componente ToggleSwitch simple
+const ToggleSwitch = ({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label?: string }) => {
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onChange(!checked)
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => {
+            e.stopPropagation()
+            onChange(e.target.checked)
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+          }}
+          style={{ display: 'none' }}
+        />
+        <div
+          style={{
+            width: '48px',
+            height: '24px',
+            borderRadius: '12px',
+            background: checked ? '#3b82f6' : '#d1d5db',
+            position: 'relative',
+            transition: 'background 0.2s',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+          onClick={handleToggle}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '50%',
+              background: 'white',
+              position: 'absolute',
+              top: '2px',
+              left: checked ? '26px' : '2px',
+              transition: 'left 0.2s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+        {label && <span style={{ marginLeft: '8px', fontSize: '14px' }}>{label}</span>}
+      </div>
+    </div>
+  )
+}
 
 export default function NewAnnexPage() {
   const { companyId } = useCurrentCompany()
@@ -25,6 +84,20 @@ export default function NewAnnexPage() {
     end_date: '',
     content: '',
     modifications_summary: '',
+    // Cláusulas individuales (1-6)
+    clause_1: '',
+    clause_2: '',
+    clause_3: '',
+    clause_4: '',
+    clause_5: '',
+    clause_6: '',
+    // Estados de activación de cláusulas
+    clause_1_enabled: true,
+    clause_2_enabled: true,
+    clause_3_enabled: true,
+    clause_4_enabled: true,
+    clause_5_enabled: true,
+    clause_6_enabled: true,
   })
 
   useEffect(() => {
@@ -67,7 +140,7 @@ export default function NewAnnexPage() {
       const { data: companyData } = await supabase
         .from('companies')
         .select('*')
-        .limit(1)
+        .eq('id', companyId)
         .single()
 
       setCompany(companyData)
@@ -86,8 +159,47 @@ export default function NewAnnexPage() {
         ...prev,
         employee_id: contract.employee_id,
       }))
+      // Generar cláusulas iniciales basadas en el contrato
+      generateInitialClauses(contract)
     }
   }
+
+  // Función para generar el texto de cada cláusula
+  const generateClauseText = (clauseNumber: number): string => {
+    if (!selectedContract) return ''
+    return generateAnnexClauseText(clauseNumber, formData, selectedContract, selectedContract.employees, company)
+  }
+
+  // Generar cláusulas iniciales cuando se carga el contrato
+  const generateInitialClauses = (contract: any) => {
+    if (!contract || !company) return
+    const clauses: any = {}
+    for (let i = 1; i <= 6; i++) {
+      const clauseKey = `clause_${i}` as keyof typeof formData
+      clauses[clauseKey] = generateAnnexClauseText(i, formData, contract, contract.employees, company)
+    }
+    setFormData((prev) => ({ ...prev, ...clauses }))
+  }
+
+  // Efecto para regenerar cláusulas cuando cambian datos relevantes
+  useEffect(() => {
+    if (selectedContract && company && formData.start_date) {
+      const clauses: any = {}
+      let hasEmptyClause = false
+      for (let i = 1; i <= 6; i++) {
+        const clauseKey = `clause_${i}` as keyof typeof formData
+        // Solo regenerar si la cláusula está vacía
+        if (!formData[clauseKey] || formData[clauseKey] === '') {
+          clauses[clauseKey] = generateAnnexClauseText(i, formData, selectedContract, selectedContract.employees, company)
+          hasEmptyClause = true
+        }
+      }
+      if (hasEmptyClause && Object.keys(clauses).length > 0) {
+        setFormData((prev) => ({ ...prev, ...clauses }))
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContract?.id, formData.start_date, formData.end_date, formData.modifications_summary, formData.annex_type, company?.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -99,19 +211,42 @@ export default function NewAnnexPage() {
         return
       }
 
-      if (!formData.content) {
-        alert('Por favor completa el contenido del anexo')
+      // Generar contenido completo desde las cláusulas
+      const clausesData = {
+        clause_1: formData.clause_1,
+        clause_2: formData.clause_2,
+        clause_3: formData.clause_3,
+        clause_4: formData.clause_4,
+        clause_5: formData.clause_5,
+        clause_6: formData.clause_6,
+        clause_1_enabled: formData.clause_1_enabled,
+        clause_2_enabled: formData.clause_2_enabled,
+        clause_3_enabled: formData.clause_3_enabled,
+        clause_4_enabled: formData.clause_4_enabled,
+        clause_5_enabled: formData.clause_5_enabled,
+        clause_6_enabled: formData.clause_6_enabled,
+      }
+
+      // Generar texto completo del anexo usando las cláusulas
+      const fullContent = generateAnnexTextFromClauses(clausesData, formData, selectedContract, selectedContract?.employees, company)
+      
+      // Almacenar tanto el contenido completo como las cláusulas en formato JSON
+      const contentWithClauses = serializeAnnexClauses(clausesData)
+
+      if (!companyId) {
+        alert('No se pudo determinar la empresa. Por favor, selecciona una empresa.')
+        setSaving(false)
         return
       }
 
       const annexData: any = {
         contract_id: formData.contract_id,
         employee_id: formData.employee_id,
-        company_id: company?.id,
+        company_id: companyId,
         annex_type: formData.annex_type,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
-        content: formData.content,
+        content: contentWithClauses, // Almacenar cláusulas en JSON
         modifications_summary: formData.modifications_summary || null,
         status: 'draft',
       }
@@ -217,7 +352,7 @@ export default function NewAnnexPage() {
         </div>
 
         <div className="card" style={{ marginBottom: '24px' }}>
-          <h2>3. Contenido del Anexo</h2>
+          <h2>3. Resumen de Modificaciones</h2>
           <div className="form-group">
             <label>Resumen de Modificaciones</label>
             <textarea
@@ -227,16 +362,61 @@ export default function NewAnnexPage() {
               placeholder="Resumen breve de las modificaciones..."
             />
           </div>
-          <div className="form-group">
-            <label>Contenido Completo del Anexo *</label>
-            <textarea
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              rows={10}
-              placeholder="Describe detalladamente las modificaciones al contrato..."
-              required
-            />
-          </div>
+        </div>
+
+        {/* Cláusulas del Anexo */}
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <h2>4. Cláusulas del Anexo</h2>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
+            Las cláusulas se generan automáticamente basándose en los datos ingresados. Puedes editarlas individualmente y activar o desactivar las que necesites.
+          </p>
+          
+          {[
+            { num: 1, title: 'PRIMERO', label: 'Identificación y Contrato Base', key: 'clause_1' as const, enabledKey: 'clause_1_enabled' as const },
+            { num: 2, title: 'SEGUNDO', label: 'Vigencia', key: 'clause_2' as const, enabledKey: 'clause_2_enabled' as const },
+            { num: 3, title: 'TERCERO', label: 'Resumen de Modificaciones', key: 'clause_3' as const, enabledKey: 'clause_3_enabled' as const },
+            { num: 4, title: 'CUARTO', label: 'Contenido del Anexo', key: 'clause_4' as const, enabledKey: 'clause_4_enabled' as const },
+            { num: 5, title: 'QUINTO', label: 'Continuidad del Contrato', key: 'clause_5' as const, enabledKey: 'clause_5_enabled' as const },
+            { num: 6, title: 'SEXTO', label: 'Ejemplares', key: 'clause_6' as const, enabledKey: 'clause_6_enabled' as const },
+          ].map((clause) => (
+            <div key={clause.key} className="form-group" style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {clause.title}: {clause.label}
+                </label>
+                <ToggleSwitch
+                  checked={formData[clause.enabledKey]}
+                  onChange={(checked) => setFormData({ ...formData, [clause.enabledKey]: checked })}
+                />
+              </div>
+              <textarea
+                value={formData[clause.key]}
+                onChange={(e) => setFormData({ ...formData, [clause.key]: e.target.value })}
+                rows={4}
+                style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #d1d5db', fontFamily: 'inherit', fontSize: '14px' }}
+                placeholder={`Texto de la cláusula ${clause.title}...`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const regenerated = generateClauseText(clause.num)
+                  setFormData({ ...formData, [clause.key]: regenerated })
+                }}
+                style={{
+                  marginTop: '8px',
+                  padding: '6px 12px',
+                  background: '#f3f4f6',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: '#374151'
+                }}
+              >
+                Regenerar Cláusula
+              </button>
+            </div>
+          ))}
         </div>
 
         <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>

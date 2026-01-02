@@ -77,19 +77,39 @@ export default function DisciplinaryActionsDashboardPage() {
       )
       const actions = await response.json()
 
-      // Obtener todos los trabajadores activos de la empresa
-      const { data: employeesData } = await supabase
+      // Obtener IDs únicos de empleados que tienen amonestaciones
+      const employeeIdsWithActions = [...new Set(actions.map((a: any) => a.employee_id))]
+      
+      // Cargar datos de todos los empleados que tienen amonestaciones (sin filtrar por estado)
+      let employeesData: any[] = []
+      if (employeeIdsWithActions.length > 0) {
+        const { data } = await supabase
+          .from('employees')
+          .select('id, full_name, rut')
+          .in('id', employeeIdsWithActions)
+          .eq('company_id', companyId)
+        employeesData = data || []
+      }
+      
+      // También cargar trabajadores activos y con licencia médica para mostrar en la lista completa
+      const { data: activeEmployeesData } = await supabase
         .from('employees')
         .select('id, full_name, rut')
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .eq('company_id', companyId)
         .order('full_name', { ascending: true })
+      
+      // Combinar ambos conjuntos, dando prioridad a los datos de empleados con acciones
+      const allEmployeesData = [...employeesData, ...(activeEmployeesData || [])]
+      const uniqueEmployeesData = Array.from(
+        new Map(allEmployeesData.map((emp: any) => [emp.id, emp])).values()
+      )
 
       // Agrupar amonestaciones por trabajador
       const employeesMap = new Map<string, EmployeeDisciplinaryData>()
 
       // Inicializar todos los trabajadores
-      employeesData?.forEach((emp) => {
+      uniqueEmployeesData.forEach((emp: any) => {
         employeesMap.set(emp.id, {
           id: emp.id,
           full_name: emp.full_name,
@@ -107,18 +127,40 @@ export default function DisciplinaryActionsDashboardPage() {
       actions.forEach((action: any) => {
         const empId = action.employee_id
         if (!employeesMap.has(empId)) {
-          // Si el trabajador no está activo, crear entrada temporal
-          employeesMap.set(empId, {
-            id: empId,
-            full_name: action.employee?.full_name || 'Trabajador Inactivo',
-            rut: action.employee?.rut || 'N/A',
-            totalActions: 0,
-            writtenActions: 0,
-            verbalActions: 0,
-            pendingReview: 0,
-            issuedActions: 0,
-            recentActions: [],
-          })
+          // Si el trabajador no está en el mapa inicial, obtener sus datos desde la acción
+          // La API devuelve los datos del empleado en action.employee o action.employees
+          const employeeData = action.employee || action.employees
+          if (employeeData && employeeData.full_name && employeeData.rut) {
+            employeesMap.set(empId, {
+              id: empId,
+              full_name: employeeData.full_name,
+              rut: employeeData.rut,
+              totalActions: 0,
+              writtenActions: 0,
+              verbalActions: 0,
+              pendingReview: 0,
+              issuedActions: 0,
+              recentActions: [],
+            })
+          } else {
+            // Si aún no tenemos los datos, buscar en uniqueEmployeesData
+            const foundEmployee = uniqueEmployeesData.find((e: any) => e.id === empId)
+            if (foundEmployee) {
+              employeesMap.set(empId, {
+                id: empId,
+                full_name: foundEmployee.full_name,
+                rut: foundEmployee.rut,
+                totalActions: 0,
+                writtenActions: 0,
+                verbalActions: 0,
+                pendingReview: 0,
+                issuedActions: 0,
+                recentActions: [],
+              })
+            } else {
+              console.warn(`No se encontraron datos del empleado ${empId} en la acción ni en la base de datos`)
+            }
+          }
         }
 
         const emp = employeesMap.get(empId)!
