@@ -1,0 +1,13 @@
+{
+  "name": "rh-piwisuite-root",
+  "private": true,
+  "scripts": {
+    "install:app": "npm --prefix rrhh.piwisuite-main install",
+    "dev": "npm --prefix rrhh.piwisuite-main run dev",
+    "build": "npm --prefix rrhh.piwisuite-main run build",
+    "start": "npm --prefix rrhh.piwisuite-main run start",
+    "lint": "npm --prefix rrhh.piwisuite-main run lint"
+  }
+}
+
+
