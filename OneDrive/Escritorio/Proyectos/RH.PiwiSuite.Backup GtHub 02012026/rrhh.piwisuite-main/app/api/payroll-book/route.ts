@@ -1,41 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
-import { getPayrollBookByPeriod } from '@/lib/services/payrollBookGenerator'
+import { NextRequest, NextResponse } from 'next/server'
 
-/**
- * GET /api/payroll-book?company_id=xxx&year=2025&month=12
- * Obtiene el libro de remuneraciones para un período específico
- */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerClientForAPI(request)
-    const { searchParams } = new URL(request.url)
+    const supabase = createServerClientForAPI(request)
     
-    const companyId = searchParams.get('company_id')
-    const year = searchParams.get('year')
-    const month = searchParams.get('month')
-
-    if (!companyId || !year || !month) {
-      return NextResponse.json(
-        { error: 'company_id, year y month son requeridos' },
-        { status: 400 }
-      )
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const book = await getPayrollBookByPeriod(
-      companyId,
-      parseInt(year),
-      parseInt(month),
-      supabase
-    )
+    const { searchParams } = new URL(request.url)
+    const company_id = searchParams.get('company_id')
 
-    return NextResponse.json(book)
+    let query = supabase
+      .from('payroll_books')
+      .select('*')
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+
+    if (company_id) {
+      query = query.eq('company_id', company_id)
+    }
+
+    const { data: books, error } = await query
+
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json({ books: books || [] })
   } catch (error: any) {
-    console.error('Error al obtener libro de remuneraciones:', error)
-    return NextResponse.json(
-      { error: error.message || 'Error al obtener libro de remuneraciones' },
-      { status: 500 }
-    )
+    console.error('Error al obtener libros:', error)
+    return NextResponse.json({ error: error.message || 'Error al obtener libros' }, { status: 500 })
   }
 }
 

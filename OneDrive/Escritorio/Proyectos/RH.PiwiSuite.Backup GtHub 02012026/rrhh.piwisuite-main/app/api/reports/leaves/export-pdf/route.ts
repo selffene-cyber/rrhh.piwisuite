@@ -1,42 +1,20 @@
+import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
-import { getLeavesReport } from '@/lib/services/reports/leavesReports'
-import { ReportFilters } from '@/types'
-import { renderToBuffer } from '@react-pdf/renderer'
-import React from 'react'
-import LeavesReportPDF from '@/components/reports/LeavesReportPDF'
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerClient()
-    const body = await request.json()
-    const filters: ReportFilters = body.filters || {}
-
-    const { rows, summary } = await getLeavesReport(filters, supabase)
-
-    let company = null
-    if (filters.companyId) {
-      const { data } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', filters.companyId)
-        .single()
-      company = data
+    const supabase = createServerClientForAPI(request)
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const pdfBuffer = await renderToBuffer(
-      React.createElement(LeavesReportPDF, { rows, summary, company, filters })
-    )
-
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Reporte_Licencias_${new Date().toISOString().split('T')[0]}.pdf"`,
-      },
-    })
+    // TODO: Implementar exportación PDF de reporte de licencias
+    return NextResponse.json({ error: 'Endpoint no implementado aún' }, { status: 501 })
   } catch (error: any) {
     console.error('Error al exportar PDF:', error)
     return NextResponse.json({ error: error.message || 'Error al exportar PDF' }, { status: 500 })
   }
 }
-

@@ -1,40 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
+import { NextRequest, NextResponse } from 'next/server'
 import { getPayrollBook } from '@/lib/services/payrollBookGenerator'
 
-/**
- * GET /api/payroll-book/[id]/export-csv
- * Exporta el libro de remuneraciones en formato CSV compatible con LRE
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createServerClientForAPI(request)
+    const supabase = createServerClientForAPI(request)
     
-    const book = await getPayrollBook(params.id, supabase)
-
-    if (!book) {
-      return NextResponse.json(
-        { error: 'Libro no encontrado' },
-        { status: 404 }
-      )
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // Obtener datos de la empresa
-    const { data: company } = await supabase
-      .from('companies')
-      .select('rut, name')
-      .eq('id', book.company_id)
-      .single()
+    const bookId = params.id
 
-    // Generar CSV compatible con formato LRE
-    // Encabezados según estructura del Libro de Remuneraciones Electrónico
+    if (!bookId) {
+      return NextResponse.json({ error: 'ID del libro es requerido' }, { status: 400 })
+    }
+
+    const book = await getPayrollBook(bookId, supabase)
+
+    // Generar CSV
     const headers = [
-      'RUT Empresa',
-      'RUT Trabajador',
-      'Nombre Trabajador',
+      'RUT',
+      'Nombre',
       'Fecha Ingreso',
       'Fecha Término',
       'Tipo Contrato',
@@ -43,102 +35,99 @@ export async function GET(
       'Plan Salud',
       'Cargo',
       'Centro Costo',
-      'Días Trabajados',
-      'Días Licencia',
       'Sueldo Base',
-      'Gratificación',
+      'Gratificación Mensual',
       'Bonos',
-      'Horas Extras',
-      'Vacaciones',
-      'Otros Haberes Imp.',
-      'Total Haberes Imp.',
-      'Movilización',
+      'Horas Extra',
+      'Vacaciones Pagadas',
+      'Otros Haberes Imponibles',
+      'Total Haberes Imponibles',
+      'Transporte',
       'Colación',
       'Aguinaldo',
-      'Otros Haberes No Imp.',
-      'Total Haberes No Imp.',
+      'Otros Haberes No Imponibles',
+      'Total Haberes No Imponibles',
       'Descuento AFP',
       'Descuento Salud',
-      'Descuento Cesantía',
+      'Descuento Seguro Cesantía',
       'Descuento Impuesto Único',
       'Total Descuentos Legales',
       'Descuento Préstamos',
       'Descuento Anticipos',
       'Otros Descuentos',
       'Total Otros Descuentos',
-      'Aporte AFP Empleador',
-      'Aporte SIS Empleador',
-      'Aporte AFC Empleador',
+      'Aporte Empleador AFP',
+      'Aporte Empleador SIS',
+      'Aporte Empleador AFC',
       'Total Aportes Empleador',
-      'Total Haberes',
-      'Total Descuentos',
-      'Líquido a Pagar',
+      'Líquido a Pagar'
     ]
 
-    // Generar filas de datos
-    const rows = book.entries.map((entry) => [
-      company?.rut || '',
-      entry.employee_rut,
-      entry.employee_name,
+    const rows = book.entries.map(entry => [
+      entry.employee_rut || '',
+      entry.employee_name || '',
       entry.employee_hire_date || '',
       entry.employee_contract_end_date || '',
       entry.employee_contract_type || '',
-      entry.employee_afp,
-      entry.employee_health_system,
+      entry.employee_afp || '',
+      entry.employee_health_system || '',
       entry.employee_health_plan || '',
       entry.employee_position || '',
       entry.employee_cost_center || '',
-      entry.days_worked.toString(),
-      entry.days_leave.toString(),
-      entry.base_salary.toFixed(0),
-      entry.monthly_gratification.toFixed(0),
-      entry.bonuses.toFixed(0),
-      entry.overtime.toFixed(0),
-      entry.vacation_paid.toFixed(0),
-      entry.other_taxable_earnings.toFixed(0),
-      entry.total_taxable_earnings.toFixed(0),
-      entry.transportation.toFixed(0),
-      entry.meal_allowance.toFixed(0),
-      entry.aguinaldo.toFixed(0),
-      entry.other_non_taxable_earnings.toFixed(0),
-      entry.total_non_taxable_earnings.toFixed(0),
-      entry.afp_deduction.toFixed(0),
-      entry.health_deduction.toFixed(0),
-      entry.unemployment_insurance_deduction.toFixed(0),
-      entry.unique_tax_deduction.toFixed(0),
-      entry.total_legal_deductions.toFixed(0),
-      entry.loans_deduction.toFixed(0),
-      entry.advances_deduction.toFixed(0),
-      entry.other_deductions.toFixed(0),
-      entry.total_other_deductions.toFixed(0),
-      entry.employer_afp_contribution.toFixed(0),
-      entry.employer_sis_contribution.toFixed(0),
-      entry.employer_afc_contribution.toFixed(0),
-      entry.total_employer_contributions.toFixed(0),
-      entry.total_earnings.toFixed(0),
-      entry.total_deductions.toFixed(0),
-      entry.net_pay.toFixed(0),
+      entry.base_salary?.toString() || '0',
+      entry.monthly_gratification?.toString() || '0',
+      entry.bonuses?.toString() || '0',
+      entry.overtime?.toString() || '0',
+      entry.vacation_paid?.toString() || '0',
+      entry.other_taxable_earnings?.toString() || '0',
+      entry.total_taxable_earnings?.toString() || '0',
+      entry.transportation?.toString() || '0',
+      entry.meal_allowance?.toString() || '0',
+      entry.aguinaldo?.toString() || '0',
+      entry.other_non_taxable_earnings?.toString() || '0',
+      entry.total_non_taxable_earnings?.toString() || '0',
+      entry.afp_deduction?.toString() || '0',
+      entry.health_deduction?.toString() || '0',
+      entry.unemployment_insurance_deduction?.toString() || '0',
+      entry.unique_tax_deduction?.toString() || '0',
+      entry.total_legal_deductions?.toString() || '0',
+      entry.loans_deduction?.toString() || '0',
+      entry.advances_deduction?.toString() || '0',
+      entry.other_deductions?.toString() || '0',
+      entry.total_other_deductions?.toString() || '0',
+      entry.employer_afp_contribution?.toString() || '0',
+      entry.employer_sis_contribution?.toString() || '0',
+      entry.employer_afc_contribution?.toString() || '0',
+      entry.total_employer_contributions?.toString() || '0',
+      entry.net_pay?.toString() || '0'
     ])
 
-    // Convertir a CSV
+    // Escapar valores que contengan comas o comillas
+    const escapeCSV = (value: string) => {
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`
+      }
+      return value
+    }
+
     const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      headers.map(escapeCSV).join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
     ].join('\n')
 
-    // Retornar como archivo CSV
-    return new NextResponse(csvContent, {
+    // Agregar BOM para Excel
+    const BOM = '\uFEFF'
+    const csvWithBOM = BOM + csvContent
+
+    return new NextResponse(csvWithBOM, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="Libro_Remuneraciones_${book.year}_${book.month.toString().padStart(2, '0')}.csv"`,
+        'Content-Disposition': `attachment; filename="libro-remuneraciones-${book.year}-${String(book.month).padStart(2, '0')}.csv"`,
       },
     })
   } catch (error: any) {
-    console.error('Error al exportar libro:', error)
-    return NextResponse.json(
-      { error: error.message || 'Error al exportar libro' },
-      { status: 500 }
-    )
+    console.error('Error al exportar CSV:', error)
+    return NextResponse.json({ error: error.message || 'Error al exportar CSV' }, { status: 500 })
   }
 }
 

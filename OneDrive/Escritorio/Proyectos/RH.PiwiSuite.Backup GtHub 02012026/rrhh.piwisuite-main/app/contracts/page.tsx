@@ -53,7 +53,7 @@ export default function ContractsPage() {
       setEmployees(employeesData || [])
 
       // Cargar contratos de empleados de la empresa
-      const employeeIds = employeesData?.map(emp => emp.id) || []
+      const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
       
       let contractsQuery = supabase
         .from('contracts')

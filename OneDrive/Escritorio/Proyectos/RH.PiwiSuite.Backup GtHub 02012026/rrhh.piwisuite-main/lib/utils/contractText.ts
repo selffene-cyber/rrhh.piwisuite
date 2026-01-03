@@ -144,10 +144,10 @@ export function generateContractText(contract: any, employee: any, company: any)
   // Procesar bonos desde other_allowances
   if (contract.other_allowances && contract.other_allowances.trim()) {
     // Formato esperado: "Bono 1: $monto1; Bono 2: $monto2"
-    const bonuses = contract.other_allowances.split(';').map(b => b.trim()).filter(b => b)
+    const bonuses = contract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
     if (bonuses.length > 0) {
       let bonusLetter = 'c'
-      bonuses.forEach((bonus) => {
+      bonuses.forEach((bonus: string) => {
         // Buscar patrón: "Nombre del Bono: $monto" o "Nombre del Bono: $ monto"
         const match = bonus.match(/^(.+?):\s*\$\s*(.+)$/)
         if (match) {

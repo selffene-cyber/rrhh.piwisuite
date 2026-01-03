@@ -75,20 +75,21 @@ export async function askGemini(request: GeminiRequest): Promise<GeminiResponse>
         topP: 0.95,
         topK: 40,
       },
-    })
+    } as any)
 
     // Extraer el texto de la respuesta (según el ejemplo: response.text)
-    const answer = response.text || ''
+    const responseData = response as any
+    const answer = responseData.text || ''
 
     if (!answer) {
       throw new Error('La respuesta de Gemini no contiene texto válido')
     }
 
     // Extraer información de uso si está disponible
-    const usage = response.usage ? {
-      promptTokens: response.usage.promptTokenCount,
-      candidatesTokens: response.usage.candidatesTokenCount,
-      totalTokens: response.usage.totalTokenCount,
+    const usage = responseData.usage ? {
+      promptTokens: responseData.usage.promptTokenCount,
+      candidatesTokens: responseData.usage.candidatesTokenCount,
+      totalTokens: responseData.usage.totalTokenCount,
     } : undefined
 
     return {
@@ -129,4 +130,8 @@ export async function askGemini(request: GeminiRequest): Promise<GeminiResponse>
     throw new Error(`Error inesperado al comunicarse con Gemini: ${error.toString()}`)
   }
 }
+
+
+
+
 

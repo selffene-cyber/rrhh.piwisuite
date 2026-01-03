@@ -312,3 +312,7 @@ IMPORTANTE: Responde usando los datos específicos del contexto proporcionado. S
   }
 }
 
+
+
+
+

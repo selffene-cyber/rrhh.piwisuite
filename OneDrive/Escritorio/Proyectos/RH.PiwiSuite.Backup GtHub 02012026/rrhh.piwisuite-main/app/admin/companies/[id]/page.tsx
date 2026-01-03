@@ -290,3 +290,7 @@ export default function CompanyDetailPage() {
   )
 }
 
+
+
+
+

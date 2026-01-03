@@ -148,14 +148,14 @@ export default function HomePage() {
         return
       }
 
-      const employeeIds = allEmployees?.map(emp => emp.id) || []
+      const employeeIds = allEmployees?.map((emp: { id: string }) => emp.id) || []
       
       // Contar trabajadores activos
-      const activeCount = allEmployees?.filter(emp => emp.status === 'active').length || 0
+      const activeCount = allEmployees?.filter((emp: { status: string }) => emp.status === 'active').length || 0
       setActiveEmployeesCount(activeCount)
 
       // Contar trabajadores con licencia médica
-      const medicalLeaveCount = allEmployees?.filter(emp => emp.status === 'licencia_medica').length || 0
+      const medicalLeaveCount = allEmployees?.filter((emp: { status: string }) => emp.status === 'licencia_medica').length || 0
       setMedicalLeaveEmployeesCount(medicalLeaveCount)
 
       // Contar trabajadores con permiso laboral (trabajadores con permisos activos en el mes actual)
@@ -172,7 +172,7 @@ export default function HomePage() {
         .gte('end_date', currentMonthStart.toISOString().split('T')[0])
       
       if (!permissionsError && currentPermissions) {
-        const uniqueEmployeesWithPermissions = new Set(currentPermissions.map(p => p.employee_id))
+        const uniqueEmployeesWithPermissions = new Set(currentPermissions.map((p: { employee_id: string }) => p.employee_id))
         setPermissionEmployeesCount(uniqueEmployeesWithPermissions.size)
       } else {
         setPermissionEmployeesCount(0)
@@ -238,7 +238,7 @@ export default function HomePage() {
         .select('id')
         .eq('company_id', companyId)
       
-      const employeeIds = employeesData?.map(emp => emp.id) || []
+      const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
       
       if (employeeIds.length === 0) {
         setMonthlyData([])
@@ -462,7 +462,7 @@ export default function HomePage() {
       const indicators = await getCachedIndicators(indicatorYear, indicatorMonth)
 
       // Obtener IDs de empleados de la empresa actual para filtrar vacaciones y licencias
-      const employeeIds = activeEmployees.map(emp => emp.id)
+      const employeeIds = activeEmployees.map((emp: { id: string }) => emp.id)
 
       // Obtener vacaciones y licencias del mes siguiente (solo de empleados de la empresa actual)
       const { data: nextMonthVacations } = await supabase
@@ -544,7 +544,7 @@ export default function HomePage() {
 
         let totalLoansAmount = 0
         if (activeLoans && activeLoans.length > 0) {
-          totalLoansAmount = activeLoans.reduce((sum, loan) => sum + (loan.installment_amount || 0), 0)
+          totalLoansAmount = activeLoans.reduce((sum: number, loan: { installment_amount: number | null }) => sum + (loan.installment_amount || 0), 0)
         }
 
         // Calcular anticipo si el trabajador lo solicita
@@ -716,7 +716,7 @@ export default function HomePage() {
         return
       }
 
-      const employeeIds = employees.map(emp => emp.id)
+      const employeeIds = employees.map((emp: { id: string }) => emp.id)
 
       // Paralelizar todas las consultas agregadas (evitar N+1)
       const [payrollsResult, vacationsResult, leavesResult, loansResult] = await Promise.all([
@@ -776,7 +776,7 @@ export default function HomePage() {
 
       // Construir ranking
       const today = new Date()
-      const rankingData = employees.map(employee => {
+      const rankingData = employees.map((employee: { id: string; hire_date: string; full_name: string; rut: string }) => {
         const hireDate = new Date(employee.hire_date)
         const antiguedad = Math.floor((today.getTime() - hireDate.getTime()) / (1000 * 60 * 60 * 24))
         const diasVacaciones = vacationsByEmployee.get(employee.id) || 0
@@ -1761,9 +1761,9 @@ export default function HomePage() {
                   tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
                 />
                 <Tooltip 
-                  formatter={(value: number | undefined, name: string) => {
-                    if (value === undefined) return ['$0', name]
-                    return [`$${value.toLocaleString('es-CL')}`, name]
+                  formatter={(value: number | undefined, name: string | undefined) => {
+                    if (value === undefined) return ['$0', name || '']
+                    return [`$${value.toLocaleString('es-CL')}`, name || '']
                   }}
                   contentStyle={{ 
                     backgroundColor: '#fff', 

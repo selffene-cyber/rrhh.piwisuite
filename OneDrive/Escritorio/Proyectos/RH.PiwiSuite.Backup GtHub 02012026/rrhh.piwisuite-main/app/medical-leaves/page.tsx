@@ -42,9 +42,9 @@ export default function MedicalLeavesManagementPage() {
 
       if (!employeesData) return
 
-      const employeeIds = employeesData.map(emp => emp.id)
+      const employeeIds = employeesData.map((emp: { id: string }) => emp.id)
       const employeesMap: Record<string, any> = {}
-      employeesData.forEach(emp => {
+      employeesData.forEach((emp: { id: string; full_name: string; rut: string; position: string | null }) => {
         employeesMap[emp.id] = emp
       })
       setEmployees(employeesMap)
@@ -406,4 +406,8 @@ export default function MedicalLeavesManagementPage() {
     </div>
   )
 }
+
+
+
+
 

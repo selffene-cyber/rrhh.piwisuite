@@ -260,7 +260,7 @@ export default function BulkPayrollPage() {
           // Sumar anticipos del período
           let totalAdvancesAmount = 0
           if (periodAdvances && periodAdvances.length > 0) {
-            totalAdvancesAmount = periodAdvances.reduce((sum, adv) => sum + Number(adv.amount || 0), 0)
+            totalAdvancesAmount = periodAdvances.reduce((sum: number, adv: { amount: number | null }) => sum + Number(adv.amount || 0), 0)
           }
 
           // Sumar anticipos manuales si los hay
@@ -453,7 +453,7 @@ export default function BulkPayrollPage() {
 
           // Actualizar anticipos como descontados
           if (periodAdvances && periodAdvances.length > 0) {
-            const advanceIds = periodAdvances.map(adv => adv.id)
+            const advanceIds = periodAdvances.map((adv: { id: string }) => adv.id)
             await supabase
               .from('advances')
               .update({

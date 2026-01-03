@@ -1,81 +1,37 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Database, CostCenter, UserCostCenter } from '@/types'
+import { Database } from '@/types/database'
+import { CostCenter, UserCostCenter } from '@/types'
 
 /**
- * Obtener todos los centros de costo de una empresa
- * - Admin: ve todos los CC activos e inactivos
- * - User: solo ve los CC que tiene asignados
+ * Obtiene todos los centros de costo de una empresa
  */
 export async function getCostCenters(
   companyId: string,
   supabase: SupabaseClient<Database>,
   includeInactive: boolean = false
 ): Promise<CostCenter[]> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Usuario no autenticado')
-
-  // Verificar rol del usuario en la empresa
-  const { data: companyUser } = await supabase
-    .from('company_users')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-    .single()
-
-  const isAdmin = companyUser?.role === 'owner' || companyUser?.role === 'admin'
-
-  if (isAdmin) {
-    // Admin ve todos los CC de la empresa
-    const { data, error } = await supabase
-      .from('cost_centers')
-      .select('*')
-      .eq('company_id', companyId)
-      .in('status', includeInactive ? ['active', 'inactive'] : ['active'])
-      .order('code', { ascending: true })
-
-    if (error) throw error
-    return data || []
-  } else {
-    // User solo ve sus CC asignados
-    const { data, error } = await supabase
-      .from('user_cost_centers')
-      .select(`
-        cost_centers (*)
-      `)
-      .eq('user_id', user.id)
-      .eq('company_id', companyId)
-      .in('cost_centers.status', includeInactive ? ['active', 'inactive'] : ['active'])
-
-    if (error) throw error
-    return (data || []).map((item: any) => item.cost_centers).filter(Boolean)
-  }
-}
-
-/**
- * Obtener un centro de costo por ID
- */
-export async function getCostCenterById(
-  costCenterId: string,
-  supabase: SupabaseClient<Database>
-): Promise<CostCenter | null> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('cost_centers')
     .select('*')
-    .eq('id', costCenterId)
-    .single()
+    .eq('company_id', companyId)
+    .order('code', { ascending: true })
+
+  if (!includeInactive) {
+    query = query.eq('status', 'active')
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
-  return data
+  return (data || []) as CostCenter[]
 }
 
 /**
- * Crear un nuevo centro de costo
- * Solo admins pueden crear
+ * Crea un nuevo centro de costo
  */
 export async function createCostCenter(
   companyId: string,
-  costCenterData: {
+  data: {
     code: string
     name: string
     description?: string
@@ -83,135 +39,69 @@ export async function createCostCenter(
   },
   supabase: SupabaseClient<Database>
 ): Promise<CostCenter> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Usuario no autenticado')
-
-  // Verificar permisos
-  const { data: companyUser } = await supabase
-    .from('company_users')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-    .in('role', ['owner', 'admin'])
-    .single()
-
-  if (!companyUser) {
-    throw new Error('No tienes permisos para crear centros de costo')
-  }
-
-  const { data, error } = await supabase
-    .from('cost_centers')
+  const { data: newCC, error } = await (supabase
+    .from('cost_centers') as any)
     .insert({
       company_id: companyId,
-      code: costCenterData.code,
-      name: costCenterData.name,
-      description: costCenterData.description || null,
-      status: costCenterData.status || 'active',
+      code: data.code.toUpperCase(),
+      name: data.name,
+      description: data.description || null,
+      status: data.status || 'active',
     })
     .select()
     .single()
 
   if (error) throw error
-  return data
+  return newCC as CostCenter
 }
 
 /**
- * Actualizar un centro de costo
- * Solo admins pueden actualizar
+ * Actualiza un centro de costo
  */
 export async function updateCostCenter(
-  costCenterId: string,
-  updates: {
-    code?: string
-    name?: string
-    description?: string
-    status?: 'active' | 'inactive'
-  },
+  id: string,
+  data: Partial<{
+    code: string
+    name: string
+    description: string
+    status: 'active' | 'inactive'
+  }>,
   supabase: SupabaseClient<Database>
 ): Promise<CostCenter> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Usuario no autenticado')
+  const updateData: any = {}
+  if (data.code !== undefined) updateData.code = data.code.toUpperCase()
+  if (data.name !== undefined) updateData.name = data.name
+  if (data.description !== undefined) updateData.description = data.description || null
+  if (data.status !== undefined) updateData.status = data.status
 
-  // Obtener el CC para verificar la empresa
-  const costCenter = await getCostCenterById(costCenterId, supabase)
-  if (!costCenter) throw new Error('Centro de costo no encontrado')
-
-  // Verificar permisos
-  const { data: companyUser } = await supabase
-    .from('company_users')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('company_id', costCenter.company_id)
-    .eq('status', 'active')
-    .in('role', ['owner', 'admin'])
-    .single()
-
-  if (!companyUser) {
-    throw new Error('No tienes permisos para actualizar este centro de costo')
-  }
-
-  const { data, error } = await supabase
-    .from('cost_centers')
-    .update(updates)
-    .eq('id', costCenterId)
+  const { data: updated, error } = await (supabase
+    .from('cost_centers') as any)
+    .update(updateData)
+    .eq('id', id)
     .select()
     .single()
 
   if (error) throw error
-  return data
+  return updated as CostCenter
 }
 
 /**
- * Eliminar un centro de costo
- * Solo admins pueden eliminar
+ * Elimina un centro de costo
  */
 export async function deleteCostCenter(
-  costCenterId: string,
+  id: string,
   supabase: SupabaseClient<Database>
 ): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Usuario no autenticado')
-
-  // Obtener el CC para verificar la empresa
-  const costCenter = await getCostCenterById(costCenterId, supabase)
-  if (!costCenter) throw new Error('Centro de costo no encontrado')
-
-  // Verificar permisos
-  const { data: companyUser } = await supabase
-    .from('company_users')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('company_id', costCenter.company_id)
-    .eq('status', 'active')
-    .in('role', ['owner', 'admin'])
-    .single()
-
-  if (!companyUser) {
-    throw new Error('No tienes permisos para eliminar este centro de costo')
-  }
-
-  // Verificar que no haya trabajadores asignados
-  const { data: employees } = await supabase
-    .from('employees')
-    .select('id')
-    .eq('cost_center_id', costCenterId)
-    .limit(1)
-
-  if (employees && employees.length > 0) {
-    throw new Error('No se puede eliminar el centro de costo porque tiene trabajadores asignados')
-  }
-
   const { error } = await supabase
     .from('cost_centers')
     .delete()
-    .eq('id', costCenterId)
+    .eq('id', id)
 
   if (error) throw error
 }
 
 /**
- * Obtener centros de costo asignados a un usuario
+ * Obtiene los centros de costo asignados a un usuario en una empresa
  */
 export async function getUserCostCenters(
   userId: string,
@@ -227,12 +117,14 @@ export async function getUserCostCenters(
     .eq('company_id', companyId)
 
   if (error) throw error
-  return (data || []).map((item: any) => item.cost_centers).filter(Boolean)
+
+  return (data || [])
+    .map((item: any) => item.cost_centers)
+    .filter((cc: any) => cc !== null) as CostCenter[]
 }
 
 /**
- * Asignar centros de costo a un usuario
- * Solo admins pueden asignar
+ * Asigna centros de costo a un usuario
  */
 export async function assignCostCentersToUser(
   userId: string,
@@ -240,23 +132,6 @@ export async function assignCostCentersToUser(
   costCenterIds: string[],
   supabase: SupabaseClient<Database>
 ): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Usuario no autenticado')
-
-  // Verificar permisos
-  const { data: companyUser } = await supabase
-    .from('company_users')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-    .in('role', ['owner', 'admin'])
-    .single()
-
-  if (!companyUser) {
-    throw new Error('No tienes permisos para asignar centros de costo')
-  }
-
   // Eliminar asignaciones existentes
   const { error: deleteError } = await supabase
     .from('user_cost_centers')
@@ -274,8 +149,8 @@ export async function assignCostCentersToUser(
       cost_center_id: ccId,
     }))
 
-    const { error: insertError } = await supabase
-      .from('user_cost_centers')
+    const { error: insertError } = await (supabase
+      .from('user_cost_centers') as any)
       .insert(assignments)
 
     if (insertError) throw insertError
@@ -283,7 +158,7 @@ export async function assignCostCentersToUser(
 }
 
 /**
- * Verificar si un usuario es admin de una empresa
+ * Verifica si un usuario es administrador de una empresa
  */
 export async function isCompanyAdmin(
   userId: string,
@@ -295,11 +170,11 @@ export async function isCompanyAdmin(
     .select('role')
     .eq('user_id', userId)
     .eq('company_id', companyId)
-    .eq('status', 'active')
-    .in('role', ['owner', 'admin'])
-    .single()
+    .maybeSingle()
 
   if (error || !data) return false
-  return true
+
+  const userData = data as { role: string }
+  return userData.role === 'admin' || userData.role === 'owner'
 }
 

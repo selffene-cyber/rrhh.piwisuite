@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Actualizar email en auth.users
     const { data, error } = await adminClient.auth.admin.updateUserById(userId, {
       email: newEmail,
     })

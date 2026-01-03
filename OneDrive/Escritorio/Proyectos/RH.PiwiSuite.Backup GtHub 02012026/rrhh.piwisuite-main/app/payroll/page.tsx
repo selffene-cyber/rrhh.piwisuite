@@ -72,7 +72,7 @@ export default function PayrollPage() {
         return
       }
 
-      const employeeIds = employees.map(emp => emp.id)
+      const employeeIds = employees.map((emp: { id: string }) => emp.id)
 
       // Obtener las liquidaciones solo de los empleados de la empresa actual
       const { data, error } = await supabase
@@ -152,7 +152,7 @@ export default function PayrollPage() {
 
       // Restaurar anticipos: cambiar de "descontado" a "pagado" y limpiar el vínculo
       if (linkedAdvances && linkedAdvances.length > 0) {
-        const advanceIds = linkedAdvances.map(adv => adv.id)
+        const advanceIds = linkedAdvances.map((adv: any) => adv.id)
         const { error: updateAdvancesError } = await supabase
           .from('advances')
           .update({

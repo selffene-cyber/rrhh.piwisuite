@@ -14,9 +14,8 @@ export default function EditDisciplinaryActionPage({
   const router = useRouter()
   const { company: currentCompany } = useCurrentCompany()
   const [loading, setLoading] = useState(false)
-  const [loadingData, setLoadingData] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [employee, setEmployee] = useState<any>(null)
-  const [action, setAction] = useState<any>(null)
   const [riohsRules, setRiohsRules] = useState<any[]>([])
   const [formData, setFormData] = useState({
     type: 'written' as 'verbal' | 'written',
@@ -45,7 +44,29 @@ export default function EditDisciplinaryActionPage({
     if (!currentCompany) return
 
     try {
-      setLoadingData(true)
+      setInitialLoading(true)
+
+      // Cargar amonestación existente
+      const { data: actionData, error: actionError } = await supabase
+        .from('disciplinary_actions')
+        .select('*')
+        .eq('id', params.actionId)
+        .eq('company_id', currentCompany.id)
+        .single()
+
+      if (actionError) throw actionError
+      if (!actionData) {
+        alert('Amonestación no encontrada')
+        router.push(`/employees/${params.id}/disciplinary-actions`)
+        return
+      }
+
+      // Verificar que se puede editar (solo draft o under_review)
+      if (actionData.status !== 'draft' && actionData.status !== 'under_review') {
+        alert('Solo se pueden editar amonestaciones en estado Borrador o En Revisión')
+        router.push(`/employees/${params.id}/disciplinary-actions/${params.actionId}`)
+        return
+      }
 
       // Cargar trabajador
       const { data: empData } = await supabase
@@ -56,41 +77,23 @@ export default function EditDisciplinaryActionPage({
 
       setEmployee(empData)
 
-      // Cargar amonestación
-      const { data: actionData, error: actionError } = await supabase
-        .from('disciplinary_actions')
-        .select('*')
-        .eq('id', params.actionId)
-        .eq('company_id', currentCompany.id)
-        .single()
+      // Cargar reglas RIOHS
+      const response = await fetch(
+        `/api/riohs-rules?company_id=${currentCompany.id}`
+      )
+      const rules = await response.json()
+      setRiohsRules(rules)
 
-      if (actionError) throw actionError
-
-      if (!actionData) {
-        alert('Amonestación no encontrada')
-        router.push(`/employees/${params.id}/disciplinary-actions`)
-        return
-      }
-
-      // Validar que se pueda editar
-      if (actionData.status !== 'draft' && actionData.status !== 'under_review') {
-        alert('Solo se pueden editar amonestaciones en estado Borrador o En Revisión')
-        router.push(`/employees/${params.id}/disciplinary-actions/${params.actionId}`)
-        return
-      }
-
-      setAction(actionData)
-
-      // Parsear fecha y hora del incidente
-      const incidentDate = actionData.incident_date ? new Date(actionData.incident_date) : new Date()
-      const incidentDateStr = incidentDate.toISOString().split('T')[0]
-      const incidentTimeStr = incidentDate.toTimeString().slice(0, 5)
+      // Preparar fecha y hora desde incident_date
+      const incidentDate = new Date(actionData.incident_date)
+      const dateStr = incidentDate.toISOString().split('T')[0]
+      const timeStr = incidentDate.toTimeString().slice(0, 5)
 
       // Cargar datos en el formulario
       setFormData({
         type: actionData.type || 'written',
-        incident_date: incidentDateStr,
-        incident_time: incidentTimeStr,
+        incident_date: dateStr,
+        incident_time: timeStr,
         location: actionData.location || '',
         site_client: actionData.site_client || '',
         riohs_rule_id: actionData.riohs_rule_id || '',
@@ -98,25 +101,17 @@ export default function EditDisciplinaryActionPage({
         evidence: actionData.evidence || [],
         witnesses: actionData.witnesses || [],
       })
-
-      // Cargar reglas RIOHS
-      const response = await fetch(
-        `/api/riohs-rules?company_id=${currentCompany.id}`
-      )
-      const rules = await response.json()
-      setRiohsRules(rules)
     } catch (error: any) {
       console.error('Error al cargar datos:', error)
       alert('Error al cargar amonestación: ' + error.message)
-      router.push(`/employees/${params.id}/disciplinary-actions`)
     } finally {
-      setLoadingData(false)
+      setInitialLoading(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentCompany || !action) return
+    if (!currentCompany) return
 
     setLoading(true)
 
@@ -175,39 +170,25 @@ export default function EditDisciplinaryActionPage({
     })
   }
 
+  if (initialLoading) {
+    return (
+      <div>
+        <h1>Editar Amonestación</h1>
+        <div className="card">
+          <p>Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!currentCompany) {
     return (
       <div>
         <h1>Editar Amonestación</h1>
         <div className="card">
           <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
-            Seleccione una empresa para editar la amonestación.
+            Seleccione una empresa para editar una amonestación.
           </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (loadingData) {
-    return (
-      <div>
-        <h1>Editar Amonestación</h1>
-        <div className="card">
-          <p>Cargando datos...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!action) {
-    return (
-      <div>
-        <h1>Editar Amonestación</h1>
-        <div className="card">
-          <p>Amonestación no encontrada</p>
-          <Link href={`/employees/${params.id}/disciplinary-actions`}>
-            <button>Volver</button>
-          </Link>
         </div>
       </div>
     )

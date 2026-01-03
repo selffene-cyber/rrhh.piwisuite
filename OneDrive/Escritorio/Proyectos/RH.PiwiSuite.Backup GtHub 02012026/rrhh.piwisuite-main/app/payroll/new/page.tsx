@@ -464,17 +464,17 @@ export default function NewPayrollPage() {
     // Sumar anticipos del período
     let totalAdvancesAmount = 0
     if (periodAdvances && periodAdvances.length > 0) {
-      totalAdvancesAmount = periodAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0)
+      totalAdvancesAmount = periodAdvances.reduce((sum: number, adv: { amount: number | null }) => sum + Number(adv.amount), 0)
     }
 
     // Sumar anticipos manuales si los hay
     totalAdvancesAmount += formData.advances
 
     // Calcular total de bonos
-    const totalBonuses = bonuses.reduce((sum, bonus) => sum + (bonus.amount || 0), 0)
+    const totalBonuses = bonuses.reduce((sum: number, bonus: { amount: number }) => sum + (bonus.amount || 0), 0)
 
     // Calcular total de haberes no imponibles adicionales
-    const totalNonTaxableEarnings = nonTaxableEarnings.reduce((sum, earning) => sum + (earning.amount || 0), 0)
+    const totalNonTaxableEarnings = nonTaxableEarnings.reduce((sum: number, earning: { amount: number }) => sum + (earning.amount || 0), 0)
 
     // Obtener indicadores de Previred
     // IMPORTANTE: Los indicadores de Previred son del mes anterior
@@ -1292,7 +1292,7 @@ export default function NewPayrollPage() {
                 <div style={{ marginTop: '12px', padding: '10px', background: '#eff6ff', borderRadius: '4px', fontSize: '12px', border: '1px solid #bfdbfe' }}>
                   <strong style={{ color: '#1e40af', display: 'block', marginBottom: '8px' }}>📋 Préstamos a Descontar Automáticamente:</strong>
                   {loansToPay.map((loan, idx) => {
-                    const totalFromLoans = loansToPay.reduce((sum, l) => sum + l.installment_amount, 0)
+                    const totalFromLoans = loansToPay.reduce((sum: number, l: { installment_amount: number }) => sum + l.installment_amount, 0)
                     return (
                       <div key={loan.id || idx} style={{ marginBottom: '6px', paddingBottom: '6px', borderBottom: idx < loansToPay.length - 1 ? '1px solid #dbeafe' : 'none' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1316,7 +1316,7 @@ export default function NewPayrollPage() {
                   })}
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#1e3a8a' }}>
                     <span>Total Préstamos Automáticos:</span>
-                    <span>${loansToPay.reduce((sum, l) => sum + l.installment_amount, 0).toLocaleString('es-CL')}</span>
+                    <span>${loansToPay.reduce((sum: number, l: { installment_amount: number }) => sum + l.installment_amount, 0).toLocaleString('es-CL')}</span>
                   </div>
                 </div>
               )}
@@ -1363,7 +1363,7 @@ export default function NewPayrollPage() {
                   ))}
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#78350f' }}>
                     <span>Total Anticipos del Período:</span>
-                    <span>${periodAdvances.reduce((sum, a) => sum + Number(a.amount), 0).toLocaleString('es-CL')}</span>
+                    <span>${periodAdvances.reduce((sum: number, a: { amount: number | null }) => sum + Number(a.amount), 0).toLocaleString('es-CL')}</span>
                   </div>
                 </div>
               )}

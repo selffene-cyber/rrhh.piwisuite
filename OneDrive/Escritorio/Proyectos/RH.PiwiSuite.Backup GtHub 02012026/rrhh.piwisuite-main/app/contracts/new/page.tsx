@@ -882,7 +882,7 @@ export default function NewContractPage() {
                   onChange={(checked) => setFormData({ ...formData, gratuity: checked })}
                   label="Incluir Gratificación Legal (25% del sueldo base, con tope legal)"
                 />
-                {formData.gratuity && (
+              {formData.gratuity && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '200px' }}>
                     <input
                       type="text"
@@ -895,15 +895,15 @@ export default function NewContractPage() {
                       style={{ flex: '1', minWidth: '150px' }}
                     />
                     <span style={{ fontSize: '11px', color: '#666', whiteSpace: 'nowrap' }}>
-                      Si se deja vacío, se aplicará gratificación legal
+                    Si se deja vacío, se aplicará gratificación legal
                     </span>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
-          <div className="form-group">
-            <label>Otros Bonos o Asignaciones</label>
+          </div>
+            <div className="form-group">
+              <label>Otros Bonos o Asignaciones</label>
             <div style={{ marginBottom: '16px' }}>
               {formData.bonuses.map((bonus, index) => (
                 <div key={bonus.id} className="form-row" style={{ marginBottom: '8px' }}>
@@ -1016,20 +1016,20 @@ export default function NewContractPage() {
                     <option value="ahorro">Cuenta de Ahorro</option>
                     <option value="vista">Cuenta Vista</option>
                   </select>
-                </div>
-                <div className="form-group">
-                  <label>Número de Cuenta</label>
-                  <input
-                    type="text"
-                    value={formData.account_number}
-                    onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                    placeholder="Ej: 12345678-9"
-                  />
+              </div>
+              <div className="form-group">
+                <label>Número de Cuenta</label>
+                <input
+                  type="text"
+                  value={formData.account_number}
+                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                  placeholder="Ej: 12345678-9"
+                />
                 </div>
               </div>
               <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '8px' }}>
-                Estos datos se precargan desde la ficha del trabajador, pero puedes editarlos si es necesario
-              </small>
+                  Estos datos se precargan desde la ficha del trabajador, pero puedes editarlos si es necesario
+                </small>
             </>
           )}
         </div>
@@ -1081,14 +1081,14 @@ export default function NewContractPage() {
                 >
                   Regenerar
                 </button>
-              </div>
-              <textarea
+          </div>
+            <textarea
                 value={formData[clause.key as keyof typeof formData] as string || generateClauseText(clause.num)}
                 onChange={(e) => setFormData({ ...formData, [clause.key]: e.target.value })}
                 rows={clause.num === 2 || clause.num === 4 || clause.num === 6 ? 8 : clause.num === 10 ? 6 : 4}
                 style={{ width: '100%', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.5' }}
-              />
-            </div>
+            />
+          </div>
           ))}
         </div>
 

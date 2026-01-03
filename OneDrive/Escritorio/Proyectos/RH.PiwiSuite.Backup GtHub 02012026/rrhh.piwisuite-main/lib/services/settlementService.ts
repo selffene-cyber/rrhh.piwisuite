@@ -684,16 +684,17 @@ export async function updateSettlementStatus(
     // Si se aprueba el finiquito y hay un contrato activo, cambiar estado del trabajador a "despido"
     if (settlement.contract_id) {
       // Verificar si el contrato sigue activo
-      const { data: contract } = await supabase
+      const { data: contractData } = await supabase
         .from('contracts')
         .select('status')
         .eq('id', settlement.contract_id)
-        .single()
+        .maybeSingle()
 
+      const contract = contractData as any
       if (contract && contract.status === 'active') {
         // Cambiar estado del trabajador a "despido"
-        const { error: employeeUpdateError } = await supabase
-          .from('employees')
+        const { error: employeeUpdateError } = await (supabase
+          .from('employees') as any)
           .update({ status: 'despido' })
           .eq('id', settlement.employee_id)
 
@@ -704,8 +705,8 @@ export async function updateSettlementStatus(
       }
     } else {
       // Si no hay contract_id pero el finiquito se aprueba, cambiar estado a "despido"
-      const { error: employeeUpdateError } = await supabase
-        .from('employees')
+      const { error: employeeUpdateError } = await (supabase
+        .from('employees') as any)
         .update({ status: 'despido' })
         .eq('id', settlement.employee_id)
 

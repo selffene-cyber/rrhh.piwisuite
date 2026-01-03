@@ -137,10 +137,10 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
         terminateForm.termination_date,
         terminateForm.cause_code,
         terminateForm.notice_given,
-        terminateForm.notice_days || 0,
-        terminateForm.notes,
         user.id,
-        supabase
+        supabase,
+        terminateForm.notice_days || undefined,
+        terminateForm.notes || undefined
       )
 
       alert(`Contrato terminado correctamente. Se ha creado un pre-finiquito (${result.settlement.settlement_number}).`)

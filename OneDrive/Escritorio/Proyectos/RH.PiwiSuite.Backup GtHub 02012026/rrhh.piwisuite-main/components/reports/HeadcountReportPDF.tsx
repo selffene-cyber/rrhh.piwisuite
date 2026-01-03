@@ -196,3 +196,7 @@ export default function HeadcountReportPDF({ rows, summary, company, filters }: 
   )
 }
 
+
+
+
+

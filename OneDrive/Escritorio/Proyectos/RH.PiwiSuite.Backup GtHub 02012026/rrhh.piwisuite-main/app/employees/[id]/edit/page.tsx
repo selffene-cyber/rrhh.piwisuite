@@ -162,7 +162,7 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           account_number: data.account_number || '',
           hire_date: data.hire_date,
           position: data.position,
-          cost_center: data.cost_center || '',
+          cost_center_id: data.cost_center_id || '',
           afp: data.afp,
           health_system: data.health_system,
           health_plan: data.health_plan || '',

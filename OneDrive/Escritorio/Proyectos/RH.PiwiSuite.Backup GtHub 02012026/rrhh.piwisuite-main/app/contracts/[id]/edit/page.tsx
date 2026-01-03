@@ -290,7 +290,7 @@ export default function EditContractPage() {
 
       if (isSeparated) {
         workScheduleType = 'separated'
-        const parts = workSchedule.split(';').map(s => s.trim())
+        const parts = workSchedule.split(';').map((s: string) => s.trim())
         if (parts.length >= 2) {
           workScheduleMondayThursday = parts[0]
           workScheduleFriday = parts[1]
@@ -302,8 +302,8 @@ export default function EditContractPage() {
       // Parsear bonos desde other_allowances
       const bonuses: Array<{ id: string; name: string; amount: string }> = []
       if (contractData.other_allowances) {
-        const bonusStrings = contractData.other_allowances.split(';').map(b => b.trim()).filter(b => b)
-        bonusStrings.forEach((bonusStr, idx) => {
+        const bonusStrings = contractData.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
+        bonusStrings.forEach((bonusStr: string, idx: number) => {
           const match = bonusStr.match(/^(.+?):\s*\$\s*(.+)$/)
           if (match) {
             bonuses.push({
@@ -972,3 +972,4 @@ export default function EditContractPage() {
     </div>
   )
 }
+

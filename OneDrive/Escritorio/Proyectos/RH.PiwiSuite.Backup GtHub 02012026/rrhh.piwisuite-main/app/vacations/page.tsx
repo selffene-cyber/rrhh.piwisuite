@@ -65,7 +65,7 @@ export default function VacationsDashboardPage() {
 
       // Para cada trabajador, sincronizar períodos y obtener resumen
       const employeesWithVacations = await Promise.all(
-        employeesData.map(async (emp) => {
+        employeesData.map(async (emp: any) => {
           try {
             // Sincronizar períodos (esto crea/actualiza los períodos según la fecha de ingreso)
             await syncVacationPeriods(emp.id, emp.hire_date)

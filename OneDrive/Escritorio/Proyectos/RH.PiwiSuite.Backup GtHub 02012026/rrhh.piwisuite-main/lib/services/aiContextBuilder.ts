@@ -4,7 +4,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Database } from '@/types'
+import { Database } from '@/types/database'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -158,7 +158,7 @@ async function buildBaseContext(
 
     // Resumen de días disponibles de vacaciones (top 5 trabajadores con más días)
     // Solo incluir trabajadores activos o con licencia médica
-    const activeEmployeeIds = companyEmployees
+    const activeEmployeeIds = (companyEmployees || [])
       .filter((e: any) => e.status === 'active' || e.status === 'licencia_medica')
       .map((e: any) => e.id)
     
@@ -588,7 +588,7 @@ async function buildOvertimePactsContext(
       .gte('end_date', today)
 
     const employeesWithPact = new Set(activePacts?.map((pact: any) => pact.employee_id) || [])
-    const employeesWithoutPact = employees.filter((emp) => !employeesWithPact.has(emp.id))
+    const employeesWithoutPact = (employees || []).filter((emp: any) => !employeesWithPact.has(emp.id))
 
     const contextParts: string[] = []
     contextParts.push('=== INFORMACIÓN SOBRE PACTOS DE HORAS EXTRA ===')
@@ -598,7 +598,7 @@ async function buildOvertimePactsContext(
 
     if (employeesWithoutPact.length > 0) {
       contextParts.push('\n--- TRABAJADORES SIN PACTO ACTIVO ---')
-      employeesWithoutPact.forEach((emp) => {
+      employeesWithoutPact.forEach((emp: any) => {
         contextParts.push(`- ${emp.full_name} (RUT: ${emp.rut})`)
       })
     }
@@ -729,8 +729,8 @@ async function buildEmployeesContext(
           const maxSalary = Math.max(...salaries)
           const minSalary = Math.min(...salaries)
           const avgSalary = salaries.reduce((a: number, b: number) => a + b, 0) / salaries.length
-          const maxEmployee = activeEmployees.find((e: any) => e.base_salary === maxSalary)
-          const minEmployee = activeEmployees.find((e: any) => e.base_salary === minSalary)
+          const maxEmployee: any = activeEmployees.find((e: any) => e.base_salary === maxSalary)
+          const minEmployee: any = activeEmployees.find((e: any) => e.base_salary === minSalary)
 
           contextParts.push('\n--- ESTADÍSTICAS DE SUELDOS ---')
           contextParts.push(`- Sueldo más alto: $${maxSalary.toLocaleString('es-CL')} - ${maxEmployee?.full_name || 'N/A'} (RUT: ${maxEmployee?.rut || 'N/A'})`)
@@ -1184,8 +1184,8 @@ async function buildDisciplinaryActionsContext(
     if (sortedByCount.length > 0) {
       contextParts.push('\n--- TRABAJADORES CON MÁS AMONESTACIONES ---')
       sortedByCount.forEach(([empId, count]) => {
-        const action = disciplinaryActions.find((a: any) => a.employee_id === empId)
-        const emp = action?.employees
+        const action: any = disciplinaryActions.find((a: any) => a.employee_id === empId)
+        const emp: any = action?.employees
         if (emp) {
           contextParts.push(`- ${emp.full_name} (RUT: ${emp.rut}): ${count} amonestación(es)`)
         }
@@ -1304,16 +1304,17 @@ async function buildCostCenterContext(
         .order('year', { ascending: false })
         .order('month', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (recentPeriod) {
+        const period = recentPeriod as { id: string; year: number; month: number }
         const { data: slips } = await supabase
           .from('payroll_slips')
           .select(`
             net_pay,
             employees (cost_centers (code))
           `)
-          .eq('period_id', recentPeriod.id)
+          .eq('period_id', period.id)
           .eq('status', 'issued')
 
         if (slips && slips.length > 0) {
@@ -1323,7 +1324,7 @@ async function buildCostCenterContext(
             netPayByCC[ccCode] = (netPayByCC[ccCode] || 0) + (slip.net_pay || 0)
           })
 
-          contextParts.push(`\n--- MASA SALARIAL NETO A PAGAR (Período ${recentPeriod.month}/${recentPeriod.year}) ---`)
+          contextParts.push(`\n--- MASA SALARIAL NETO A PAGAR (Período ${period.month}/${period.year}) ---`)
           Object.entries(netPayByCC)
             .sort(([, a], [, b]) => b - a)
             .forEach(([ccCode, total]) => {
@@ -1441,9 +1442,10 @@ async function buildAFPHealthContext(
       .order('year', { ascending: false })
       .order('month', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (recentPeriod) {
+      const period = recentPeriod as { id: string; year: number; month: number }
       const { data: slips } = await supabase
         .from('payroll_slips')
         .select(`
@@ -1451,7 +1453,7 @@ async function buildAFPHealthContext(
           employees (full_name, rut, afp, health_system),
           payroll_items (category, description, amount, type)
         `)
-        .eq('period_id', recentPeriod.id)
+        .eq('period_id', period.id)
         .eq('status', 'issued')
 
       if (slips && slips.length > 0) {
@@ -1476,7 +1478,7 @@ async function buildAFPHealthContext(
           })
         })
 
-        contextParts.push(`\n--- DESCUENTOS LEGALES (Período ${recentPeriod.month}/${recentPeriod.year}) ---`)
+        contextParts.push(`\n--- DESCUENTOS LEGALES (Período ${period.month}/${period.year}) ---`)
         contextParts.push(`- AFP: $${totalAFP.toLocaleString('es-CL')}`)
         contextParts.push(`- Salud (FONASA/ISAPRE): $${totalHealth.toLocaleString('es-CL')}`)
         contextParts.push(`- Seguro de Cesantía (AFC): $${totalAFC.toLocaleString('es-CL')}`)
@@ -1927,14 +1929,15 @@ async function buildSettlementContext(
         .eq('status', 'issued')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (lastSlip) {
-        const period = lastSlip.payroll_periods
+        const slip = lastSlip as { net_pay: number | null; days_worked: number | null; payroll_periods: { year: number; month: number } | null }
+        const period = slip.payroll_periods
         contextParts.push(`\n--- ÚLTIMA LIQUIDACIÓN (Referencia) ---`)
         contextParts.push(`Período: ${period?.month}/${period?.year}`)
-        contextParts.push(`Días trabajados: ${lastSlip.days_worked}`)
-        contextParts.push(`Líquido pagado: $${lastSlip.net_pay?.toLocaleString('es-CL') || 'N/A'}`)
+        contextParts.push(`Días trabajados: ${slip.days_worked}`)
+        contextParts.push(`Líquido pagado: $${slip.net_pay?.toLocaleString('es-CL') || 'N/A'}`)
       }
 
       // Tipo de contrato
@@ -2124,10 +2127,11 @@ async function buildSpecificEmployeeContext(
       .from('cost_centers')
       .select('code, name')
       .eq('id', employee.cost_center_id)
-      .single()
+      .maybeSingle()
 
     if (costCenter) {
-      contextParts.push(`Centro de costo: ${costCenter.name} (${costCenter.code})`)
+      const cc = costCenter as { code: string; name: string }
+      contextParts.push(`Centro de costo: ${cc.name} (${cc.code})`)
     }
 
     // Vacaciones disponibles
@@ -2152,11 +2156,12 @@ async function buildSpecificEmployeeContext(
       .eq('status', 'issued')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (lastSlip) {
-      const period = lastSlip.payroll_periods
-      contextParts.push(`\nÚltima liquidación: Período ${period?.month}/${period?.year} - Líquido: $${lastSlip.net_pay?.toLocaleString('es-CL') || 'N/A'}`)
+      const slip = lastSlip as { net_pay: number | null; payroll_periods: { year: number; month: number } | null }
+      const period = slip.payroll_periods
+      contextParts.push(`\nÚltima liquidación: Período ${period?.month}/${period?.year} - Líquido: $${slip.net_pay?.toLocaleString('es-CL') || 'N/A'}`)
     }
 
     return contextParts.join('\n')
@@ -2244,7 +2249,8 @@ async function buildAdditionalEmployeeData(
       contextParts.push('\n=== PRÉSTAMOS ACTIVOS ===')
       contextParts.push(`Total: ${activeLoans.length} préstamos activos`)
       
-      for (const loan of activeLoans) {
+      for (const loanItem of activeLoans) {
+        const loan = loanItem as any
         const emp = loan.employees
         const remainingInstallments = loan.installments - loan.paid_installments
         const completionDate = remainingInstallments > 0 
@@ -2261,7 +2267,7 @@ async function buildAdditionalEmployeeData(
 
         let installmentsInfo = ''
         if (pendingInstallments && pendingInstallments.length > 0) {
-          const nextInstallment = pendingInstallments[0]
+          const nextInstallment = pendingInstallments[0] as any
           installmentsInfo = ` - Próxima cuota: ${nextInstallment.installment_number} (${nextInstallment.due_month}/${nextInstallment.due_year}) - $${nextInstallment.amount_expected?.toLocaleString('es-CL') || 'N/A'}`
         }
 
@@ -2516,7 +2522,8 @@ async function buildLoanContext(
     contextParts.push('=== INFORMACIÓN DETALLADA DE PRÉSTAMOS ===')
     contextParts.push(`Total: ${loans.length} préstamos`)
 
-    for (const loan of loans) {
+    for (const loanItem of loans) {
+      const loan = loanItem as any
       const emp = loan.employees
       const remainingInstallments = loan.installments - loan.paid_installments
       
@@ -2782,3 +2789,7 @@ async function buildBonusContext(
     return ''
   }
 }
+
+
+
+

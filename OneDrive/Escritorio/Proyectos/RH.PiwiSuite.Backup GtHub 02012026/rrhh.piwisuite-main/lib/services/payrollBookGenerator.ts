@@ -23,17 +23,19 @@ export async function generatePayrollBook(
   supabase: SupabaseClient<Database>
 ): Promise<PayrollBook & { entries: PayrollBookEntry[] }> {
   // 1. Verificar que existe el período de liquidación
-  const { data: period, error: periodError } = await supabase
+  const { data: periodData, error: periodError } = await supabase
     .from('payroll_periods')
     .select('*')
     .eq('company_id', companyId)
     .eq('year', year)
     .eq('month', month)
-    .single()
+    .maybeSingle()
 
-  if (periodError || !period) {
+  if (periodError || !periodData) {
     throw new Error(`No existe período de liquidación para ${month}/${year}`)
   }
+
+  const period = periodData as any
 
   // 2. Obtener todas las liquidaciones emitidas del período
   const { data: payrollSlips, error: slipsError } = await supabase
@@ -56,23 +58,24 @@ export async function generatePayrollBook(
   }
 
   // 3. Obtener indicadores previsionales del período (para calcular aportes del empleador)
-  const indicators = await getCachedIndicators(year, month, supabase)
+  const indicators = await getCachedIndicators(year, month)
 
   // 5. Crear o actualizar el libro principal
-  const { data: existingBook } = await supabase
+  const { data: existingBookData } = await supabase
     .from('payroll_books')
     .select('*')
     .eq('company_id', companyId)
     .eq('year', year)
     .eq('month', month)
-    .single()
+    .maybeSingle()
 
   let payrollBook: PayrollBook
 
-  if (existingBook) {
+  if (existingBookData) {
+    const existingBook = existingBookData as any
     // Actualizar libro existente
-    const { data: updatedBook, error: updateError } = await supabase
-      .from('payroll_books')
+    const { data: updatedBook, error: updateError } = await (supabase
+      .from('payroll_books') as any)
       .update({
         generated_by: userId,
         generated_at: new Date().toISOString(),
@@ -92,8 +95,8 @@ export async function generatePayrollBook(
       .eq('payroll_book_id', payrollBook.id)
   } else {
     // Crear nuevo libro
-    const { data: newBook, error: createError } = await supabase
-      .from('payroll_books')
+    const { data: newBook, error: createError } = await (supabase
+      .from('payroll_books') as any)
       .insert({
         company_id: companyId,
         year,
@@ -118,8 +121,9 @@ export async function generatePayrollBook(
   let totalEmployerContributions = 0
   let totalNetPay = 0
 
-  for (const slip of payrollSlips) {
-    const employee = slip.employees as any
+  for (const slipItem of payrollSlips) {
+    const slip = slipItem as any
+    const employee = slip.employees
     if (!employee) continue
 
     // Consolidar ítems de la liquidación
@@ -300,8 +304,8 @@ export async function generatePayrollBook(
     }
 
     // Insertar entrada
-    const { data: insertedEntry, error: insertError } = await supabase
-      .from('payroll_book_entries')
+    const { data: insertedEntry, error: insertError } = await (supabase
+      .from('payroll_book_entries') as any)
       .insert(entry)
       .select()
       .single()
@@ -323,8 +327,8 @@ export async function generatePayrollBook(
   }
 
   // 7. Actualizar totales del libro
-  const { data: updatedBook, error: updateError } = await supabase
-    .from('payroll_books')
+  const { data: updatedBook, error: updateError } = await (supabase
+    .from('payroll_books') as any)
     .update({
       total_employees: entries.length,
       total_taxable_earnings: totalTaxableEarnings,
@@ -360,30 +364,32 @@ export async function closePayrollBook(
   userId: string,
   supabase: SupabaseClient<Database>
 ): Promise<PayrollBook> {
-  const { data: book, error: bookError } = await supabase
+  const { data: bookData, error: bookError } = await supabase
     .from('payroll_books')
     .select('*')
     .eq('id', bookId)
-    .single()
+    .maybeSingle()
 
-  if (bookError || !book) {
+  if (bookError || !bookData) {
     throw new Error('Libro no encontrado')
   }
 
+  const book = bookData as any
   if (book.status === 'closed' || book.status === 'sent_dt') {
     throw new Error('El libro ya está cerrado o enviado')
   }
 
   // Validar que todas las liquidaciones del período estén emitidas
-  const { data: period } = await supabase
+  const { data: periodData } = await supabase
     .from('payroll_periods')
     .select('*')
     .eq('company_id', book.company_id)
     .eq('year', book.year)
     .eq('month', book.month)
-    .single()
+    .maybeSingle()
 
-  if (period) {
+  if (periodData) {
+    const period = periodData as any
     const { data: allSlips } = await supabase
       .from('payroll_slips')
       .select('id, status')
@@ -396,8 +402,8 @@ export async function closePayrollBook(
   }
 
   // Cerrar el libro
-  const { data: closedBook, error: closeError } = await supabase
-    .from('payroll_books')
+  const { data: closedBook, error: closeError } = await (supabase
+    .from('payroll_books') as any)
     .update({
       status: 'closed',
       closed_at: new Date().toISOString(),
@@ -452,13 +458,13 @@ export async function getPayrollBookByPeriod(
   month: number,
   supabase: SupabaseClient<Database>
 ): Promise<(PayrollBook & { entries: PayrollBookEntry[] }) | null> {
-  const { data: book, error: bookError } = await supabase
+  const { data: bookData, error: bookError } = await supabase
     .from('payroll_books')
     .select('*')
     .eq('company_id', companyId)
     .eq('year', year)
     .eq('month', month)
-    .single()
+    .maybeSingle()
 
   if (bookError) {
     if (bookError.code === 'PGRST116') {
@@ -468,8 +474,9 @@ export async function getPayrollBookByPeriod(
     throw bookError
   }
 
-  if (!book) return null
+  if (!bookData) return null
 
+  const book = bookData as any
   const { data: entries, error: entriesError } = await supabase
     .from('payroll_book_entries')
     .select('*')
@@ -483,4 +490,8 @@ export async function getPayrollBookByPeriod(
     entries: (entries || []) as PayrollBookEntry[],
   }
 }
+
+
+
+
 

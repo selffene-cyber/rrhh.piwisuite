@@ -71,7 +71,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     loadUser()
     
     // Escuchar cambios de autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (session) {
         loadUser()
       } else {
