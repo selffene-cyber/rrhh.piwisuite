@@ -365,11 +365,11 @@ export default function ContractsPage() {
                     <td>{getStatusBadge(item.status)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        <Link href={isContract ? `/contracts/${item.id}` : `/contracts/annex/${item.id}`}>
-                          <button style={{ padding: '4px 8px', fontSize: '12px' }}>
-                            <FaEye />
-                          </button>
-                        </Link>
+                          <Link href={isContract ? `/contracts/${item.id}` : `/contracts/annex/${item.id}`}>
+                            <button style={{ padding: '4px 8px', fontSize: '12px' }}>
+                              <FaEye />
+                            </button>
+                          </Link>
                         <Link href={isContract ? `/contracts/${item.id}/edit` : `/contracts/annex/${item.id}/edit`}>
                           <button
                             style={{ padding: '4px 8px', fontSize: '12px' }}

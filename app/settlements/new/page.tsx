@@ -36,7 +36,6 @@ export default function NewSettlementPage() {
       .from('employees')
       .select('id, full_name, rut, hire_date, base_salary')
       .eq('company_id', currentCompany.id)
-      .eq('status', 'active')
       .order('full_name')
 
     if (data) {

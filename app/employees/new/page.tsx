@@ -141,6 +141,13 @@ export default function NewEmployeePage() {
     setLoading(true)
 
     try {
+      // Validar que haya una empresa seleccionada
+      if (!companyId) {
+        alert('Debe seleccionar una empresa antes de crear un trabajador')
+        setLoading(false)
+        return
+      }
+
       // Validar sueldo base
       const baseSalary = parseFloat(formData.base_salary)
       if (isNaN(baseSalary) || baseSalary <= 0) {
@@ -179,6 +186,7 @@ export default function NewEmployeePage() {
 
       // Limpiar campos vacíos y convertirlos a null
       const employeeData: any = {
+        company_id: companyId, // Asignar la empresa actual
         full_name: formData.full_name.trim(),
         rut: formData.rut.trim(),
         hire_date: formData.hire_date,

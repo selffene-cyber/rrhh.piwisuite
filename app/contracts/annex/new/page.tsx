@@ -116,7 +116,6 @@ export default function NewAnnexPage() {
       const { data: contractsData } = await supabase
         .from('contracts')
         .select('*, employees (*)')
-        .in('status', ['active', 'signed'])
         .order('created_at', { ascending: false })
 
       setContracts(contractsData || [])
@@ -130,7 +129,6 @@ export default function NewAnnexPage() {
       const { data: employeesData } = await supabase
         .from('employees')
         .select('*')
-        .eq('status', 'active')
         .eq('company_id', companyId)
         .order('full_name')
 

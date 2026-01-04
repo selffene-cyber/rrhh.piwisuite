@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase/client'
 import DateInput from '@/components/DateInput'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
-import { hasActiveContract, hasApprovedSettlement } from '@/lib/services/contractService'
 
 // Componente ToggleSwitch simple
 const ToggleSwitch = ({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label?: string }) => {
@@ -332,7 +331,6 @@ export default function NewContractPage() {
       const { data: employeesData } = await supabase
         .from('employees')
         .select('*')
-        .eq('status', 'active')
         .eq('company_id', companyId)
         .order('full_name')
 
@@ -357,40 +355,6 @@ export default function NewContractPage() {
     if (!formData.employee_id) return
     
     try {
-      // Verificar si el trabajador tiene contrato activo
-      const { hasActive, contract } = await hasActiveContract(formData.employee_id, supabase)
-      
-      if (hasActive && contract) {
-        const message = `El trabajador ya tiene un contrato activo (${contract.contract_number}).\n\n` +
-          `Para crear un nuevo contrato, primero debe:\n` +
-          `1. Terminar el contrato actual desde la sección de Contratos\n` +
-          `2. Esperar a que el finiquito asociado esté aprobado\n\n` +
-          `Mientras tanto, puede crear anexos al contrato existente.`
-        alert(message)
-        setFormData((prev) => ({ ...prev, employee_id: '' }))
-        setSelectedEmployee(null)
-        return
-      }
-
-      // Verificar si tiene finiquito aprobado pendiente
-      const hasApproved = await hasApprovedSettlement(formData.employee_id, supabase)
-      if (!hasApproved) {
-        const employeeStatus = await supabase
-          .from('employees')
-          .select('status')
-          .eq('id', formData.employee_id)
-          .single()
-
-        if (employeeStatus.data && (employeeStatus.data.status === 'despido' || employeeStatus.data.status === 'renuncia')) {
-          const message = `El trabajador tiene estado "${employeeStatus.data.status === 'despido' ? 'Despido' : 'Renuncia'}" pero no tiene un finiquito aprobado.\n\n` +
-            `Para crear un nuevo contrato, primero debe aprobar el finiquito correspondiente.`
-          alert(message)
-          setFormData((prev) => ({ ...prev, employee_id: '' }))
-          setSelectedEmployee(null)
-          return
-        }
-      }
-
       // Cargar datos completos del empleado seleccionado (incluyendo datos bancarios y personales)
       const { data: employee, error } = await supabase
         .from('employees')
@@ -401,16 +365,6 @@ export default function NewContractPage() {
       if (error) throw error
 
       if (employee) {
-        // Validar que no se pueda crear contrato en borrador si el trabajador está activo
-        if (employee.status === 'active') {
-          const message = `El trabajador está activo. No se pueden crear contratos en borrador para trabajadores activos.\n\n` +
-            `Si desea crear un nuevo contrato, primero debe terminar el contrato actual.`
-          alert(message)
-          setFormData((prev) => ({ ...prev, employee_id: '' }))
-          setSelectedEmployee(null)
-          return
-        }
-
         setSelectedEmployee(employee)
         // Precargar fecha de ingreso como fecha de inicio del contrato
         const hireDate = employee.hire_date ? employee.hire_date.split('T')[0] : new Date().toISOString().split('T')[0]
@@ -462,33 +416,6 @@ export default function NewContractPage() {
         return
       }
 
-      // Validar que el trabajador no tenga contrato activo
-      const { hasActive, contract } = await hasActiveContract(formData.employee_id, supabase)
-      if (hasActive && contract) {
-        alert(`El trabajador ya tiene un contrato activo (${contract.contract_number}). Debe terminar el contrato actual antes de crear uno nuevo.`)
-        return
-      }
-
-      // Validar que si el trabajador está en despido/renuncia, tenga finiquito aprobado
-      const { data: employee } = await supabase
-        .from('employees')
-        .select('status')
-        .eq('id', formData.employee_id)
-        .single()
-
-      if (employee && (employee.status === 'despido' || employee.status === 'renuncia')) {
-        const hasApproved = await hasApprovedSettlement(formData.employee_id, supabase)
-        if (!hasApproved) {
-          alert('El trabajador tiene estado de término pero no tiene un finiquito aprobado. Debe aprobar el finiquito antes de crear un nuevo contrato.')
-          return
-        }
-      }
-
-      // Validar que no se pueda crear contrato en borrador si el trabajador está activo
-      if (employee && employee.status === 'active') {
-        alert('No se pueden crear contratos en borrador para trabajadores activos.')
-        return
-      }
 
       const contractData: any = {
         employee_id: formData.employee_id,

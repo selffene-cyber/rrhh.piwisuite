@@ -171,6 +171,45 @@ export default function NewPayrollPage() {
             advances: employee.requests_advance ? (employee.advance_amount || 0) : 0,
           })
           setDefaultValuesLoaded(true)
+          
+          // Cargar bonos del contrato activo del trabajador
+          try {
+            const { data: activeContract } = await supabase
+              .from('contracts')
+              .select('other_allowances')
+              .eq('employee_id', employeeIdParam)
+              .eq('status', 'active')
+              .order('start_date', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (activeContract?.other_allowances) {
+              // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
+              const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
+              const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
+              
+              bonusStrings.forEach((bonusStr: string, idx: number) => {
+                const match = bonusStr.match(/^(.+?):\s*\$\s*(.+)$/)
+                if (match) {
+                  const bonusName = match[1].trim()
+                  const bonusAmount = parseFormattedNumber(match[2].trim()) || 0
+                  if (bonusName && bonusAmount > 0) {
+                    bonusesFromContract.push({
+                      id: `contract-bonus-${idx}-${Date.now()}`,
+                      name: bonusName,
+                      amount: bonusAmount
+                    })
+                  }
+                }
+              })
+
+              if (bonusesFromContract.length > 0) {
+                setBonuses(bonusesFromContract)
+              }
+            }
+          } catch (error) {
+            console.error('Error al cargar bonos del contrato:', error)
+          }
         }
       }
     } catch (error: any) {
@@ -180,7 +219,7 @@ export default function NewPayrollPage() {
     }
   }
 
-  const handleEmployeeChange = (employeeId: string) => {
+  const handleEmployeeChange = async (employeeId: string) => {
     const employee = employees.find((e: any) => e.id === employeeId)
     setSelectedEmployee(employee || null)
     setFormData({ 
@@ -191,13 +230,56 @@ export default function NewPayrollPage() {
       advances: employee?.requests_advance ? (employee?.advance_amount || 0) : 0,
       overtime_hours: 0,
     })
-    setBonuses([])
     setNonTaxableEarnings([])
     setDefaultValuesLoaded(true)
     setMedicalLeaveDays(0) // Resetear días de licencia al cambiar trabajador
     setVacationAmount(0)
     setVacationDetails([])
     setOvertimeAmount(0)
+
+    // Cargar bonos del contrato activo del trabajador
+    try {
+      const { data: activeContract } = await supabase
+        .from('contracts')
+        .select('other_allowances')
+        .eq('employee_id', employeeId)
+        .eq('status', 'active')
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (activeContract?.other_allowances) {
+        // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
+        const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
+        const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
+        
+        bonusStrings.forEach((bonusStr: string, idx: number) => {
+          const match = bonusStr.match(/^(.+?):\s*\$\s*(.+)$/)
+          if (match) {
+            const bonusName = match[1].trim()
+            const bonusAmount = parseFormattedNumber(match[2].trim()) || 0
+            if (bonusName && bonusAmount > 0) {
+              bonusesFromContract.push({
+                id: `contract-bonus-${idx}-${Date.now()}`,
+                name: bonusName,
+                amount: bonusAmount
+              })
+            }
+          }
+        })
+
+        if (bonusesFromContract.length > 0) {
+          setBonuses(bonusesFromContract)
+        } else {
+          setBonuses([])
+        }
+      } else {
+        setBonuses([])
+      }
+    } catch (error) {
+      console.error('Error al cargar bonos del contrato:', error)
+      setBonuses([])
+    }
   }
 
   const calculate = async () => {
