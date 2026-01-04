@@ -336,6 +336,16 @@ export default function BulkPayrollPage() {
             formData.month
           )
 
+          // Validar que el empleado pueda recibir una liquidación (requiere contrato activo)
+          const { createValidationServices } = await import('@/lib/services/validationHelpers')
+          const { employee: employeeValidation } = createValidationServices(supabase as any)
+          const validation = await employeeValidation.canGeneratePayrollSlip(employee.id)
+          
+          if (!validation.allowed) {
+            console.log(`Omitiendo ${employee.full_name}: ${validation.message}`)
+            continue
+          }
+
           // Crear liquidación
           const { data: slip, error: slipError } = await supabase
             .from('payroll_slips')

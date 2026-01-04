@@ -113,27 +113,13 @@ export default function NewAdvancePage() {
         }
       }
 
-      // Obtener usuario actual
-      const { data: { user } } = await supabase.auth.getUser()
-
-      // Generar ID correlativo ANT-##
-      const { data: lastAdvance } = await supabase
-        .from('advances')
-        .select('advance_number')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      let advanceNumber = 'ANT-01'
-      if (lastAdvance?.advance_number) {
-        const lastNumber = parseInt(lastAdvance.advance_number.replace('ANT-', ''))
-        const newNumber = lastNumber + 1
-        advanceNumber = `ANT-${String(newNumber).padStart(2, '0')}`
-      }
-
-      const { data, error } = await supabase
-        .from('advances')
-        .insert({
+      // Usar API para crear anticipo (incluye validación de contrato activo)
+      const response = await fetch('/api/advances', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           employee_id: formData.employee_id,
           company_id: companyId,
           period: formData.period,
@@ -142,14 +128,15 @@ export default function NewAdvancePage() {
           reason: formData.reason || null,
           payment_method: formData.payment_method,
           status: 'borrador',
-          advance_number: advanceNumber,
-          created_by: user?.id,
-        })
-        .select()
-        .single()
+        }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al crear anticipo')
+      }
 
+      const data = await response.json()
       router.push(`/advances/${data.id}`)
     } catch (error: any) {
       alert('Error al crear anticipo: ' + error.message)

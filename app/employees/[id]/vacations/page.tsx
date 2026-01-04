@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/utils/date'
 import { useRouter } from 'next/navigation'
 import { calculateAccumulatedVacations, calculateBusinessDays, calculateAvailableVacations } from '@/lib/services/vacationCalculator'
 import { assignVacationDays, syncVacationPeriods, getVacationSummary, hasCompletedOneYear, getVacationPeriods } from '@/lib/services/vacationPeriods'
+import { createValidationServices } from '@/lib/services/validationHelpers'
 
 const VACATION_STATUSES = [
   { value: 'solicitada', label: 'Solicitada' },
@@ -151,6 +152,16 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
         
         // Asignar días al período (siempre al más antiguo primero)
         assignedPeriod = await assignVacationDays(params.id, formData.days_count, periodYear)
+      }
+
+      // Validar que el empleado pueda recibir una vacación (requiere contrato activo)
+      const { employee: employeeValidation } = createValidationServices(supabase)
+      const validation = await employeeValidation.canCreateVacation(params.id)
+      
+      if (!validation.allowed) {
+        alert(validation.message)
+        setSaving(false)
+        return
       }
 
       const { error } = await supabase

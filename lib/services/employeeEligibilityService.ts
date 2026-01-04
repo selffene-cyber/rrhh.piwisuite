@@ -313,5 +313,74 @@ export class EmployeeEligibilityService {
   async canGenerateDocument(employeeId: string): Promise<ValidationResult> {
     return await this.isEmployeeActive(employeeId)
   }
+
+  /**
+   * Valida si se puede generar un certificado laboral
+   * Regla especial: Requiere contrato activo, PERO se permite durante licencia médica (excepción)
+   * Regla 3 + Regla 1.4: Certificados requieren contrato activo, pero sí se pueden emitir durante licencia médica
+   */
+  async canGenerateCertificate(employeeId: string): Promise<ValidationResult> {
+    // Verificar que el empleado esté activo
+    const employeeCheck = await this.isEmployeeActive(employeeId)
+    if (!employeeCheck.allowed) {
+      return employeeCheck
+    }
+
+    // Verificar que tenga contrato activo
+    const { hasActive, contract } = await this.hasActiveContract(employeeId)
+    
+    if (!hasActive) {
+      return denied(
+        ValidationCodes.EMPLOYEE_NO_ACTIVE_CONTRACT,
+        'El trabajador no posee un contrato activo. No se pueden generar certificados laborales.',
+        { suggestion: 'create_contract' }
+      )
+    }
+
+    // NOTA: Aunque tenga licencia médica activa, se permite generar certificados (excepción según regla 1.4)
+    // No validamos licencia médica aquí
+
+    return allowed('El trabajador puede recibir un certificado laboral', { contractId: contract?.id })
+  }
+
+  /**
+   * Valida si se puede crear una amonestación
+   * Regla 3: Requiere contrato activo
+   */
+  async canCreateDisciplinaryAction(employeeId: string): Promise<ValidationResult> {
+    return await this.canOperateContractDependentModule(employeeId, 'Amonestaciones')
+  }
+
+  /**
+   * Valida si se puede crear un anticipo
+   * Regla 3: Requiere contrato activo
+   */
+  async canCreateAdvance(employeeId: string): Promise<ValidationResult> {
+    return await this.canOperateContractDependentModule(employeeId, 'Anticipos')
+  }
+
+  /**
+   * Valida si se puede crear un pacto de horas extraordinarias
+   * Regla 3: Requiere contrato activo
+   */
+  async canCreateOvertimePact(employeeId: string): Promise<ValidationResult> {
+    return await this.canOperateContractDependentModule(employeeId, 'Pactos de horas extraordinarias')
+  }
+
+  /**
+   * Valida si se puede crear una vacación
+   * Regla 3: Requiere contrato activo
+   */
+  async canCreateVacation(employeeId: string): Promise<ValidationResult> {
+    return await this.canOperateContractDependentModule(employeeId, 'Vacaciones')
+  }
+
+  /**
+   * Valida si se puede generar una liquidación de sueldo
+   * Regla 3: Requiere contrato activo
+   */
+  async canGeneratePayrollSlip(employeeId: string): Promise<ValidationResult> {
+    return await this.canOperateContractDependentModule(employeeId, 'Liquidaciones de sueldo')
+  }
 }
 

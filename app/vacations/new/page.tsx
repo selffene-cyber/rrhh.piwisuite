@@ -74,9 +74,13 @@ export default function NewVacationPage() {
     setSaving(true)
 
     try {
-      const { error } = await supabase
-        .from('vacations')
-        .insert({
+      // Usar API para crear vacación (incluye validación de contrato activo)
+      const response = await fetch('/api/vacations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           employee_id: formData.employee_id,
           start_date: formData.start_date,
           end_date: formData.end_date,
@@ -87,9 +91,13 @@ export default function NewVacationPage() {
           approval_date: (formData.status === 'aprobada' || formData.status === 'tomada') 
             ? new Date().toISOString().split('T')[0] 
             : null,
-        })
+        }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al registrar vacación')
+      }
 
       alert('Vacación registrada correctamente')
       router.push('/vacations')

@@ -73,6 +73,16 @@ export default function CertificateVigenciaPage({ params }: { params: { id: stri
     }
 
     try {
+      // Validar que el empleado pueda recibir un certificado (requiere contrato activo, pero permite durante licencia médica)
+      const { createValidationServices } = await import('@/lib/services/validationHelpers')
+      const { employee } = createValidationServices(supabase)
+      const validation = await employee.canGenerateCertificate(params.id)
+      
+      if (!validation.allowed) {
+        alert(validation.message)
+        return
+      }
+
       // Crear certificado en la BD para generar folio automático
       const { data: certificate, error } = await supabase
         .from('certificates')

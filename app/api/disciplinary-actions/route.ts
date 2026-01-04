@@ -4,6 +4,7 @@ import {
   getDisciplinaryActions,
   createDisciplinaryAction,
 } from '@/lib/services/disciplinaryActionService'
+import { createValidationServices, handleValidationError } from '@/lib/services/validationHelpers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +50,15 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    // Validar que el empleado pueda recibir una amonestación (requiere contrato activo)
+    if (body.employee_id) {
+      const { employee } = createValidationServices(supabase)
+      const validation = await employee.canCreateDisciplinaryAction(body.employee_id)
+      
+      const errorResponse = handleValidationError(validation)
+      if (errorResponse) return errorResponse
     }
 
     const action = await createDisciplinaryAction(

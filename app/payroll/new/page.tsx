@@ -668,6 +668,17 @@ export default function NewPayrollPage() {
         throw new Error(`Ya existe una liquidación para ${selectedEmployee.full_name} en el período ${monthName} ${formData.year}. Por favor, edite la liquidación existente o elimínela antes de crear una nueva.`)
       }
 
+      // Validar que el empleado pueda recibir una liquidación (requiere contrato activo)
+      const { createValidationServices } = await import('@/lib/services/validationHelpers')
+      const { employee } = createValidationServices(supabase as any)
+      const validation = await employee.canGeneratePayrollSlip(formData.employee_id)
+      
+      if (!validation.allowed) {
+        alert(validation.message)
+        setSaving(false)
+        return
+      }
+
       // Calcular días efectivos (descontando licencia médica)
       const effectiveDaysWorked = Math.max(0, formData.days_worked - medicalLeaveDays)
 

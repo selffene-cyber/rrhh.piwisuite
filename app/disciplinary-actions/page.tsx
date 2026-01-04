@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/utils/date'
-import { FaExclamationTriangle, FaFileAlt, FaUser, FaCalendarAlt, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaTrash, FaFilePdf } from 'react-icons/fa'
+import { FaExclamationTriangle, FaFileAlt, FaUser, FaCalendarAlt, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaTrash, FaFilePdf, FaPlus } from 'react-icons/fa'
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
@@ -316,9 +316,22 @@ export default function DisciplinaryActionsDashboardPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Cartas de Amonestación</h1>
-        <Link href="/employees">
-          <button className="secondary">Ver Trabajadores</button>
-        </Link>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <Link href="/disciplinary-actions/new">
+            <button style={{ 
+              backgroundColor: '#ef4444', 
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <FaPlus /> Nueva Amonestación
+            </button>
+          </Link>
+          <Link href="/employees">
+            <button className="secondary">Ver Trabajadores</button>
+          </Link>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -511,19 +524,45 @@ export default function DisciplinaryActionsDashboardPage() {
                       </td>
                       <td style={{ textAlign: 'center' }}>{employee.issuedActions}</td>
                       <td>
-                        <Link href={`/employees/${employee.id}/disciplinary-actions`}>
-                          <button
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '12px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                            }}
-                          >
-                            <FaEye /> Ver
-                          </button>
-                        </Link>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <Link href={`/employees/${employee.id}/disciplinary-actions`}>
+                            <button
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <FaEye /> Ver
+                            </button>
+                          </Link>
+                          {employee.recentActions && employee.recentActions.length > 0 && (
+                            <Link 
+                              href={`/employees/${employee.id}/disciplinary-actions/${employee.recentActions[0].id}/pdf`}
+                              target="_blank"
+                            >
+                              <button
+                                style={{
+                                  padding: '6px 12px',
+                                  fontSize: '12px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  backgroundColor: '#ef4444',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                }}
+                                title="Generar PDF de la amonestación más reciente"
+                              >
+                                <FaFilePdf /> PDF
+                              </button>
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

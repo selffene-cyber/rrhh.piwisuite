@@ -97,12 +97,13 @@ export default function NewOvertimePactPage() {
     setSaving(true)
 
     try {
-      // Obtener usuario actual
-      const { data: { user } } = await supabase.auth.getUser()
-
-      const { data, error } = await supabase
-        .from('overtime_pacts')
-        .insert({
+      // Usar API para crear pacto (incluye validación de contrato activo)
+      const response = await fetch('/api/overtime', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           company_id: companyId,
           employee_id: formData.employee_id,
           start_date: formData.start_date,
@@ -110,13 +111,15 @@ export default function NewOvertimePactPage() {
           max_daily_hours: formData.max_daily_hours,
           reason: formData.reason.trim(),
           status: 'draft',
-          created_by: user?.id
-        })
-        .select()
-        .single()
+        }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al crear pacto')
+      }
 
+      const data = await response.json()
       alert('Pacto creado correctamente')
       router.push(`/overtime/${data.id}`)
     } catch (error: any) {

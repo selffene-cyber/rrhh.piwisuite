@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import DateInput from '@/components/DateInput'
+import { createValidationServices } from '@/lib/services/validationHelpers'
 
 export default function NewLoanPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -113,6 +114,16 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
           const newNumber = lastNumber + 1
           loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
         }
+      }
+
+      // Validar que el empleado pueda recibir un préstamo (requiere contrato activo y tipo indefinido)
+      const { employee: employeeValidation } = createValidationServices(supabase)
+      const validation = await employeeValidation.canCreateLoan(params.id)
+      
+      if (!validation.allowed) {
+        alert(validation.message)
+        setSaving(false)
+        return
       }
 
       const { error } = await supabase

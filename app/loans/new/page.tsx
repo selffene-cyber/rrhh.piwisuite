@@ -8,6 +8,7 @@ import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNu
 import DateInput from '@/components/DateInput'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { calculateLegalDiscountLimit, getLegalLimitAlert, getLegalLimitInfo, type LegalLimitCalculation } from '@/lib/services/loanLegalCalculator'
+import { createValidationServices } from '@/lib/services/validationHelpers'
 
 export default function NewLoanPage() {
   const router = useRouter()
@@ -181,6 +182,16 @@ export default function NewLoanPage() {
 
       const exceedsLimit = legalCalculation?.exceedsLimit || false
       const authorizationDate = exceedsLimit && formData.authorization_signed ? formData.loan_date : null
+
+      // Validar que el empleado pueda recibir un préstamo (requiere contrato activo y tipo indefinido)
+      const { employee } = createValidationServices(supabase)
+      const validation = await employee.canCreateLoan(selectedEmployeeId)
+      
+      if (!validation.allowed) {
+        alert(validation.message)
+        setSaving(false)
+        return
+      }
 
       // Insertar préstamo
       const { data: newLoan, error } = await supabase
