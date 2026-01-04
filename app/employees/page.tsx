@@ -9,6 +9,7 @@ import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { getCostCenters, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
 import { getEmployeeStatusLabel } from '@/lib/utils/employeeStatus'
+import EmployeeDetailSlide from '@/components/EmployeeDetailSlide'
 
 const ITEMS_PER_PAGE = 50
 
@@ -27,6 +28,8 @@ export default function EmployeesPage() {
   const [selectedPosition, setSelectedPosition] = useState<string | null>(null)
   const [positions, setPositions] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
+  const [isSlideOpen, setIsSlideOpen] = useState(false)
 
   const totalPages = useMemo(() => Math.ceil(totalCount / ITEMS_PER_PAGE), [totalCount])
 
@@ -487,23 +490,25 @@ export default function EmployeesPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <Link href={`/employees/${employee.id}`}>
-                            <button 
-                              style={{ 
-                                padding: '6px 10px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                border: '1px solid #d1d5db',
-                                background: '#fff',
-                                borderRadius: '4px'
-                              }}
-                              title="Ver"
-                            >
-                              <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
-                            </button>
-                          </Link>
+                          <button 
+                            onClick={() => {
+                              setSelectedEmployeeId(employee.id)
+                              setIsSlideOpen(true)
+                            }}
+                            style={{ 
+                              padding: '6px 10px', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              border: '1px solid #d1d5db',
+                              background: '#fff',
+                              borderRadius: '4px'
+                            }}
+                            title="Ver"
+                          >
+                            <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
+                          </button>
                           <Link href={`/employees/${employee.id}/edit`}>
                             <button 
                               style={{ 
@@ -618,12 +623,16 @@ export default function EmployeesPage() {
                     </span>
                   </div>
                   <div className="mobile-card-actions">
-                    <Link href={`/employees/${employee.id}`} style={{ flex: 1 }}>
-                      <button style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
-                        <FaEye style={{ marginRight: '6px' }} />
-                        Ver
-                      </button>
-                    </Link>
+                    <button
+                      onClick={() => {
+                        setSelectedEmployeeId(employee.id)
+                        setIsSlideOpen(true)
+                      }}
+                      style={{ flex: 1, width: '100%', padding: '8px', fontSize: '14px' }}
+                    >
+                      <FaEye style={{ marginRight: '6px' }} />
+                      Ver
+                    </button>
                     <Link href={`/employees/${employee.id}/edit`} style={{ flex: 1 }}>
                       <button 
                         className="secondary" 
@@ -647,6 +656,16 @@ export default function EmployeesPage() {
           </>
         )}
       </div>
+
+      {/* Slide de detalle del empleado */}
+      <EmployeeDetailSlide
+        employeeId={selectedEmployeeId}
+        isOpen={isSlideOpen}
+        onClose={() => {
+          setIsSlideOpen(false)
+          setSelectedEmployeeId(null)
+        }}
+      />
     </div>
   )
 }
