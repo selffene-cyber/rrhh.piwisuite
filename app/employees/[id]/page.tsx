@@ -14,7 +14,14 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   
   const { data: employee, error } = await supabase
     .from('employees')
-    .select('*')
+    .select(`
+      *,
+      cost_centers (
+        id,
+        code,
+        name
+      )
+    `)
     .eq('id', params.id)
     .single()
 
@@ -44,6 +51,16 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   const validPayrollSlips = payrollSlips?.filter((slip: any) => 
     slip.employee_id === params.id && slip.employee_id !== null
   ) || []
+
+  // Determinar qué gestiones están permitidas según el estado del trabajador
+  const canManageVacations = employee.status === 'active'
+  const canManageMedicalLeaves = employee.status === 'active'
+  const canManageCertificates = employee.status === 'active' || employee.status === 'licencia_medica'
+  const canManageLoans = employee.status === 'active'
+  const canManageContracts = employee.status === 'active'
+  const canManageDisciplinaryActions = employee.status === 'active'
+  const canManagePermissions = employee.status === 'active'
+  const canManagePayroll = employee.status === 'active' || employee.status === 'licencia_medica'
 
   return (
     <div>
@@ -133,7 +150,11 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         <div className="form-row">
           <div className="form-group">
             <label>Centro de Costo</label>
-            <p>{employee.cost_center || '-'}</p>
+            <p>
+              {employee.cost_centers 
+                ? `${employee.cost_centers.code} - ${employee.cost_centers.name}` 
+                : employee.cost_center || '-'}
+            </p>
           </div>
           <div className="form-group">
             <label>Sueldo Base</label>
@@ -183,8 +204,36 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           <div className="form-group">
             <label>Estado</label>
             <p>
-              <span className={`badge ${employee.status}`}>
-                {employee.status === 'active' ? 'Activo' : 'Inactivo'}
+              <span 
+                className="badge"
+                style={{
+                  backgroundColor: employee.status === 'active' ? '#10b98120' : 
+                                   employee.status === 'inactive' ? '#6b728020' :
+                                   employee.status === 'licencia_medica' ? '#f59e0b20' :
+                                   employee.status === 'renuncia' ? '#3b82f620' :
+                                   employee.status === 'despido' ? '#ef444420' : '#6b728020',
+                  color: employee.status === 'active' ? '#10b981' : 
+                         employee.status === 'inactive' ? '#6b7280' :
+                         employee.status === 'licencia_medica' ? '#f59e0b' :
+                         employee.status === 'renuncia' ? '#3b82f6' :
+                         employee.status === 'despido' ? '#ef4444' : '#6b7280',
+                  border: `1px solid ${employee.status === 'active' ? '#10b981' : 
+                                         employee.status === 'inactive' ? '#6b7280' :
+                                         employee.status === 'licencia_medica' ? '#f59e0b' :
+                                         employee.status === 'renuncia' ? '#3b82f6' :
+                                         employee.status === 'despido' ? '#ef4444' : '#6b7280'}`,
+                  padding: '4px 12px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  display: 'inline-block',
+                }}
+              >
+                {employee.status === 'active' ? 'Activo' : 
+                 employee.status === 'inactive' ? 'Inactivo' :
+                 employee.status === 'licencia_medica' ? 'Licencia Médica' :
+                 employee.status === 'renuncia' ? 'Renuncia' :
+                 employee.status === 'despido' ? 'Despido' : employee.status}
               </span>
             </p>
           </div>
@@ -241,19 +290,41 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2>Vacaciones</h2>
-          <Link href={`/employees/${params.id}/vacations`}>
-            <button>Gestionar Vacaciones</button>
-          </Link>
+          {canManageVacations ? (
+            <Link href={`/employees/${params.id}/vacations`}>
+              <button>Gestionar Vacaciones</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Gestionar Vacaciones
+            </button>
+          )}
         </div>
+        {!canManageVacations && (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2>Licencias Médicas</h2>
-          <Link href={`/employees/${params.id}/medical-leaves`}>
-            <button>Gestionar Licencias</button>
-          </Link>
+          {canManageMedicalLeaves ? (
+            <Link href={`/employees/${params.id}/medical-leaves`}>
+              <button>Gestionar Licencias</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Gestionar Licencias
+            </button>
+          )}
         </div>
+        {!canManageMedicalLeaves && (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
         {/* Mostrar licencia activa si existe */}
         {(() => {
           // Esto se cargará desde el componente cliente
@@ -264,24 +335,36 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2>Certificados Laborales</h2>
-          <Link href={`/employees/${params.id}/certificates`}>
-            <button>Solicitar Certificado</button>
-          </Link>
+          {canManageCertificates ? (
+            <Link href={`/employees/${params.id}/certificates`}>
+              <button>Solicitar Certificado</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Solicitar Certificado
+            </button>
+          )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '16px' }}>
-          <Link href={`/employees/${params.id}/certificates/antiguedad`}>
-            <button className="secondary" style={{ width: '100%' }}>Certificado de Antigüedad</button>
-          </Link>
-          <Link href={`/employees/${params.id}/certificates/renta`}>
-            <button className="secondary" style={{ width: '100%' }}>Certificado de Renta</button>
-          </Link>
-          <Link href={`/employees/${params.id}/certificates/vigencia`}>
-            <button className="secondary" style={{ width: '100%' }}>Certificado de Vigencia</button>
-          </Link>
-          <Link href={`/employees/${params.id}/contracts`}>
-            <button className="secondary" style={{ width: '100%' }}>Contratos y Anexos</button>
-          </Link>
-        </div>
+        {canManageCertificates ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '16px' }}>
+            <Link href={`/employees/${params.id}/certificates/antiguedad`}>
+              <button className="secondary" style={{ width: '100%' }}>Certificado de Antigüedad</button>
+            </Link>
+            <Link href={`/employees/${params.id}/certificates/renta`}>
+              <button className="secondary" style={{ width: '100%' }}>Certificado de Renta</button>
+            </Link>
+            <Link href={`/employees/${params.id}/certificates/vigencia`}>
+              <button className="secondary" style={{ width: '100%' }}>Certificado de Vigencia</button>
+            </Link>
+            <Link href={`/employees/${params.id}/contracts`}>
+              <button className="secondary" style={{ width: '100%' }}>Contratos y Anexos</button>
+            </Link>
+          </div>
+        ) : (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
         <div style={{ marginTop: '24px' }}>
           <CertificatesHistory employeeId={params.id} />
         </div>
@@ -290,58 +373,116 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2>Préstamos Internos</h2>
-          <Link href={`/employees/${params.id}/loans/new`}>
-            <button>Nuevo Préstamo</button>
-          </Link>
+          {canManageLoans ? (
+            <Link href={`/employees/${params.id}/loans/new`}>
+              <button>Nuevo Préstamo</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Nuevo Préstamo
+            </button>
+          )}
         </div>
-        <div style={{ marginBottom: '24px' }}>
-          <Link href={`/employees/${params.id}/loans`}>
-            <button className="secondary">Ver Historial de Préstamos</button>
-          </Link>
-        </div>
+        {canManageLoans ? (
+          <div style={{ marginBottom: '24px' }}>
+            <Link href={`/employees/${params.id}/loans`}>
+              <button className="secondary">Ver Historial de Préstamos</button>
+            </Link>
+          </div>
+        ) : (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2>Contratos y Anexos</h2>
-          <Link href={`/contracts/new?employee_id=${params.id}`}>
-            <button>Nuevo Contrato</button>
-          </Link>
+          {canManageContracts ? (
+            <Link href={`/contracts/new?employee_id=${params.id}`}>
+              <button>Nuevo Contrato</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Nuevo Contrato
+            </button>
+          )}
         </div>
+        {!canManageContracts && (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px', marginBottom: '16px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
         <ContractsHistory employeeId={params.id} />
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>Cartas de Amonestación</h2>
-          <Link href={`/employees/${params.id}/disciplinary-actions/new`}>
-            <button>Nueva Amonestación</button>
-          </Link>
+          {canManageDisciplinaryActions ? (
+            <Link href={`/employees/${params.id}/disciplinary-actions/new`}>
+              <button>Nueva Amonestación</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Nueva Amonestación
+            </button>
+          )}
         </div>
-        <Link href={`/employees/${params.id}/disciplinary-actions`}>
-          <button className="secondary" style={{ marginTop: '8px' }}>Ver Todas las Amonestaciones</button>
-        </Link>
+        {canManageDisciplinaryActions ? (
+          <Link href={`/employees/${params.id}/disciplinary-actions`}>
+            <button className="secondary" style={{ marginTop: '8px' }}>Ver Todas las Amonestaciones</button>
+          </Link>
+        ) : (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>Permisos</h2>
-          <Link href={`/employees/${params.id}/permissions/new`}>
-            <button>Nuevo Permiso</button>
-          </Link>
+          {canManagePermissions ? (
+            <Link href={`/employees/${params.id}/permissions/new`}>
+              <button>Nuevo Permiso</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Nuevo Permiso
+            </button>
+          )}
         </div>
-        <Link href={`/employees/${params.id}/permissions`}>
-          <button className="secondary" style={{ marginTop: '8px' }}>Ver Todos los Permisos</button>
-        </Link>
+        {canManagePermissions ? (
+          <Link href={`/employees/${params.id}/permissions`}>
+            <button className="secondary" style={{ marginTop: '8px' }}>Ver Todos los Permisos</button>
+          </Link>
+        ) : (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2>Historial de Liquidaciones</h2>
-          <Link href={`/payroll/new?employee_id=${params.id}`}>
-            <button>Nueva Liquidación</button>
-          </Link>
+          {canManagePayroll ? (
+            <Link href={`/payroll/new?employee_id=${params.id}`}>
+              <button>Nueva Liquidación</button>
+            </Link>
+          ) : (
+            <button disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Nueva Liquidación
+            </button>
+          )}
         </div>
+        {!canManagePayroll && employee.status !== 'licencia_medica' && (
+          <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
+            No disponible para trabajadores con estado "{employee.status === 'renuncia' ? 'Renuncia' : employee.status === 'despido' ? 'Despido' : 'Inactivo'}"
+          </p>
+        )}
         {validPayrollSlips && validPayrollSlips.length > 0 ? (
           <table>
             <thead>

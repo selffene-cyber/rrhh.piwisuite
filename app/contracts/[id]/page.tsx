@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { FaEdit, FaFilePdf, FaCheck, FaTimes } from 'react-icons/fa'
+import { terminateContractAndCreateSettlement, activateEmployeeOnContractActivation } from '@/lib/services/contractService'
 
 export default function ContractDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -14,10 +15,33 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
   const [employee, setEmployee] = useState<any>(null)
   const [company, setCompany] = useState<any>(null)
   const [annexes, setAnnexes] = useState<any[]>([])
+  const [showTerminateModal, setShowTerminateModal] = useState(false)
+  const [terminateForm, setTerminateForm] = useState({
+    termination_date: new Date().toISOString().split('T')[0],
+    cause_code: '',
+    notice_given: false,
+    notice_days: 0,
+    notes: ''
+  })
+  const [causes, setCauses] = useState<any[]>([])
+  const [terminating, setTerminating] = useState(false)
 
   useEffect(() => {
     loadData()
+    loadCauses()
   }, [params.id])
+
+  const loadCauses = async () => {
+    try {
+      const response = await fetch('/api/settlements/causes')
+      const data = await response.json()
+      if (response.ok) {
+        setCauses(data.causes || [])
+      }
+    } catch (error) {
+      console.error('Error al cargar causales:', error)
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -55,6 +79,12 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
   }
 
   const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === 'terminated') {
+      // Mostrar modal para terminar contrato
+      setShowTerminateModal(true)
+      return
+    }
+
     if (!confirm(`¿Cambiar el estado del contrato a "${newStatus}"?`)) {
       return
     }
@@ -66,8 +96,11 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
         updateData.issued_at = new Date().toISOString()
       } else if (newStatus === 'signed') {
         updateData.signed_at = new Date().toISOString()
-      } else if (newStatus === 'terminated') {
-        updateData.terminated_at = new Date().toISOString()
+      } else if (newStatus === 'active') {
+        // Cuando se activa un contrato, cambiar estado del trabajador a "activo"
+        if (contract && contract.employee_id) {
+          await activateEmployeeOnContractActivation(contract.employee_id, supabase)
+        }
       }
 
       const { error } = await supabase
@@ -81,6 +114,42 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
       loadData()
     } catch (error: any) {
       alert('Error al actualizar estado: ' + error.message)
+    }
+  }
+
+  const handleTerminateContract = async () => {
+    if (!terminateForm.cause_code || !terminateForm.termination_date) {
+      alert('Por favor completa todos los campos requeridos')
+      return
+    }
+
+    try {
+      setTerminating(true)
+
+      // Obtener usuario actual
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Usuario no autenticado')
+      }
+
+      const result = await terminateContractAndCreateSettlement(
+        params.id,
+        terminateForm.termination_date,
+        terminateForm.cause_code,
+        terminateForm.notice_given,
+        user.id,
+        supabase,
+        terminateForm.notice_days || undefined,
+        terminateForm.notes || undefined
+      )
+
+      alert(`Contrato terminado correctamente. Se ha creado un pre-finiquito (${result.settlement.settlement_number}).`)
+      setShowTerminateModal(false)
+      router.push(`/settlements/${result.settlement.id}`)
+    } catch (error: any) {
+      alert('Error al terminar contrato: ' + error.message)
+    } finally {
+      setTerminating(false)
     }
   }
 
@@ -407,6 +476,115 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
           )}
         </div>
       </div>
+
+      {/* Modal para terminar contrato */}
+      {showTerminateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginBottom: '20px' }}>Terminar Contrato</h2>
+            <p style={{ marginBottom: '20px', color: '#6b7280' }}>
+              Al terminar este contrato, se creará automáticamente un pre-finiquito y el estado del trabajador cambiará a "Despido".
+            </p>
+
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label>Fecha de Término *</label>
+              <input
+                type="date"
+                value={terminateForm.termination_date}
+                onChange={(e) => setTerminateForm({ ...terminateForm, termination_date: e.target.value })}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label>Causal de Término *</label>
+              <select
+                value={terminateForm.cause_code}
+                onChange={(e) => setTerminateForm({ ...terminateForm, cause_code: e.target.value })}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Seleccione una causal</option>
+                {causes.map((cause) => (
+                  <option key={cause.code} value={cause.code}>
+                    {cause.article} - {cause.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={terminateForm.notice_given}
+                  onChange={(e) => setTerminateForm({ ...terminateForm, notice_given: e.target.checked })}
+                />
+                Se dio aviso previo
+              </label>
+            </div>
+
+            {terminateForm.notice_given && (
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label>Días de Aviso Previo</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={terminateForm.notice_days}
+                  onChange={(e) => setTerminateForm({ ...terminateForm, notice_days: parseInt(e.target.value) || 0 })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                />
+              </div>
+            )}
+
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label>Notas</label>
+              <textarea
+                value={terminateForm.notes}
+                onChange={(e) => setTerminateForm({ ...terminateForm, notes: e.target.value })}
+                rows={3}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                placeholder="Notas adicionales sobre el término del contrato..."
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowTerminateModal(false)}
+                className="secondary"
+                disabled={terminating}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleTerminateContract}
+                style={{ background: '#ef4444', color: 'white' }}
+                disabled={terminating}
+              >
+                {terminating ? 'Procesando...' : 'Terminar Contrato'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

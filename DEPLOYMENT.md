@@ -182,7 +182,7 @@ npm start
 ### Verificar variables de entorno localmente
 ```bash
 # Crear .env.local con las variables
-cp .env.example .env.local
+cp env.example .env.local
 # Editar .env.local con tus valores reales
 ```
 

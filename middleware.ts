@@ -1,11 +1,21 @@
 import { createMiddlewareClient } from '@/lib/supabase/middleware'
 import { NextResponse, type NextRequest } from 'next/server'
+import { hasSupabasePublicEnv } from '@/lib/supabase/env'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Si Supabase no está configurado en local, redirigir a una página de setup
+  // (evita que el middleware crashee y guía al usuario).
+  if (!hasSupabasePublicEnv()) {
+    if (pathname === '/setup') return NextResponse.next()
+    const url = request.nextUrl.clone()
+    url.pathname = '/setup'
+    return NextResponse.redirect(url)
+  }
+
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ['/login']
+  const publicRoutes = ['/login', '/setup']
   const isPublicRoute = publicRoutes.includes(pathname)
 
   // Crear respuesta
@@ -77,6 +87,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|__nextjs|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

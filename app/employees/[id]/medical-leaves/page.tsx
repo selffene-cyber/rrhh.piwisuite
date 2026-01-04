@@ -40,7 +40,7 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
       // Cargar empleado
       const { data: empData } = await supabase
         .from('employees')
-        .select('id, full_name, rut, company_id')
+        .select('id, full_name, rut, company_id, status')
         .eq('id', params.id)
         .single()
       
@@ -49,16 +49,142 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
       // Cargar licencias
       const { data: leavesData, error } = await supabase
         .from('medical_leaves')
-        .select('id, employee_id, start_date, end_date, days_count, is_active, status, created_at, updated_at')
+        .select('id, employee_id, start_date, end_date, leave_type, days_count, folio_number, is_active, description, created_at, updated_at')
         .eq('employee_id', params.id)
         .order('start_date', { ascending: false })
 
       if (error) throw error
       setLeaves(leavesData || [])
+
+      // Verificar y actualizar estado del trabajador según licencias activas
+      await checkAndUpdateEmployeeStatus(leavesData || [], empData)
     } catch (error: any) {
       alert('Error al cargar licencias: ' + error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Función para verificar y actualizar el estado del trabajador según licencias activas
+  const checkAndUpdateEmployeeStatus = async (leaves: any[], currentEmployeeData: any) => {
+    try {
+      if (!currentEmployeeData) {
+        console.log('No hay datos del empleado')
+        return
+      }
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Normalizar a inicio del día
+
+      console.log('Verificando estado del trabajador:', {
+        employeeId: params.id,
+        currentStatus: currentEmployeeData.status,
+        today: today.toISOString().split('T')[0],
+        totalLeaves: leaves.length
+      })
+
+      // Buscar licencias activas que estén vigentes hoy
+      const activeVigentLeaves = leaves.filter((leave: any) => {
+        if (!leave.is_active) {
+          console.log('Licencia no activa:', leave.id)
+          return false
+        }
+        
+        const startDate = new Date(leave.start_date)
+        const endDate = new Date(leave.end_date)
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(0, 0, 0, 0)
+        
+        const isVigent = today >= startDate && today <= endDate
+        console.log('Licencia:', {
+          id: leave.id,
+          start_date: leave.start_date,
+          end_date: leave.end_date,
+          is_active: leave.is_active,
+          isVigent
+        })
+        
+        return isVigent
+      })
+
+      console.log('Licencias vigentes encontradas:', activeVigentLeaves.length)
+
+      // Si hay licencias activas vigentes, el estado debe ser 'licencia_medica'
+      if (activeVigentLeaves.length > 0) {
+        if (currentEmployeeData.status !== 'licencia_medica') {
+          console.log('Actualizando estado a licencia_medica...')
+          const { data: updatedData, error: updateError } = await supabase
+            .from('employees')
+            .update({ status: 'licencia_medica' })
+            .eq('id', params.id)
+            .select('id, full_name, rut, company_id, status')
+            .single()
+
+          if (updateError) {
+            console.error('Error al actualizar estado a licencia_medica:', updateError)
+            alert(`Error al actualizar estado: ${updateError.message}`)
+          } else {
+            console.log('Estado actualizado correctamente:', updatedData)
+            setEmployee(updatedData)
+            alert('Estado del trabajador actualizado a "Licencia Médica"')
+          }
+        } else {
+          console.log('El estado ya es licencia_medica, no se requiere actualización')
+        }
+      } else {
+        // Si no hay licencias activas vigentes y el estado es 'licencia_medica', volver a 'active'
+        if (currentEmployeeData.status === 'licencia_medica') {
+          // Verificar si hay licencias activas en el futuro (no vigentes hoy pero activas)
+          const futureActiveLeaves = leaves.filter((leave: any) => {
+            if (!leave.is_active) return false
+            const startDate = new Date(leave.start_date)
+            startDate.setHours(0, 0, 0, 0)
+            return today < startDate
+          })
+
+          // Solo cambiar a 'active' si no hay licencias futuras activas
+          if (futureActiveLeaves.length === 0) {
+            console.log('No hay licencias vigentes ni futuras, cambiando a active...')
+            const { data: updatedData, error: updateError } = await supabase
+              .from('employees')
+              .update({ status: 'active' })
+              .eq('id', params.id)
+              .select('id, full_name, rut, company_id, status')
+              .single()
+
+            if (updateError) {
+              console.error('Error al actualizar estado a active:', updateError)
+            } else {
+              console.log('Estado actualizado a active:', updatedData)
+              setEmployee(updatedData)
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Error al verificar estado del trabajador:', error)
+      alert(`Error al verificar estado: ${error.message}`)
+    }
+  }
+
+  // Función manual para forzar actualización del estado
+  const handleForceUpdateStatus = async () => {
+    try {
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('id, full_name, rut, company_id, status')
+        .eq('id', params.id)
+        .single()
+
+      const { data: leavesData } = await supabase
+        .from('medical_leaves')
+        .select('*')
+        .eq('employee_id', params.id)
+        .order('start_date', { ascending: false })
+
+      await checkAndUpdateEmployeeStatus(leavesData || [], empData)
+    } catch (error: any) {
+      alert('Error al forzar actualización: ' + error.message)
     }
   }
 
@@ -127,21 +253,6 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
 
       if (error) throw error
 
-      // Si la licencia está activa, actualizar estado del trabajador
-      if (formData.is_active) {
-        const today = new Date()
-        const startDate = new Date(formData.start_date)
-        const endDate = new Date(formData.end_date)
-        
-        // Solo cambiar estado si la licencia está vigente hoy
-        if (today >= startDate && today <= endDate) {
-          await supabase
-            .from('employees')
-            .update({ status: 'licencia_medica' })
-            .eq('id', params.id)
-        }
-      }
-
       alert('Licencia médica registrada correctamente')
       setShowForm(false)
       setFormData({
@@ -153,9 +264,11 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
         description: '',
         is_active: true,
       })
-      loadData()
+      // Recargar datos y verificar estado del trabajador
+      await loadData()
     } catch (error: any) {
       alert('Error al registrar licencia: ' + error.message)
+      setSaving(false)
     } finally {
       setSaving(false)
     }
@@ -170,45 +283,8 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
 
       if (error) throw error
 
-      // Si se desactiva, verificar si hay otras licencias activas
-      if (!currentStatus) {
-        const { data: activeLeaves } = await supabase
-          .from('medical_leaves')
-          .select('id, is_active')
-          .eq('employee_id', params.id)
-          .eq('is_active', true)
-          .limit(1)
-
-        if (!activeLeaves || activeLeaves.length === 0) {
-          // No hay licencias activas, volver estado a activo
-          await supabase
-            .from('employees')
-            .update({ status: 'active' })
-            .eq('id', params.id)
-        }
-      } else {
-        // Si se activa, cambiar estado del trabajador
-        const today = new Date()
-        const { data: leave } = await supabase
-          .from('medical_leaves')
-          .select('start_date, end_date')
-          .eq('id', leaveId)
-          .single()
-
-        if (leave) {
-          const startDate = new Date(leave.start_date)
-          const endDate = new Date(leave.end_date)
-          
-          if (today >= startDate && today <= endDate) {
-            await supabase
-              .from('employees')
-              .update({ status: 'licencia_medica' })
-              .eq('id', params.id)
-          }
-        }
-      }
-
-      loadData()
+      // Recargar datos y verificar estado del trabajador
+      await loadData()
     } catch (error: any) {
       alert('Error al actualizar licencia: ' + error.message)
     }
@@ -268,6 +344,14 @@ export default function MedicalLeavesPage({ params }: { params: { id: string } }
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Licencias Médicas - {employee?.full_name}</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={handleForceUpdateStatus}
+            className="secondary"
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            title="Forzar actualización del estado del trabajador según licencias activas"
+          >
+            Actualizar Estado
+          </button>
           <button onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Cancelar' : 'Nueva Licencia'}
           </button>

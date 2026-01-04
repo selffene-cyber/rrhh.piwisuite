@@ -4,6 +4,7 @@ export type Database = {
       companies: {
         Row: {
           id: string
+          code: string | null
           name: string
           employer_name: string
           rut: string
@@ -19,6 +20,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          code?: string | null
           name: string
           employer_name: string
           rut: string
@@ -34,6 +36,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          code?: string | null
           name?: string
           employer_name?: string
           rut?: string

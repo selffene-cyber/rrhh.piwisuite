@@ -1,15 +1,11 @@
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
 import { NextRequest } from 'next/server'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+import { assertSupabasePublicEnv } from './env'
 
 // Para API Routes (usa cookies de request)
 export function createServerClientForAPI(request: NextRequest) {
+  const { url: supabaseUrl, anonKey: supabaseAnonKey } = assertSupabasePublicEnv()
+
   return createSupabaseServerClient(
     supabaseUrl,
     supabaseAnonKey,

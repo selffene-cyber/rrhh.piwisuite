@@ -159,7 +159,7 @@ export default function NewLoanPage() {
         .select('id')
         .eq('company_id', companyId)
 
-      const employeeIds = employeesData?.map(emp => emp.id) || []
+      const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
 
       // Generar ID correlativo PT-## por empresa
       let loanNumber = 'PT-01'

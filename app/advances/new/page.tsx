@@ -236,8 +236,6 @@ export default function NewAdvancePage() {
                 return null
               })()}
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
               <label>Medio de Pago *</label>
               <select
@@ -249,13 +247,16 @@ export default function NewAdvancePage() {
                 <option value="efectivo">Efectivo</option>
               </select>
             </div>
-            <div className="form-group">
+          </div>
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 1 }}>
               <label>Motivo / Glosa</label>
               <input
                 type="text"
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 placeholder="Ej: Anticipo de remuneración / Quincena"
+                style={{ width: '100%' }}
               />
             </div>
           </div>
