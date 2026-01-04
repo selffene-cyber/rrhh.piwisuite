@@ -54,7 +54,7 @@ export default function AdvancesPage() {
       }
 
       // Verificar cuáles liquidaciones existen
-      const payrollIds = orphanedAdvances.map(adv => adv.payroll_slip_id).filter(Boolean)
+      const payrollIds = orphanedAdvances.map((adv: { id: string; payroll_slip_id: string | null }) => adv.payroll_slip_id).filter(Boolean)
       if (payrollIds.length === 0) return
 
       const { data: existingPayrolls } = await supabase
@@ -62,15 +62,15 @@ export default function AdvancesPage() {
         .select('id')
         .in('id', payrollIds)
 
-      const existingPayrollIds = new Set(existingPayrolls?.map(p => p.id) || [])
+      const existingPayrollIds = new Set(existingPayrolls?.map((p: { id: string }) => p.id) || [])
 
       // Encontrar anticipos cuya liquidación no existe
-      const toFix = orphanedAdvances.filter(adv => 
+      const toFix = orphanedAdvances.filter((adv: { id: string; payroll_slip_id: string | null }) => 
         adv.payroll_slip_id && !existingPayrollIds.has(adv.payroll_slip_id)
       )
 
       if (toFix.length > 0) {
-        const idsToFix = toFix.map(adv => adv.id)
+        const idsToFix = toFix.map((adv: { id: string; payroll_slip_id: string | null }) => adv.id)
         // Restaurar estos anticipos
         const { error: updateError } = await supabase
           .from('advances')
@@ -115,7 +115,7 @@ export default function AdvancesPage() {
 
       // Cargar anticipos de empleados de la empresa
       // Primero obtener IDs de empleados de la empresa
-      const employeeIds = employeesData?.map(emp => emp.id) || []
+      const employeeIds = employeesData?.map((emp: { id: string; full_name: string; rut: string }) => emp.id) || []
       
       let query = supabase
         .from('advances')
@@ -174,7 +174,7 @@ export default function AdvancesPage() {
         .in('status', ['firmado', 'pagado'])
         .is('payroll_slip_id', null)
 
-      const totalPeriodAmount = periodAdvances?.reduce((sum, adv) => sum + Number(adv.amount || 0), 0) || 0
+      const totalPeriodAmount = periodAdvances?.reduce((sum: number, adv: { amount: number | null }) => sum + Number(adv.amount || 0), 0) || 0
 
       // 2. Promedio proyectado del mes siguiente basado en últimos 3 meses
       const last3Months: string[] = []
@@ -193,7 +193,7 @@ export default function AdvancesPage() {
 
       let totalLast3Months = 0
       if (last3MonthsAdvances) {
-        totalLast3Months = last3MonthsAdvances.reduce((sum, adv) => sum + Number(adv.amount || 0), 0)
+        totalLast3Months = last3MonthsAdvances.reduce((sum: number, adv: { amount: number | null; period: string }) => sum + Number(adv.amount || 0), 0)
       }
       const projectedNextMonth = Math.ceil(totalLast3Months / 3)
 

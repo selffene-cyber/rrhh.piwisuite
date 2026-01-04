@@ -82,7 +82,7 @@ export default function PermissionsDashboardPage() {
       const employeesMap = new Map<string, EmployeePermissionData>()
 
       // Inicializar todos los trabajadores
-      employeesData?.forEach((emp) => {
+      employeesData?.forEach((emp: any) => {
         employeesMap.set(emp.id, {
           id: emp.id,
           full_name: emp.full_name,

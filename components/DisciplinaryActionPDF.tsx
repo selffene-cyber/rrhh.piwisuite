@@ -6,28 +6,40 @@ import { formatDateLegal } from '@/lib/utils/contractText'
 
 const styles = StyleSheet.create({
   page: {
-    paddingLeft: 85,
-    paddingRight: 85,
-    paddingTop: 90,
-    paddingBottom: 40,
+    padding: 40,
     fontSize: 10,
     fontFamily: 'Helvetica',
     lineHeight: 1.5,
+    position: 'relative',
   },
-  header: {
-    marginBottom: 20,
-    paddingBottom: 10,
+  companyHeader: {
+    position: 'absolute',
+    top: 20,
+    left: 40,
+    width: '50%',
+  },
+  companyName: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 3,
   },
   companyInfo: {
     fontSize: 9,
-    marginBottom: 3,
+    marginBottom: 2,
+  },
+  pageInfo: {
+    position: 'absolute',
+    top: 20,
+    right: 40,
+    width: 200,
+    alignItems: 'flex-end',
   },
   title: {
     fontSize: 16,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 15,
+    marginBottom: 30,
     textTransform: 'uppercase',
   },
   section: {
@@ -52,15 +64,11 @@ const styles = StyleSheet.create({
     width: '65%',
     fontSize: 9,
   },
-  factsBox: {
+  factsText: {
     marginTop: 10,
     marginBottom: 15,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#000',
-    fontSize: 9,
-    lineHeight: 1.5,
+    fontSize: 10,
+    lineHeight: 1.6,
     textAlign: 'justify',
   },
   ruleBox: {
@@ -73,16 +81,16 @@ const styles = StyleSheet.create({
     fontSize: 9,
     lineHeight: 1.5,
   },
-  footer: {
-    marginTop: 40,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#000',
+  dateSection: {
+    marginTop: 30,
+    textAlign: 'right',
+    marginBottom: 20,
   },
-  signatureRow: {
+  signatureSection: {
+    marginTop: 100,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 30,
+    alignItems: 'flex-start',
   },
   signatureBox: {
     width: '45%',
@@ -91,19 +99,24 @@ const styles = StyleSheet.create({
   signatureLine: {
     borderTopWidth: 1,
     borderTopColor: '#000',
-    marginTop: 40,
     paddingTop: 5,
-    fontSize: 8,
+    marginTop: 0,
+  },
+  signatureText: {
+    fontSize: 9,
+    marginTop: 5,
   },
   warningBox: {
     marginTop: 15,
-    padding: 10,
-    backgroundColor: '#fff3cd',
-    borderWidth: 1,
-    borderColor: '#ffc107',
-    fontSize: 8,
+    fontSize: 9,
     lineHeight: 1.5,
     textAlign: 'justify',
+  },
+  paragraph: {
+    marginBottom: 15,
+    textAlign: 'justify',
+    fontSize: 10,
+    lineHeight: 1.6,
   },
 })
 
@@ -127,55 +140,72 @@ const DisciplinaryActionDocument = ({
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.companyInfo}>{company?.name || 'EMPRESA'}</Text>
-          <Text style={styles.companyInfo}>RUT: {company?.rut || 'N/A'}</Text>
-          {company?.address && (
-            <Text style={styles.companyInfo}>{company.address}</Text>
+        {/* Encabezado: empresa a la izquierda - posición absoluta para todas las páginas */}
+        <View style={styles.companyHeader} fixed>
+          {company && (
+            <>
+              <Text style={styles.companyName}>{company.name || 'EMPRESA'}</Text>
+              {company.employer_name && (
+                <Text style={styles.companyInfo}>{company.employer_name}</Text>
+              )}
+              {company.rut && (
+                <Text style={styles.companyInfo}>RUT: {company.rut}</Text>
+              )}
+              {company.address && (
+                <Text style={styles.companyInfo}>{company.address}</Text>
+              )}
+              {company.city && (
+                <Text style={styles.companyInfo}>{company.city}</Text>
+              )}
+            </>
           )}
-          {company?.city && <Text style={styles.companyInfo}>{company.city}</Text>}
         </View>
+
+        {/* Contador de páginas e ID en esquina superior derecha - posición absoluta para todas las páginas */}
+        <View style={styles.pageInfo} fixed>
+          <Text
+            style={{ fontSize: 9, color: '#666', textAlign: 'right', width: '100%' }}
+            render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
+          />
+          <Text style={{ fontSize: 9, color: '#666', textAlign: 'right', marginTop: 2, width: '100%' }}>
+            ID: {action.id?.substring(0, 8).toUpperCase() || 'N/A'}
+          </Text>
+        </View>
+
+        {/* Espaciador para el header */}
+        <View style={{ height: 80, marginBottom: 15 }} />
 
         {/* Título */}
         <Text style={styles.title}>
           CARTA DE AMONESTACIÓN {action.type === 'written' ? 'ESCRITA' : 'VERBAL'}
         </Text>
 
-        {/* Datos del Trabajador */}
+        {/* Datos del Trabajador en prosa legal */}
         <View style={styles.section}>
-          <View style={styles.row}>
-            <Text style={styles.label}>Trabajador:</Text>
-            <Text style={styles.value}>{employee?.full_name || 'N/A'}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>RUT:</Text>
-            <Text style={styles.value}>{employee?.rut || 'N/A'}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Fecha del Incidente:</Text>
-            <Text style={styles.value}>{incidentDate}</Text>
-          </View>
-          {action.location && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Lugar:</Text>
-              <Text style={styles.value}>{action.location}</Text>
-            </View>
-          )}
-          {action.site_client && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Faena/Cliente:</Text>
-              <Text style={styles.value}>{action.site_client}</Text>
-            </View>
-          )}
+          <Text style={styles.paragraph}>
+            Por medio del presente documento, se deja constancia que el señor(a){' '}
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.full_name || 'N/A'}</Text>, 
+            con RUT <Text style={{ fontFamily: 'Helvetica-Bold' }}>{employee?.rut || 'N/A'}</Text>, 
+            trabajador de esta empresa, tuvo lugar un incidente el día{' '}
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>{incidentDate}</Text>
+            {action.location && (
+              <>, en el lugar{' '}
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>{action.location}</Text></>
+            )}
+            {action.site_client && (
+              <>, correspondiente a la faena/cliente{' '}
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>{action.site_client}</Text></>
+            )}
+            .
+          </Text>
         </View>
 
         {/* Hechos */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>HECHOS</Text>
-          <View style={styles.factsBox}>
-            <Text>{action.facts || 'No se especificaron hechos.'}</Text>
-          </View>
+          <Text style={styles.factsText}>
+            {action.facts || 'No se especificaron hechos.'}
+          </Text>
         </View>
 
         {/* Norma Interna Infringida */}
@@ -217,19 +247,6 @@ const DisciplinaryActionDocument = ({
           </Text>
         </View>
 
-        {/* Advertencia de Escalamiento */}
-        <View style={styles.warningBox}>
-          <Text style={{ fontFamily: 'Helvetica-Bold', marginBottom: 5 }}>
-            ADVERTENCIA
-          </Text>
-          <Text>
-            Se advierte al trabajador que la reiteración de conductas similares o el
-            incumplimiento de las obligaciones establecidas en el Reglamento Interno de
-            Orden, Higiene y Seguridad, podrá dar lugar a la aplicación de sanciones más
-            graves, conforme a lo establecido en el artículo 160 del Código del Trabajo.
-          </Text>
-        </View>
-
         {/* Testigos */}
         {action.witnesses && action.witnesses.length > 0 && (
           <View style={styles.section}>
@@ -246,25 +263,44 @@ const DisciplinaryActionDocument = ({
           </View>
         )}
 
-        {/* Footer con firmas */}
-        <View style={styles.footer}>
-          <View style={styles.signatureRow}>
-            <View style={styles.signatureBox}>
-              <Text style={styles.signatureLine}>Firma Empleador</Text>
-              <Text style={{ fontSize: 8, marginTop: 5 }}>
-                {company?.employer_name || company?.name || 'REPRESENTANTE LEGAL'}
-              </Text>
-            </View>
-            <View style={styles.signatureBox}>
-              <Text style={styles.signatureLine}>Constancia de Recepción</Text>
-              <Text style={{ fontSize: 8, marginTop: 5 }}>
-                Firma Trabajador
-              </Text>
-            </View>
-          </View>
-          <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 20 }}>
+        {/* Advertencia de Escalamiento */}
+        <View style={styles.section}>
+          <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 11, marginBottom: 8, textTransform: 'uppercase' }}>
+            ADVERTENCIA
+          </Text>
+          <Text style={styles.warningBox}>
+            Se advierte al trabajador que la reiteración de conductas similares o el
+            incumplimiento de las obligaciones establecidas en el Reglamento Interno de
+            Orden, Higiene y Seguridad, podrá dar lugar a la aplicación de sanciones más
+            graves, conforme a lo establecido en el artículo 160 del Código del Trabajo.
+          </Text>
+        </View>
+
+        {/* Fecha de emisión */}
+        <View style={styles.dateSection}>
+          <Text style={{ fontSize: 10 }}>
             {company?.city || 'Ciudad'}, {formatDateLegal(new Date().toISOString().split('T')[0])}
           </Text>
+        </View>
+
+        {/* Firmas */}
+        <View style={styles.signatureSection}>
+          <View style={styles.signatureBox}>
+            <View style={styles.signatureLine}>
+              <Text style={{ fontSize: 9, textAlign: 'center' }}>FIRMA EMPLEADOR</Text>
+            </View>
+            <Text style={styles.signatureText}>
+              {company?.employer_name || company?.name || 'REPRESENTANTE LEGAL'}
+            </Text>
+          </View>
+          <View style={styles.signatureBox}>
+            <View style={styles.signatureLine}>
+              <Text style={{ fontSize: 9, textAlign: 'center' }}>CONSTANCIA DE RECEPCIÓN</Text>
+            </View>
+            <Text style={styles.signatureText}>
+              FIRMA TRABAJADOR
+            </Text>
+          </View>
         </View>
       </Page>
     </Document>

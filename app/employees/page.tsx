@@ -3,9 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { Employee } from '@/types'
+import { Employee, CostCenter } from '@/types'
 import { FaEye, FaPencilAlt, FaTrash } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { getCostCenters, isCompanyAdmin } from '@/lib/services/costCenterService'
+import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
+import { getEmployeeStatusLabel } from '@/lib/utils/employeeStatus'
 
 const ITEMS_PER_PAGE = 50
 
@@ -16,6 +19,14 @@ export default function EmployeesPage() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
+  const [selectedAFP, setSelectedAFP] = useState<string | null>(null)
+  const [selectedHealthSystem, setSelectedHealthSystem] = useState<string | null>(null)
+  const [selectedPosition, setSelectedPosition] = useState<string | null>(null)
+  const [positions, setPositions] = useState<string[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const totalPages = useMemo(() => Math.ceil(totalCount / ITEMS_PER_PAGE), [totalCount])
 
@@ -25,26 +36,41 @@ export default function EmployeesPage() {
     try {
       setLoading(true)
       
-      // Obtener total de registros
-      const { count, error: countError } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-
-      if (countError) {
-        console.error('Error al contar trabajadores:', countError)
-      } else {
-        setTotalCount(count || 0)
-      }
-
       // Obtener página actual
       const from = (currentPage - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('employees')
-        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id')
+        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name)', { count: 'exact' })
         .eq('company_id', companyId)
+
+      // Filtrar por CC si está seleccionado
+      if (selectedCostCenterId) {
+        query = query.eq('cost_center_id', selectedCostCenterId)
+      }
+
+      // Filtrar por estado si está seleccionado
+      if (selectedStatus) {
+        query = query.eq('status', selectedStatus)
+      }
+
+      // Filtrar por AFP si está seleccionado
+      if (selectedAFP) {
+        query = query.eq('afp', selectedAFP)
+      }
+
+      // Filtrar por sistema de salud si está seleccionado
+      if (selectedHealthSystem) {
+        query = query.eq('health_system', selectedHealthSystem)
+      }
+
+      // Filtrar por cargo si está seleccionado
+      if (selectedPosition) {
+        query = query.eq('position', selectedPosition)
+      }
+
+      const { data, error: fetchError, count } = await query
         .order('full_name')
         .range(from, to)
 
@@ -62,7 +88,60 @@ export default function EmployeesPage() {
     } finally {
       setLoading(false)
     }
-  }, [companyId, currentPage])
+  }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedAFP, selectedHealthSystem, selectedPosition])
+
+  const loadPositions = useCallback(async () => {
+    if (!companyId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('position')
+        .eq('company_id', companyId)
+        .not('position', 'is', null)
+
+      if (error) throw error
+
+      // Obtener cargos únicos y ordenarlos
+      const uniquePositions = Array.from(new Set((data || []).map((emp: any) => emp.position).filter(Boolean)))
+        .sort() as string[]
+      setPositions(uniquePositions)
+    } catch (error) {
+      console.error('Error al cargar cargos:', error)
+    }
+  }, [companyId])
+
+  const checkAdminStatus = async () => {
+    if (!companyId) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    try {
+      const admin = await isCompanyAdmin(user.id, companyId, supabase)
+      setIsAdmin(admin)
+    } catch (error) {
+      console.error('Error verificando permisos:', error)
+    }
+  }
+
+  const loadCostCenters = async () => {
+    if (!companyId) return
+
+    try {
+      const data = await getCostCenters(companyId, supabase, false)
+      setCostCenters(data)
+    } catch (error) {
+      console.error('Error al cargar centros de costo:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (companyId) {
+      loadCostCenters()
+      loadPositions()
+      checkAdminStatus()
+    }
+  }, [companyId, loadPositions])
 
   useEffect(() => {
     if (companyId) {
@@ -71,7 +150,7 @@ export default function EmployeesPage() {
       setEmployees([])
       setLoading(false)
     }
-  }, [companyId, currentPage, loadEmployees])
+  }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedAFP, selectedHealthSystem, selectedPosition, loadEmployees])
 
   const handleDelete = async (employee: any) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar a ${employee.full_name}? Esta acción no se puede deshacer.`)) {
@@ -167,13 +246,148 @@ export default function EmployeesPage() {
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: '600' }}>Filtros</h3>
+        <div className="form-row">
+          {costCenters.length > 0 && (
+            <div className="form-group">
+              <label>Centro de Costo</label>
+              <select
+                value={selectedCostCenterId || ''}
+                onChange={(e) => {
+                  setSelectedCostCenterId(e.target.value || null)
+                  setCurrentPage(1)
+                }}
+              >
+                <option value="">Todos</option>
+                {costCenters.map((cc) => (
+                  <option key={cc.id} value={cc.id}>
+                    {cc.code} - {cc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="form-group">
+            <label>Estado</label>
+            <select
+              value={selectedStatus || ''}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value || null)
+                setCurrentPage(1)
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+              <option value="licencia_medica">Licencia Médica</option>
+              <option value="renuncia">Renuncia</option>
+              <option value="despido">Despido</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>AFP</label>
+            <select
+              value={selectedAFP || ''}
+              onChange={(e) => {
+                setSelectedAFP(e.target.value || null)
+                setCurrentPage(1)
+              }}
+            >
+              <option value="">Todas</option>
+              {AVAILABLE_AFPS.map((afp) => (
+                <option key={afp.value} value={afp.value}>
+                  {afp.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Sistema de Salud</label>
+            <select
+              value={selectedHealthSystem || ''}
+              onChange={(e) => {
+                setSelectedHealthSystem(e.target.value || null)
+                setCurrentPage(1)
+              }}
+            >
+              <option value="">Todos</option>
+              {AVAILABLE_HEALTH_SYSTEMS.map((system) => (
+                <option key={system.value} value={system.value}>
+                  {system.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {positions.length > 0 && (
+            <div className="form-group">
+              <label>Cargo</label>
+              <select
+                value={selectedPosition || ''}
+                onChange={(e) => {
+                  setSelectedPosition(e.target.value || null)
+                  setCurrentPage(1)
+                }}
+              >
+                <option value="">Todos</option>
+                {positions.map((position) => (
+                  <option key={position} value={position}>
+                    {position}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        {(selectedCostCenterId || selectedStatus || selectedAFP || selectedHealthSystem || selectedPosition) && (
+          <div style={{ marginTop: '12px' }}>
+            <button
+              className="secondary"
+              onClick={() => {
+                setSelectedCostCenterId(null)
+                setSelectedStatus(null)
+                setSelectedAFP(null)
+                setSelectedHealthSystem(null)
+                setSelectedPosition(null)
+                setCurrentPage(1)
+              }}
+            >
+              Limpiar Filtros
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="card">
         {employees.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px' }}>
-            <p>No hay trabajadores registrados.</p>
-            <Link href="/employees/new">
-              <button style={{ marginTop: '16px' }}>Crear Primer Trabajador</button>
-            </Link>
+            <p>
+              No hay trabajadores registrados
+              {(selectedCostCenterId || selectedStatus || selectedAFP || selectedHealthSystem || selectedPosition) 
+                ? ' con los filtros seleccionados' 
+                : ''}.
+            </p>
+            {(selectedCostCenterId || selectedStatus || selectedAFP || selectedHealthSystem || selectedPosition) ? (
+              <button
+                className="secondary"
+                style={{ marginTop: '16px' }}
+                onClick={() => {
+                  setSelectedCostCenterId(null)
+                  setSelectedStatus(null)
+                  setSelectedAFP(null)
+                  setSelectedHealthSystem(null)
+                  setSelectedPosition(null)
+                  setCurrentPage(1)
+                }}
+              >
+                Limpiar Filtros
+              </button>
+            ) : (
+              <Link href="/employees/new">
+                <button style={{ marginTop: '16px' }}>Crear Primer Trabajador</button>
+              </Link>
+            )}
           </div>
         ) : (
           <>
@@ -212,6 +426,7 @@ export default function EmployeesPage() {
                     <th>Nombre</th>
                     <th style={{ minWidth: '120px', whiteSpace: 'nowrap' }}>RUT</th>
                     <th>Cargo</th>
+                    <th>Centro de Costo</th>
                     <th>AFP</th>
                     <th>Sistema de Salud</th>
                     <th>Sueldo Base</th>
@@ -225,12 +440,49 @@ export default function EmployeesPage() {
                       <td>{employee.full_name}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{employee.rut}</td>
                       <td>{employee.position}</td>
+                      <td>
+                        {employee.cost_centers ? (
+                          <span style={{ fontSize: '12px' }}>
+                            {employee.cost_centers.code} - {employee.cost_centers.name}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#6b7280', fontSize: '12px' }}>-</span>
+                        )}
+                      </td>
                       <td>{employee.afp}</td>
                       <td>{employee.health_system}</td>
                       <td>${employee.base_salary.toLocaleString('es-CL')}</td>
                       <td>
-                        <span className={`badge ${employee.status}`}>
-                          {employee.status === 'active' ? 'Activo' : 'Inactivo'}
+                        <span 
+                          className="badge"
+                          style={{
+                            backgroundColor: employee.status === 'active' ? '#10b98120' : 
+                                             employee.status === 'inactive' ? '#6b728020' :
+                                             employee.status === 'licencia_medica' ? '#f59e0b20' :
+                                             employee.status === 'renuncia' ? '#3b82f620' :
+                                             employee.status === 'despido' ? '#ef444420' : '#6b728020',
+                            color: employee.status === 'active' ? '#10b981' : 
+                                   employee.status === 'inactive' ? '#6b7280' :
+                                   employee.status === 'licencia_medica' ? '#f59e0b' :
+                                   employee.status === 'renuncia' ? '#3b82f6' :
+                                   employee.status === 'despido' ? '#ef4444' : '#6b7280',
+                            border: `1px solid ${employee.status === 'active' ? '#10b981' : 
+                                               employee.status === 'inactive' ? '#6b7280' :
+                                               employee.status === 'licencia_medica' ? '#f59e0b' :
+                                               employee.status === 'renuncia' ? '#3b82f6' :
+                                               employee.status === 'despido' ? '#ef4444' : '#6b7280'}`,
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            display: 'inline-block',
+                          }}
+                        >
+                          {employee.status === 'active' ? 'Activo' : 
+                           employee.status === 'inactive' ? 'Inactivo' :
+                           employee.status === 'licencia_medica' ? 'Licencia Médica' :
+                           employee.status === 'renuncia' ? 'Renuncia' :
+                           employee.status === 'despido' ? 'Despido' : employee.status}
                         </span>
                       </td>
                       <td>
@@ -312,6 +564,12 @@ export default function EmployeesPage() {
                     <span className="mobile-card-value">{employee.position || '-'}</span>
                   </div>
                   <div className="mobile-card-row">
+                    <span className="mobile-card-label">Centro de Costo</span>
+                    <span className="mobile-card-value">
+                      {employee.cost_centers ? `${employee.cost_centers.code} - ${employee.cost_centers.name}` : '-'}
+                    </span>
+                  </div>
+                  <div className="mobile-card-row">
                     <span className="mobile-card-label">AFP</span>
                     <span className="mobile-card-value">{employee.afp || '-'}</span>
                   </div>
@@ -326,8 +584,36 @@ export default function EmployeesPage() {
                   <div className="mobile-card-row">
                     <span className="mobile-card-label">Estado</span>
                     <span className="mobile-card-value">
-                      <span className={`badge ${employee.status}`}>
-                        {employee.status === 'active' ? 'Activo' : 'Inactivo'}
+                      <span 
+                        className="badge"
+                        style={{
+                          backgroundColor: employee.status === 'active' ? '#10b98120' : 
+                                           employee.status === 'inactive' ? '#6b728020' :
+                                           employee.status === 'licencia_medica' ? '#f59e0b20' :
+                                           employee.status === 'renuncia' ? '#3b82f620' :
+                                           employee.status === 'despido' ? '#ef444420' : '#6b728020',
+                          color: employee.status === 'active' ? '#10b981' : 
+                                 employee.status === 'inactive' ? '#6b7280' :
+                                 employee.status === 'licencia_medica' ? '#f59e0b' :
+                                 employee.status === 'renuncia' ? '#3b82f6' :
+                                 employee.status === 'despido' ? '#ef4444' : '#6b7280',
+                          border: `1px solid ${employee.status === 'active' ? '#10b981' : 
+                                             employee.status === 'inactive' ? '#6b7280' :
+                                             employee.status === 'licencia_medica' ? '#f59e0b' :
+                                             employee.status === 'renuncia' ? '#3b82f6' :
+                                             employee.status === 'despido' ? '#ef4444' : '#6b7280'}`,
+                          padding: '4px 12px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'inline-block',
+                        }}
+                      >
+                        {employee.status === 'active' ? 'Activo' : 
+                         employee.status === 'inactive' ? 'Inactivo' :
+                         employee.status === 'licencia_medica' ? 'Licencia Médica' :
+                         employee.status === 'renuncia' ? 'Renuncia' :
+                         employee.status === 'despido' ? 'Despido' : employee.status}
                       </span>
                     </span>
                   </div>

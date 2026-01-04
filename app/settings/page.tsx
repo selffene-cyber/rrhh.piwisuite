@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { isCompanyAdmin } from '@/lib/services/costCenterService'
+import { isSuperAdmin } from '@/lib/services/auth'
 
 export default function SettingsPage() {
   const { companyId, loading: companyLoading } = useCurrentCompany()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     employer_name: '',
@@ -22,12 +25,46 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
 
   useEffect(() => {
-    if (!companyLoading && companyId) {
-      loadCompany()
-    } else if (!companyLoading && !companyId) {
-      setLoading(false)
+    if (!companyLoading) {
+      checkAdminStatus()
+      if (companyId) {
+        loadCompany()
+      } else {
+        setLoading(false)
+      }
     }
   }, [companyId, companyLoading])
+
+  const checkAdminStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setIsAdmin(false)
+      return
+    }
+
+    try {
+      // Verificar si es super admin del sistema
+      const superAdmin = await isSuperAdmin()
+      console.log('Super Admin check:', superAdmin)
+      
+      if (superAdmin) {
+        setIsAdmin(true)
+        return
+      }
+
+      // Si no es super admin, verificar si es admin de la empresa actual
+      if (companyId) {
+        const admin = await isCompanyAdmin(user.id, companyId, supabase)
+        console.log('Company Admin check:', admin)
+        setIsAdmin(admin)
+      } else {
+        setIsAdmin(false)
+      }
+    } catch (error) {
+      console.error('Error verificando permisos:', error)
+      setIsAdmin(false)
+    }
+  }
 
   const loadCompany = async () => {
     if (!companyId) return
@@ -228,7 +265,16 @@ export default function SettingsPage() {
   if (!companyId) {
     return (
       <div>
-        <h1>Configuración</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h1>Configuración</h1>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {isAdmin && (
+              <Link href="/admin/cost-centers">
+                <button>Centros de Costo</button>
+              </Link>
+            )}
+          </div>
+        </div>
         <div className="card">
           <p>Por favor, selecciona una empresa para ver su configuración.</p>
         </div>
@@ -241,6 +287,11 @@ export default function SettingsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Configuración</h1>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {isAdmin && (
+            <Link href="/admin/cost-centers">
+              <button>Centros de Costo</button>
+            </Link>
+          )}
           <Link href="/settings/indicators">
             <button>Indicadores Previsionales</button>
           </Link>
