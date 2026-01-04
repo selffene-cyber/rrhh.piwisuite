@@ -12,6 +12,14 @@
 8. [APIs y Servicios Externos](#apis-y-servicios-externos)
 9. [Variables de Entorno](#variables-de-entorno)
 10. [Flujos de Trabajo](#flujos-de-trabajo)
+11. [Módulo de Reportes](#módulo-de-reportes)
+12. [Asistente IA (Gemini)](#asistente-ia-gemini)
+13. [Módulo de Contratos y Anexos](#módulo-de-contratos-y-anexos)
+14. [Sistema de Notificaciones](#sistema-de-notificaciones)
+15. [Centros de Costo](#centros-de-costo)
+16. [Cartas de Amonestación](#cartas-de-amonestación)
+17. [Libro de Remuneraciones](#libro-de-remuneraciones)
+18. [Módulo de Finiquitos](#módulo-de-finiquitos)
 
 ---
 
@@ -33,6 +41,9 @@
 
 ### Generación de Documentos
 - **PDF**: @react-pdf/renderer 3.4.4
+
+### Inteligencia Artificial
+- **Gemini API**: @google/genai (SDK oficial de Google)
 
 ### Utilidades
 - **Fechas**: date-fns 3.0.6
@@ -100,15 +111,47 @@ RH.Piwi-Basic/
 │   │   └── page.tsx              # Vista consolidada de préstamos
 │   ├── vacations/                # Dashboard de vacaciones
 │   │   └── page.tsx              # Vista consolidada de vacaciones
+│   ├── contracts/                # Módulo de contratos
+│   │   ├── page.tsx              # Lista de contratos
+│   │   ├── new/                  # Nuevo contrato
+│   │   ├── [id]/                 # Detalle de contrato
+│   │   │   ├── page.tsx          # Vista detalle
+│   │   │   ├── edit/             # Editar contrato
+│   │   │   └── pdf/              # Ver PDF
+│   │   └── annex/                # Anexos de contratos
+│   │       ├── new/              # Nuevo anexo
+│   │       └── [id]/             # Detalle de anexo
+│   ├── disciplinary-actions/     # Cartas de amonestación
+│   │   └── page.tsx              # Dashboard de acciones disciplinarias
+│   ├── reports/                  # Módulo de reportes
+│   │   ├── page.tsx              # Dashboard de reportes
+│   │   ├── headcount/            # Reporte de dotación
+│   │   ├── salary/               # Reporte de sueldos
+│   │   ├── leaves/               # Reporte de licencias
+│   │   ├── organizational/       # Reporte organizacional
+│   │   ├── payroll/              # Reporte de liquidaciones
+│   │   └── loans-advances/       # Reporte de préstamos y anticipos
+│   ├── payroll-books/            # Libro de remuneraciones
+│   │   └── [id]/                 # Detalle del libro
+│   ├── settlements/               # Módulo de finiquitos
+│   │   ├── page.tsx              # Lista de finiquitos
+│   │   ├── new/                  # Nuevo finiquito
+│   │   └── [id]/                 # Detalle de finiquito
 │   ├── settings/                 # Configuración
 │   │   ├── page.tsx              # Configuración general
 │   │   ├── indicators/           # Indicadores previsionales
-│   │   └── tax-brackets/         # Tramos de impuesto único
+│   │   ├── tax-brackets/         # Tramos de impuesto único
+│   │   └── cost-centers/         # Centros de costo
 │   ├── admin/                    # Administración
-│   │   └── users/                # Gestión de usuarios
+│   │   ├── users/                # Gestión de usuarios
+│   │   └── companies/            # Gestión de empresas
 │   └── api/                      # API Routes
 │       ├── alerts/               # Sistema de alertas
 │       ├── tax-brackets/         # Tramos de impuesto
+│       ├── ai/                   # Asistente IA
+│       │   ├── ask/              # Endpoint principal
+│       │   ├── test/             # Test de conexión
+│       │   └── reset-rate-limit/ # Reset de límite
 │       └── admin/                # Endpoints de administración
 ├── components/                    # Componentes React reutilizables
 │   ├── Layout.tsx                # Layout principal
@@ -118,8 +161,18 @@ RH.Piwi-Basic/
 │   ├── AdvancePDF.tsx            # PDF de anticipo
 │   ├── AlertFab.tsx              # Botón flotante de alertas
 │   ├── AlertDrawer.tsx           # Panel de alertas
+│   ├── NotificationsDropdown.tsx # Dropdown de notificaciones
+│   ├── AIChatWidget.tsx          # Widget de chat con IA
 │   ├── DateInput.tsx             # Input de fecha (formato chileno)
-│   └── MonthInput.tsx            # Input de mes/año
+│   ├── MonthInput.tsx            # Input de mes/año
+│   ├── ToggleSwitch.tsx          # Switch toggle personalizado
+│   └── reports/                  # Componentes de reportes PDF
+│       ├── HeadcountReportPDF.tsx
+│       ├── SalaryReportPDF.tsx
+│       ├── LeavesReportPDF.tsx
+│       ├── OrganizationalReportPDF.tsx
+│       ├── PayrollReportPDF.tsx
+│       └── LoansAdvancesReportPDF.tsx
 ├── lib/                           # Utilidades y servicios
 │   ├── services/                 # Lógica de negocio
 │   │   ├── payrollCalculator.ts  # Cálculo de liquidaciones
@@ -128,13 +181,29 @@ RH.Piwi-Basic/
 │   │   ├── taxBracketsScraper.ts # Scraper de tramos SII
 │   │   ├── vacationPeriods.ts    # Gestión de períodos de vacaciones
 │   │   ├── vacationCalculator.ts # Cálculos de vacaciones
-│   │   └── alertEngine.ts        # Motor de alertas
+│   │   ├── alertEngine.ts        # Motor de alertas
+│   │   ├── geminiClient.ts      # Cliente de Gemini API
+│   │   ├── aiContextBuilder.ts  # Constructor de contexto para IA
+│   │   ├── rateLimiter.ts       # Limitador de tasa para IA
+│   │   ├── notificationService.ts # Servicio de notificaciones
+│   │   ├── contractService.ts   # Servicio de contratos
+│   │   ├── settlementService.ts # Servicio de finiquitos
+│   │   ├── costCenterService.ts # Servicio de centros de costo
+│   │   └── reports/              # Servicios de reportes
+│   │       ├── headcountReports.ts
+│   │       ├── salaryReports.ts
+│   │       ├── leavesReports.ts
+│   │       ├── organizationalReports.ts
+│   │       ├── payrollReports.ts
+│   │       └── loansAdvancesReports.ts
 │   ├── supabase/                 # Clientes Supabase
 │   │   ├── client.ts             # Cliente para componentes cliente
 │   │   └── server.ts             # Cliente para servidor
 │   └── utils/                    # Utilidades
 │       ├── date.ts               # Utilidades de fechas
-│       └── formatNumber.ts      # Formateo de números
+│       ├── formatNumber.ts      # Formateo de números
+│       ├── contractText.ts      # Generación de texto de contratos
+│       └── annexClauses.ts      # Gestión de cláusulas de anexos
 ├── types/                         # Tipos TypeScript
 │   └── index.ts                  # Definiciones de tipos
 ├── supabase/                      # Scripts SQL
@@ -380,9 +449,196 @@ Perfiles de usuario (extensión de auth.users).
 - `id` (UUID, PK, FK → auth.users)
 - `email` (VARCHAR)
 - `full_name` (VARCHAR)
-- `role` (VARCHAR) - admin/user
+- `role` (VARCHAR) - super_admin/admin/user
 - `company_id` (UUID, FK → companies, nullable)
 - `created_at`, `updated_at` (TIMESTAMP)
+
+#### 16. `cost_centers`
+Catálogo de centros de costo.
+
+**Campos:**
+- `id` (UUID, PK)
+- `company_id` (UUID, FK → companies)
+- `code` (TEXT) - Código del centro (ej: "CC-001")
+- `name` (TEXT) - Nombre del centro
+- `description` (TEXT) - Descripción opcional
+- `status` (VARCHAR) - active/inactive
+- `created_at`, `updated_at` (TIMESTAMP)
+- **UNIQUE(company_id, code)**
+
+#### 17. `user_cost_centers`
+Asignación de centros de costo a usuarios.
+
+**Campos:**
+- `id` (UUID, PK)
+- `user_id` (UUID, FK → auth.users)
+- `company_id` (UUID, FK → companies)
+- `cost_center_id` (UUID, FK → cost_centers)
+- `created_at`, `updated_at` (TIMESTAMP)
+- **UNIQUE(user_id, company_id, cost_center_id)**
+
+#### 18. `contracts`
+Contratos laborales.
+
+**Campos:**
+- `id` (UUID, PK)
+- `contract_number` (VARCHAR, UNIQUE) - CT-##
+- `employee_id` (UUID, FK → employees)
+- `company_id` (UUID, FK → companies)
+- `contract_type` (VARCHAR) - indefinido/plazo_fijo/obra_faena/part_time
+- `start_date`, `end_date` (DATE)
+- `position` (TEXT) - Cargo
+- `position_description` (TEXT) - Descripción de funciones
+- `work_schedule` (TEXT) - Horario de trabajo
+- `work_location` (TEXT) - Lugar de trabajo
+- `base_salary` (DECIMAL)
+- `gratuity` (BOOLEAN) - Gratificación legal
+- `gratuity_amount` (DECIMAL) - Monto fijo si aplica
+- `other_allowances` (TEXT) - Otros bonos (formato: "Bono: $monto; Bono2: $monto2")
+- `payment_method` (VARCHAR) - transferencia/efectivo/cheque
+- `payment_periodicity` (VARCHAR) - mensual/quincenal/semanal
+- `bank_name`, `account_type`, `account_number` (VARCHAR)
+- `confidentiality_clause`, `authorized_deductions`, `advances_clause`, `internal_regulations`, `additional_clauses` (TEXT) - Cláusulas editables
+- `status` (VARCHAR) - draft/issued/signed/active/terminated/cancelled
+- `issued_at`, `signed_at`, `terminated_at` (TIMESTAMP)
+- `created_by` (UUID, FK → auth.users)
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 19. `contract_annexes`
+Anexos a contratos.
+
+**Campos:**
+- `id` (UUID, PK)
+- `annex_number` (VARCHAR, UNIQUE) - ANX-##
+- `contract_id` (UUID, FK → contracts)
+- `employee_id` (UUID, FK → employees)
+- `company_id` (UUID, FK → companies)
+- `annex_type` (VARCHAR) - modificacion_sueldo/cambio_cargo/cambio_jornada/prorroga/otro
+- `start_date`, `end_date` (DATE)
+- `content` (TEXT) - Contenido del anexo (JSON con cláusulas)
+- `modifications_summary` (TEXT)
+- `status` (VARCHAR) - draft/issued/signed/active/cancelled
+- `issued_at`, `signed_at` (TIMESTAMP)
+- `created_by` (UUID, FK → auth.users)
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 20. `disciplinary_actions`
+Cartas de amonestación y acciones disciplinarias.
+
+**Campos:**
+- `id` (UUID, PK)
+- `action_number` (VARCHAR, UNIQUE) - CA-##
+- `employee_id` (UUID, FK → employees)
+- `company_id` (UUID, FK → companies)
+- `action_type` (VARCHAR) - verbal/written
+- `incident_date` (DATE)
+- `incident_description` (TEXT)
+- `riohs_rule` (VARCHAR) - Regla RIOHS aplicada
+- `witnesses` (JSONB) - Array de testigos
+- `status` (VARCHAR) - draft/under_review/approved/issued/acknowledged/void
+- `issued_at`, `acknowledged_at` (TIMESTAMP)
+- `created_by` (UUID, FK → auth.users)
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 21. `settlements`
+Finiquitos de trabajadores.
+
+**Campos:**
+- `id` (UUID, PK)
+- `settlement_number` (VARCHAR, UNIQUE) - FIN-###
+- `employee_id` (UUID, FK → employees)
+- `company_id` (UUID, FK → companies)
+- `contract_id` (UUID, FK → contracts, nullable)
+- `termination_date` (DATE)
+- `cause_code` (VARCHAR, FK → settlement_causes)
+- `contract_start_date` (DATE) - Snapshot
+- `last_salary_monthly` (DECIMAL) - Snapshot
+- `worked_days_last_month` (INTEGER)
+- `service_days` (INTEGER) - Días totales de servicio
+- `service_years_raw` (NUMERIC) - Años con decimales
+- `service_years_effective` (INTEGER) - Años efectivos
+- `service_years_capped` (INTEGER) - Máximo 11 años
+- `vacation_days_pending` (NUMERIC)
+- `notice_given` (BOOLEAN)
+- `notice_days` (INTEGER)
+- `salary_balance` (DECIMAL) - Sueldo proporcional
+- `vacation_payout` (DECIMAL)
+- `ias_amount` (DECIMAL) - Indemnización años servicio
+- `iap_amount` (DECIMAL) - Indemnización aviso previo
+- `total_earnings` (DECIMAL)
+- `loan_balance` (DECIMAL)
+- `advance_balance` (DECIMAL)
+- `total_deductions` (DECIMAL)
+- `net_to_pay` (DECIMAL)
+- `status` (VARCHAR) - draft/under_review/approved/signed/paid/void
+- `calculation_version` (INTEGER)
+- `calculation_snapshot` (JSONB)
+- `calculation_log` (JSONB)
+- `reviewed_at`, `approved_at`, `signed_at`, `paid_at`, `voided_at` (TIMESTAMP)
+- `created_by`, `reviewed_by`, `approved_by` (UUID, FK → auth.users)
+- `notes`, `void_reason` (TEXT)
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 22. `settlement_items`
+Ítems detallados de finiquitos.
+
+**Campos:**
+- `id` (UUID, PK)
+- `settlement_id` (UUID, FK → settlements)
+- `type` (VARCHAR) - earning/deduction
+- `category` (VARCHAR) - salary_balance/vacation/ias/iap/loan/advance/other
+- `description` (VARCHAR)
+- `amount` (DECIMAL)
+- `metadata` (JSONB)
+- `created_at` (TIMESTAMP)
+
+#### 23. `settlement_causes`
+Maestro de causales de término.
+
+**Campos:**
+- `code` (VARCHAR, PK) - Código de causal (ej: "159_1", "161_1")
+- `label` (VARCHAR) - Etiqueta descriptiva
+- `article` (VARCHAR) - Artículo del Código del Trabajo
+- `has_ias` (BOOLEAN) - Indemnización años servicio
+- `has_iap` (BOOLEAN) - Indemnización aviso previo
+- `is_termination` (BOOLEAN)
+- `description` (TEXT)
+- `created_at` (TIMESTAMP)
+
+#### 24. `payroll_books`
+Libros de remuneraciones.
+
+**Campos:**
+- `id` (UUID, PK)
+- `book_number` (VARCHAR, UNIQUE) - LB-###
+- `company_id` (UUID, FK → companies)
+- `period_id` (UUID, FK → payroll_periods)
+- `status` (VARCHAR) - draft/completed
+- `created_by` (UUID, FK → auth.users)
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 25. `ai_queries`
+Registro de consultas al asistente IA.
+
+**Campos:**
+- `id` (UUID, PK)
+- `user_id` (UUID, FK → auth.users)
+- `company_id` (UUID, FK → companies)
+- `question` (TEXT)
+- `answer` (TEXT)
+- `tokens_used` (INTEGER, nullable)
+- `created_at` (TIMESTAMP)
+
+#### 26. `company_users`
+Relación usuarios-empresas con roles por empresa.
+
+**Campos:**
+- `id` (UUID, PK)
+- `user_id` (UUID, FK → auth.users)
+- `company_id` (UUID, FK → companies)
+- `role` (VARCHAR) - owner/admin/user
+- `created_at`, `updated_at` (TIMESTAMP)
+- **UNIQUE(user_id, company_id)**
 
 ---
 
@@ -392,40 +648,82 @@ Perfiles de usuario (extensión de auth.users).
 
 **Funcionalidades:**
 - Vista general del sistema
-- Accesos rápidos a módulos principales
-- Gráfico de remuneraciones mensuales (Recharts)
-- Proyección de pago del mes siguiente
+- Accesos rápidos a módulos principales:
+  - Trabajadores
+  - Liquidaciones
+  - Anticipos
+  - Préstamos
+  - Vacaciones
+  - Licencias Médicas
+  - Contratos
+  - Reportes
+  - Banco de Documentos
+- Cards de estadísticas:
+  - Trabajadores Activos
+  - Trabajadores con Licencia Médica
+  - Trabajadores con Permiso Laboral
+  - Liquidaciones Pendientes
+  - Liquidaciones Confirmadas
+- Gráfico de remuneraciones mensuales (Recharts):
+  - Vista histórica mes a mes
+  - Toggle para ver remuneraciones brutas (con aportes empleador)
+  - Vista de solo aportes del empleador
+- Proyección de pago del mes siguiente:
+  - Título dinámico: "Proyección de sueldos para el mes de {MES}"
+  - Cálculo completo de liquidaciones proyectadas
 - Cards de imposiciones desglosadas:
-  - AFP (Fondo de Pensiones)
-  - Salud/ISAPRE
-  - Impuesto Único
-  - Seguro de Cesantía
-  - Total con aportes del empleador
+  - **Primera fila**: Descuentos legales proyectados por concepto
+    - AFP (Fondo de Pensiones)
+    - Salud/ISAPRE
+    - Impuesto Único
+    - Seguro de Cesantía
+    - Total Imposiciones (sin aportes empleador)
+  - **Segunda fila**: Aportes del empleador
+    - SIS (Seguro de Invalidez y Sobrevivencia) con porcentaje
+    - AFP Empleador con porcentaje
+    - AFC Empleador con porcentaje
+    - Total Aportes Empleador
 - Ranking de trabajadores (ordenable por antigüedad, ingresos, ausencias, etc.)
 - Sistema de alertas (FAB flotante)
+- Sistema de notificaciones (dropdown en header)
 
 **Cálculos del Dashboard:**
 - Proyección mensual: Calcula liquidación completa para cada trabajador activo
 - Considera: días trabajados, licencias, vacaciones, préstamos, anticipos
 - Usa indicadores actuales de Previred
 - Usa tramos de impuesto único del mes actual o siguiente
+- Título dinámico con nombre del mes siguiente en español (ENERO, FEBRERO, etc.)
 
 ### 2. Módulo de Trabajadores (`/employees`)
 
 #### 2.1 Lista de Trabajadores
-- Tabla con todos los trabajadores activos
-- Filtros por estado, AFP, sistema de salud
+- Tabla con todos los trabajadores
+- Filtros por:
+  - Centro de Costo (respeta permisos del usuario)
+  - Estado (activo, licencia médica, renuncia, despido, inactivo)
+  - AFP
+  - Sistema de Salud
+  - Cargo
 - Acciones: Ver, Editar, Eliminar
 - Responsive: Se convierte en cards en móvil
+- Filtrado automático por centro de costo según permisos del usuario
 
 #### 2.2 Crear/Editar Trabajador (`/employees/new`, `/employees/[id]/edit`)
-**Campos:**
-- Datos personales: Nombre, RUT, fecha nacimiento, dirección, teléfono, email
-- Datos laborales: Fecha ingreso, cargo, centro de costo
-- Previsional: AFP, sistema de salud, plan ISAPRE (en UF)
-- Remuneración: Sueldo base, movilización, colación
-- Contrato: Tipo (indefinido/plazo fijo/temporal), fecha fin (si aplica)
-- Anticipos: Si solicita anticipos, monto solicitado
+**Campos organizados en filas:**
+- **Fila 1**: Nombre, RUT, Fecha de Nacimiento
+- **Fila 2**: Dirección, Teléfono, Email
+- **Fila 3**: Banco, Tipo de Cuenta, Número de Cuenta
+- **Fila 4**: Fecha de Ingreso, Cargo, Centro de Costo (dropdown con opción de crear nuevo para admin)
+- **Fila 5**: Sueldo Base, Movilización, Colación (con formato de miles)
+- **Fila 6**: Solicita Anticipo? (toggle switch), Monto del Anticipo (si aplica, misma fila)
+- **Fila 7**: AFP, Sistema de Salud, Plan de Salud
+- **Fila 8**: Tipo de Contrato, Estado
+
+**Características:**
+- Formato de miles en campos monetarios (Sueldo Base, Movilización, Colación)
+- Toggle switch para "Solicita Anticipo?"
+- Dropdown de centros de costo con opción de crear nuevo (solo admin)
+- Validaciones según estado del trabajador
 
 #### 2.3 Detalle de Trabajador (`/employees/[id]`)
 - Vista completa de datos del trabajador
@@ -434,7 +732,12 @@ Perfiles de usuario (extensión de auth.users).
   - Vacaciones
   - Licencias médicas
   - Certificados
+  - Cartas de Amonestación
 - Acciones: Editar, Generar certificado
+- **Restricciones según estado:**
+  - **Activo**: Todas las acciones habilitadas
+  - **Licencia Médica**: Solo certificados y liquidaciones habilitadas
+  - **Renuncia/Despido/Inactivo**: Todas las acciones deshabilitadas (excepto ver datos)
 
 #### 2.4 Préstamos del Trabajador (`/employees/[id]/loans`)
 - Lista de préstamos del trabajador
@@ -488,8 +791,16 @@ Perfiles de usuario (extensión de auth.users).
 
 #### 3.4 Liquidación Masiva (`/payroll/bulk`)
 - Genera liquidaciones para múltiples trabajadores
+- **Campos organizados:**
+  - **Fila 1**: Año, Mes (dropdown con nombres ENERO-DICIEMBRE), Días Trabajados, Días de Licencia
+  - **Sección Bonificaciones**: Título "Montos Generales de Bonificaciones"
+    - Bonos: Dropdown de bonos disponibles, campo de monto (aplica a todos)
+    - Horas Extra: Alerta con número de trabajadores con/sin pacto, lista desplegable de pendientes
+  - **Fila adicional**: Movilización, Colación, Anticipo, Vacaciones
+- Todos los campos monetarios con formato de miles
 - Usa valores por defecto configurables
 - Permite ajustes individuales
+- Cálculo automático de horas extra por trabajador según su sueldo y términos del contrato
 
 #### 3.5 Detalle de Liquidación (`/payroll/[id]`)
 - Vista completa de la liquidación
@@ -509,14 +820,15 @@ Perfiles de usuario (extensión de auth.users).
 - Acciones: Ver, Editar, Eliminar, Ver PDF, Cambiar estado
 
 #### 4.2 Nuevo Anticipo (`/advances/new`)
-**Campos:**
-- Trabajador
-- Período (YYYY-MM)
-- Fecha del anticipo
-- Monto (con formato de miles)
-- Motivo (opcional)
-- Medio de pago (transferencia/efectivo)
-- Validación: Máximo 50% del sueldo base
+**Campos organizados en filas:**
+- **Fila 1**: Trabajador, Período de Descuento (YYYY-MM)
+- **Fila 2**: Fecha del Anticipo, Monto (con formato de miles), Medio de Pago
+- **Fila 3**: Motivo / Glosa (campo completo)
+
+**Características:**
+- Formato de miles en campo de monto
+- Validación: Máximo 50% del sueldo base (con alerta si se excede)
+- Medio de pago: transferencia o efectivo
 
 #### 4.3 Anticipos Masivos (`/advances/bulk`)
 - Crear anticipos para todos los trabajadores activos
@@ -1029,6 +1341,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anon_aqui
 ```env
 # Para cron jobs de Vercel
 CRON_SECRET=tu_secreto_aqui
+
+# Para Asistente IA (Gemini)
+GEMINI_API_KEY=tu_api_key_de_gemini
+GEMINI_MODEL=gemini-2.5-flash  # Modelo por defecto
 ```
 
 ---
@@ -1140,6 +1456,460 @@ CRON_SECRET=tu_secreto_aqui
 
 ---
 
+## 📊 Módulo de Reportes
+
+### Descripción General
+Sistema completo de generación de reportes ejecutivos en PDF y análisis detallados en Excel/CSV, con filtros avanzados por empresa, centro de costo, período, estado, tipo de contrato, AFP y sistema de salud.
+
+### Estructura
+- **Dashboard**: `/reports` - Vista general con cards de acceso a cada reporte
+- **Reportes individuales**: Cada reporte tiene su propia ruta con filtros y exportación
+
+### Tipos de Reportes
+
+#### 1. Reporte de Dotación y Distribución (`/reports/headcount`)
+**Descripción**: Información de trabajadores agrupada por centro de costo, AFP, sistema de salud y tipo de contrato.
+
+**Filtros:**
+- Empresa
+- Centro de costo
+- Período (mes/año)
+- Estado del trabajador
+- Tipo de contrato
+- AFP
+- Sistema de salud
+
+**Exportación:**
+- PDF: Vista ejecutiva con gráficos y tablas resumidas
+- Excel/CSV: Datos detallados por trabajador
+
+#### 2. Reporte de Trabajadores con Información de Sueldo (`/reports/salary`)
+**Descripción**: Lista de trabajadores con remuneraciones fijas y análisis por centro de costo y cargo.
+
+**Filtros:**
+- Empresa
+- Centro de costo
+- Período (mes/año)
+- Estado
+- Cargo
+
+**Exportación:**
+- PDF: Vista ejecutiva con análisis de sueldos
+- Excel/CSV: Datos detallados con sueldos base, movilización, colación
+
+#### 3. Reporte de Estados Laborales y Licencias Médicas (`/reports/leaves`)
+**Descripción**: Trabajadores con licencias médicas activas e historial de días de licencias.
+
+**Filtros:**
+- Empresa
+- Centro de costo
+- Período (mes/año)
+- Estado del trabajador
+- Estado de licencia (activa/inactiva)
+
+**Exportación:**
+- PDF: Vista ejecutiva con resumen de licencias
+- Excel/CSV: Detalle de licencias con fechas, días, folios
+
+#### 4. Reporte de Cargos y Estructura Organizacional (`/reports/organizational`)
+**Descripción**: Número de trabajadores por cargo y centro de costo.
+
+**Filtros:**
+- Empresa
+- Centro de costo
+- Período (mes/año)
+
+**Exportación:**
+- PDF: Vista ejecutiva con organigrama y distribución
+- Excel/CSV: Matriz de cargos vs centros de costo
+
+#### 5. Reporte de Remuneraciones Mensuales (`/reports/payroll`)
+**Descripción**: Vista gerencial de liquidaciones con masas salariales por centro de costo.
+
+**Filtros:**
+- Empresa
+- Centro de costo
+- Período (mes/año)
+- Estado de liquidación
+
+**Exportación:**
+- PDF: Vista ejecutiva con gráficos de masas salariales
+- Excel/CSV: Detalle de liquidaciones con haberes y descuentos
+
+#### 6. Reporte de Préstamos y Anticipos (`/reports/loans-advances`)
+**Descripción**: Monto prestado, saldo pendiente y anticipos por trabajador y centro de costo.
+
+**Filtros:**
+- Empresa
+- Centro de costo
+- Período (mes/año)
+- Estado de préstamo/anticipo
+
+**Exportación:**
+- PDF: Vista ejecutiva con resumen de deudas
+- Excel/CSV: Detalle de préstamos y anticipos con cuotas y pagos
+
+### Implementación Técnica
+- **Servicios**: `lib/services/reports/*.ts` - Lógica de consulta y agregación
+- **Componentes PDF**: `components/reports/*PDF.tsx` - Generación de PDFs ejecutivos
+- **API Routes**: Endpoints para exportación CSV/Excel
+- **Filtros**: Componente reutilizable `ReportFilters.tsx`
+
+### Seguridad
+- Todos los reportes respetan RLS (Row Level Security)
+- Filtrado automático por `company_id` y `cost_center_id` según permisos del usuario
+- Usuarios admin ven todos los centros de costo
+- Usuarios restringidos ven solo sus centros asignados
+
+---
+
+## 🤖 Asistente IA (Gemini)
+
+### Descripción General
+Asistente de inteligencia artificial integrado con Google Gemini API que permite realizar consultas sobre datos del sistema en lenguaje natural.
+
+### Características
+- **Chat interactivo**: Widget flotante con historial de conversación
+- **Contexto inteligente**: Construcción automática de contexto según la pregunta
+- **Rate limiting**: 50 consultas por usuario por hora
+- **Logging**: Registro de todas las consultas en `ai_queries`
+
+### Arquitectura
+
+#### Cliente Gemini (`lib/services/geminiClient.ts`)
+- SDK oficial `@google/genai`
+- Modelo por defecto: `gemini-2.5-flash`
+- Singleton pattern para el cliente
+- Manejo robusto de errores
+
+#### Constructor de Contexto (`lib/services/aiContextBuilder.ts`)
+**Estrategia de contexto en capas:**
+
+1. **Contexto Base** (`buildBaseContext`): Siempre incluido
+   - Resumen general de trabajadores (activos, por estado)
+   - Resumen de liquidaciones recientes
+   - Resumen de licencias médicas activas
+   - Resumen de pactos de horas extra
+   - Datos adicionales: contratos, préstamos, anticipos, permisos, bonos
+
+2. **Contexto Específico** (`buildContextFromQuestion`): Detecta keywords y agrega contexto relevante
+   - **Trabajadores**: Lista completa con nombres, RUTs, sueldos, cargos
+   - **Licencias médicas**: Detalle completo con días restantes
+   - **Vacaciones**: Días acumulados, usados, disponibles por trabajador
+   - **Préstamos**: Estado, cuotas pagadas, monto pendiente
+   - **Anticipos**: Montos, períodos, estados
+   - **Pactos de horas extra**: Trabajadores con/sin pacto activo
+   - **Centros de costo**: Distribución de trabajadores y masas salariales
+   - **AFP/Salud**: Distribución y trabajadores con datos faltantes
+   - **Estados laborales**: Contrataciones, salidas, contratos por vencer
+   - **Cumplimiento**: Datos incompletos, sueldos bajo mínimo, inconsistencias
+   - **Finiquitos**: Detalles de finiquitos recientes y pendientes
+
+#### API Endpoint (`/api/ai/ask`)
+- **Método**: POST
+- **Autenticación**: Requerida (Supabase Auth)
+- **Body**: `{ question: string, companyId: string, context?: { employeeId?, periodId? } }`
+- **Rate limiting**: Verificación antes de procesar
+- **Respuesta**: `{ answer: string }`
+
+#### UI Component (`components/AIChatWidget.tsx`)
+- Widget flotante con icono de robot
+- Historial de conversación con scroll
+- Input de texto con botón enviar
+- Estados de carga y error
+- Integrado en `Layout.tsx`
+
+### Limitaciones y Protecciones
+- **Rate limiting**: 50 consultas por usuario por hora (in-memory)
+- **Sanitización**: Limpieza de input del usuario (máximo 2000 caracteres)
+- **Control de datos**: No se envían datos excesivamente sensibles
+- **Logging**: Todas las consultas se registran para auditoría
+
+### Endpoints Adicionales
+- `/api/ai/test`: Test de conexión con Gemini (desarrollo)
+- `/api/ai/reset-rate-limit`: Reset manual del rate limit (desarrollo)
+
+---
+
+## 📄 Módulo de Contratos y Anexos
+
+### Descripción General
+Gestión completa de contratos laborales con cláusulas editables y sistema de anexos para modificaciones contractuales.
+
+### Funcionalidades de Contratos
+
+#### Crear Contrato (`/contracts/new`)
+**Campos principales:**
+- Selección de trabajador (con validaciones)
+- Tipo de contrato: indefinido, plazo fijo, obra/faena, part-time
+- Fechas: inicio y fin (si aplica)
+- Cargo y descripción de funciones
+- Horario de trabajo (configurable)
+- Lugar de trabajo
+- Remuneraciones:
+  - Sueldo base
+  - Gratificación legal (toggle switch)
+  - Monto fijo de gratificación (si aplica)
+  - Otros bonos (lista dinámica con dropdown)
+- Datos bancarios (en una fila)
+- 15 cláusulas editables con botón "Regenerar"
+
+**Validaciones:**
+- No puede crear nuevo contrato si trabajador tiene contrato activo
+- No puede crear contrato si trabajador está en "despido" o "renuncia" sin finiquito aprobado
+- No puede crear contrato en borrador si trabajador está activo
+- Sugiere crear anexos si hay contrato activo
+
+#### Editar Contrato (`/contracts/[id]/edit`)
+- Misma interfaz que creación
+- Carga datos existentes
+- Permite modificar todas las cláusulas
+
+#### Detalle de Contrato (`/contracts/[id]`)
+- Vista completa del contrato
+- Acciones: Editar, Ver PDF, Terminar contrato
+- Historial de anexos relacionados
+
+#### Terminar Contrato
+- Modal para recopilar datos de terminación
+- Campos: fecha, causal, aviso previo, notas
+- Crea pre-finiquito automáticamente
+- Cambia estado del trabajador a "despido"
+
+### Funcionalidades de Anexos
+
+#### Crear Anexo (`/contracts/annex/new`)
+**Tipos de anexo:**
+- Modificación de sueldo
+- Cambio de cargo
+- Cambio de jornada
+- Prórroga
+- Otro
+
+**Características:**
+- 6 cláusulas editables con toggle switch para activar/desactivar
+- Botón "Regenerar" para cada cláusula
+- Contenido se almacena como JSON con estado de cada cláusula
+- Pre-llenado automático basado en contrato y datos del trabajador
+
+#### Editar Anexo (`/contracts/annex/[id]/edit`)
+- Misma interfaz que creación
+- Carga cláusulas existentes desde JSON
+- Permite modificar y activar/desactivar cláusulas
+
+### Generación de PDFs
+- **Contratos**: PDF completo con todas las cláusulas
+- **Anexos**: PDF con solo las cláusulas activadas
+- Formato legal chileno
+- Firmas de trabajador y empresa
+
+### Integración con Otros Módulos
+- **Finiquitos**: Al terminar contrato se crea pre-finiquito
+- **Trabajadores**: Cambia estado automáticamente
+- **Liquidaciones**: Usa datos del contrato activo
+
+---
+
+## 🔔 Sistema de Notificaciones
+
+### Descripción General
+Sistema de notificaciones en tiempo real que alerta sobre eventos importantes del sistema.
+
+### Componente UI (`components/NotificationsDropdown.tsx`)
+- Botón en el header junto al login
+- Badge con número de notificaciones no leídas
+- Dropdown desplegable con lista de notificaciones
+- Cierre automático al hacer click fuera
+
+### Tipos de Notificaciones
+
+1. **Contratos en Borrador**
+   - Alerta sobre contratos pendientes de emisión
+   - Link directo al contrato
+
+2. **Finiquitos Pendientes de Aprobación**
+   - Alerta sobre finiquitos en revisión
+   - Link directo al finiquito
+
+3. **Contratos por Vencer**
+   - Alerta sobre contratos plazo fijo que vencen en ≤30 días
+   - Link directo al contrato
+
+4. **Licencias Médicas por Vencer**
+   - Alerta sobre licencias que expiran en ≤7 días
+   - Link directo al trabajador
+
+5. **Solicitudes de Vacaciones Pendientes**
+   - Alerta sobre vacaciones en estado "solicitada"
+   - Link directo a la solicitud
+
+### Servicio (`lib/services/notificationService.ts`)
+- Función `getNotifications(companyId, supabase)`
+- Agrupa todas las notificaciones por tipo
+- Retorna array con tipo, título, mensaje y link
+
+---
+
+## 🏢 Centros de Costo
+
+### Descripción General
+Sistema de gestión de centros de costo para organización y filtrado de trabajadores y datos.
+
+### Funcionalidades
+
+#### Gestión de Centros de Costo (`/settings/cost-centers`)
+- Crear, editar, activar/desactivar centros de costo
+- Código único por empresa
+- Nombre y descripción
+- Estado: activo/inactivo
+
+#### Asignación a Trabajadores
+- Campo en formulario de trabajador
+- Dropdown con centros activos
+- Opción para admin de crear nuevo centro desde el formulario
+
+#### Asignación a Usuarios (`/admin/users`)
+- Columna en tabla de usuarios
+- Permite asignar múltiples centros de costo a un usuario
+- Usuarios restringidos solo ven datos de sus centros asignados
+- Super admin y admin ven todos los centros
+
+#### Filtrado Automático
+- Lista de trabajadores filtra por centro asignado al usuario
+- Liquidaciones filtran por centro del trabajador
+- Reportes respetan filtros de centro de costo
+- RLS (Row Level Security) implementado en base de datos
+
+### Estructura de Datos
+- Tabla `cost_centers`: Catálogo de centros
+- Tabla `user_cost_centers`: Asignación usuarios-centros
+- Columna `cost_center_id` en `employees`: Relación trabajador-centro
+
+---
+
+## ⚠️ Cartas de Amonestación
+
+### Descripción General
+Sistema de gestión de acciones disciplinarias (amonestaciones verbales y escritas) conforme a normativa laboral chilena.
+
+### Funcionalidades
+
+#### Dashboard (`/disciplinary-actions`)
+- Vista consolidada de todas las acciones disciplinarias
+- Estadísticas: totales, escritas, verbales, pendientes
+- Tabla resumida por trabajador con contadores
+- Filtros por estado y tipo
+
+#### Crear Acción Disciplinaria (`/employees/[id]/disciplinary-actions/new`)
+**Campos:**
+- Tipo: Verbal o Escrita
+- Fecha del incidente
+- Descripción del incidente
+- Regla RIOHS aplicada
+- Testigos (múltiples con nombre y RUT)
+- Estado: Borrador, En Revisión, Aprobada, Emitida, Acusada Recibo, Anulada
+
+#### Editar Acción (`/employees/[id]/disciplinary-actions/[id]/edit`)
+- Misma interfaz que creación
+- Permite modificar todos los campos
+
+#### Detalle (`/employees/[id]/disciplinary-actions/[id]`)
+- Vista completa de la acción
+- Historial de cambios de estado
+- Acciones: Editar, Ver PDF, Cambiar estado
+
+#### Generación de PDF
+- Formato legal chileno
+- Incluye datos del trabajador, incidente, testigos, regla RIOHS
+- Firmas de trabajador y empresa
+- ID correlativo (CA-##)
+
+### Estados y Flujo
+1. **Borrador**: Creada pero no enviada
+2. **En Revisión**: En proceso de aprobación
+3. **Aprobada**: Aprobada, lista para emitir
+4. **Emitida**: Enviada al trabajador
+5. **Acusada Recibo**: Trabajador recibió y acusó recibo
+6. **Anulada**: Cancelada
+
+---
+
+## 📚 Libro de Remuneraciones
+
+### Descripción General
+Generación de libro de remuneraciones consolidado por período, conforme a normativa chilena.
+
+### Funcionalidades
+
+#### Acceso
+- Botón en módulo de Liquidaciones
+- Genera libro para un período específico
+
+#### Contenido
+- Consolidado de todas las liquidaciones del período
+- Datos por trabajador: haberes, descuentos, líquido
+- Totales por concepto
+- Formato legal chileno
+
+#### Generación de PDF
+- PDF completo del libro
+- Incluye todas las liquidaciones del período
+- Formato conforme a normativa
+
+---
+
+## 💼 Módulo de Finiquitos
+
+### Descripción General
+Sistema completo de cálculo y gestión de finiquitos conforme al Código del Trabajo chileno.
+
+### Funcionalidades
+
+#### Crear Finiquito (`/settlements/new`)
+**Proceso:**
+1. Selección de trabajador
+2. Validaciones automáticas:
+   - Debe tener contrato activo o finiquito previo aprobado
+   - No puede tener finiquito pendiente
+3. Datos del finiquito:
+   - Fecha de término
+   - Causal de término (dropdown con causales legales)
+   - Aviso previo (toggle switch)
+   - Días de aviso previo (si aplica)
+   - Notas adicionales
+
+**Cálculos Automáticos:**
+- Sueldo proporcional último mes
+- Vacaciones pendientes
+- Indemnización años de servicio (IAS) - según causal
+- Indemnización aviso previo (IAP) - según causal
+- Saldo de préstamos
+- Saldo de anticipos
+- Total haberes y descuentos
+- Líquido a pagar
+
+#### Causales de Término
+- **159_1**: Mutuo acuerdo (sin IAS, sin IAP)
+- **159_2**: Renuncia voluntaria (sin IAS, sin IAP)
+- **161_1**: Necesidades empresa (con IAS, con IAP)
+- **161_2**: Desahucio empleador (con IAS, con IAP)
+- Y más según Código del Trabajo
+
+#### Estados y Flujo
+1. **Borrador**: Creado, pendiente de revisión
+2. **En Revisión**: En proceso de aprobación
+3. **Aprobado**: Aprobado, listo para firmar
+4. **Firmado**: Firmado por ambas partes
+5. **Pagado**: Pagado al trabajador
+6. **Anulado**: Cancelado
+
+#### Integración con Contratos
+- Al terminar contrato desde módulo de contratos, se crea pre-finiquito automáticamente
+- Al aprobar finiquito, cambia estado del trabajador a "despido"
+- Trabajador no puede tener nuevo contrato hasta que finiquito esté aprobado
+
+---
+
 ## 🎨 Componentes UI Reutilizables
 
 ### 1. Layout (`components/Layout.tsx`)
@@ -1166,6 +1936,25 @@ CRON_SECRET=tu_secreto_aqui
 - Panel lateral de alertas
 - Tabs por severidad
 - Acciones por alerta
+
+### 6. NotificationsDropdown (`components/NotificationsDropdown.tsx`)
+- Dropdown de notificaciones en header
+- Badge con contador
+- Lista de notificaciones con links
+
+### 7. AIChatWidget (`components/AIChatWidget.tsx`)
+- Widget flotante de chat con IA
+- Historial de conversación
+- Input de texto con envío
+
+### 8. ToggleSwitch (`components/ToggleSwitch.tsx`)
+- Switch toggle personalizado
+- Estados: activado/desactivado
+- Usado en múltiples formularios
+
+### 9. ReportFilters (`components/reports/ReportFilters.tsx`)
+- Componente reutilizable de filtros para reportes
+- Filtros: empresa, centro de costo, período, estado, etc.
 
 ---
 
@@ -1289,6 +2078,8 @@ CRON_SECRET=tu_secreto_aqui
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `CRON_SECRET` (opcional, para cron jobs)
+- `GEMINI_API_KEY` (opcional, para asistente IA)
+- `GEMINI_MODEL` (opcional, modelo de Gemini, por defecto: gemini-2.5-flash)
 
 ---
 
@@ -1309,6 +2100,12 @@ CRON_SECRET=tu_secreto_aqui
 
 ### IDs Correlativos
 - Préstamos: `PT-##` (PT-01, PT-02, etc.)
+- Contratos: `CT-##` (CT-01, CT-02, etc.)
+- Anexos: `ANX-##` (ANX-01, ANX-02, etc.)
+- Finiquitos: `FIN-###` (FIN-001, FIN-002, etc.)
+- Cartas de amonestación: `CA-##` (CA-01, CA-02, etc.)
+- Libros de remuneraciones: `LB-###` (LB-001, LB-002, etc.)
+- Empresas: `EMP-{##}-{ddmmaaaa}` (EMP-01-02012026)
 - Se generan automáticamente al crear
 
 ### Historial y Versiones
@@ -1337,17 +2134,35 @@ CRON_SECRET=tu_secreto_aqui
 - `components/LoanPDF.tsx` - Préstamo
 - `components/VacationPDF.tsx` - Vacaciones
 - `components/AdvancePDF.tsx` - Anticipo
+- `components/CertificatePDF.tsx` - Certificado de trabajo
+- `components/reports/*PDF.tsx` - Reportes ejecutivos
 
 **UI:**
 - `components/Layout.tsx` - Layout principal
 - `components/AlertFab.tsx` - Botón de alertas
 - `components/AlertDrawer.tsx` - Panel de alertas
+- `components/NotificationsDropdown.tsx` - Dropdown de notificaciones
+- `components/AIChatWidget.tsx` - Widget de chat con IA
+- `components/ToggleSwitch.tsx` - Switch toggle
 - `components/DateInput.tsx` - Input de fecha
 - `components/MonthInput.tsx` - Input de mes
 
 **Utilidades:**
 - `lib/utils/date.ts` - Utilidades de fechas
 - `lib/utils/formatNumber.ts` - Formateo de números
+- `lib/utils/contractText.ts` - Generación de texto de contratos
+- `lib/utils/annexClauses.ts` - Gestión de cláusulas de anexos
+
+**IA y Contexto:**
+- `lib/services/geminiClient.ts` - Cliente de Gemini API
+- `lib/services/aiContextBuilder.ts` - Constructor de contexto para IA
+- `lib/services/rateLimiter.ts` - Limitador de tasa
+
+**Servicios Adicionales:**
+- `lib/services/notificationService.ts` - Servicio de notificaciones
+- `lib/services/contractService.ts` - Servicio de contratos
+- `lib/services/settlementService.ts` - Servicio de finiquitos
+- `lib/services/costCenterService.ts` - Servicio de centros de costo
 
 ---
 

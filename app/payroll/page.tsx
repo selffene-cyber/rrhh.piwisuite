@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatMonthYear, MONTHS } from '@/lib/utils/date'
-import { FaEye, FaTrash } from 'react-icons/fa'
+import { FaEye, FaTrash, FaBook } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 
 export default function PayrollPage() {
@@ -72,7 +72,7 @@ export default function PayrollPage() {
         return
       }
 
-      const employeeIds = employees.map(emp => emp.id)
+      const employeeIds = employees.map((emp: { id: string }) => emp.id)
 
       // Obtener las liquidaciones solo de los empleados de la empresa actual
       const { data, error } = await supabase
@@ -152,7 +152,7 @@ export default function PayrollPage() {
 
       // Restaurar anticipos: cambiar de "descontado" a "pagado" y limpiar el vínculo
       if (linkedAdvances && linkedAdvances.length > 0) {
-        const advanceIds = linkedAdvances.map(adv => adv.id)
+        const advanceIds = linkedAdvances.map((adv: any) => adv.id)
         const { error: updateAdvancesError } = await supabase
           .from('advances')
           .update({
@@ -206,7 +206,15 @@ export default function PayrollPage() {
   if (loading) {
     return (
       <div>
-        <h1>Liquidaciones de Sueldo</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h1>Liquidaciones de Sueldo</h1>
+          <Link href="/payroll-book">
+            <button style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FaBook size={16} />
+              Libro de Remuneraciones
+            </button>
+          </Link>
+        </div>
         <div className="card">
           <p>Cargando liquidaciones...</p>
         </div>
@@ -225,10 +233,19 @@ export default function PayrollPage() {
         gap: '12px'
       }}>
         <h1>Liquidaciones de Sueldo</h1>
-        <Link href="/payroll/new">
-          <button>Nueva Liquidación</button>
-        </Link>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <Link href="/payroll-book">
+            <button style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="secondary">
+              <FaBook size={16} />
+              Libro de Remuneraciones
+            </button>
+          </Link>
+          <Link href="/payroll/new">
+            <button>Nueva Liquidación</button>
+          </Link>
+        </div>
       </div>
+
 
       <div className="card">
         <h2>Filtros</h2>

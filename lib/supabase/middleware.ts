@@ -1,10 +1,13 @@
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { assertSupabasePublicEnv } from './env'
 
 export function createMiddlewareClient(request: NextRequest, response: NextResponse) {
+  const { url: supabaseUrl, anonKey: supabaseAnonKey } = assertSupabasePublicEnv()
+
   return createSupabaseServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         get(name: string) {

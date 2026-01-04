@@ -19,7 +19,7 @@ npm install
 ```
 
 2. Configurar variables de entorno:
-Crear archivo `.env.local` con:
+Crear archivo `.env.local` (puedes copiar `env.example`) con:
 ```
 NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
@@ -31,6 +31,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
 ```bash
 npm run dev
 ```
+
+Si entras a la app sin configurar Supabase, verás una guía en `http://localhost:3000/setup`.
 
 ## Estructura del Proyecto
 
