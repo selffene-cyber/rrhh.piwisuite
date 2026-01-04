@@ -53,7 +53,7 @@ export default function SettlementsPage() {
 
     if (data) {
       const employeesMap: Record<string, any> = {}
-      data.forEach(emp => {
+      data.forEach((emp: any) => {
         employeesMap[emp.id] = emp
       })
       setEmployees(employeesMap)

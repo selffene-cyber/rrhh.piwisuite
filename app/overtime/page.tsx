@@ -67,7 +67,7 @@ export default function OvertimePage() {
         return
       }
 
-      const employeeIds = employees.map(emp => emp.id)
+      const employeeIds = employees.map((emp: { id: string }) => emp.id)
 
       // Aplicar filtro de trabajador
       let filteredEmployeeIds = employeeIds
@@ -137,7 +137,7 @@ export default function OvertimePage() {
         return
       }
 
-      const employeeIds = employees.map(emp => emp.id)
+      const employeeIds = employees.map((emp: { id: string }) => emp.id)
 
       // Contar pactos activos
       const { data: activePacts } = await supabase
@@ -151,7 +151,7 @@ export default function OvertimePage() {
       const in15Days = new Date()
       in15Days.setDate(today.getDate() + 15)
 
-      const expiringCount = activePacts?.filter(pact => {
+      const expiringCount = activePacts?.filter((pact: { end_date: string }) => {
         const endDate = new Date(pact.end_date)
         return endDate >= today && endDate <= in15Days
       }).length || 0
@@ -176,7 +176,7 @@ export default function OvertimePage() {
         .gte('date', monthStart.toISOString().split('T')[0])
         .lte('date', monthEnd.toISOString().split('T')[0])
 
-      const totalHours = monthEntries?.reduce((sum, entry) => sum + Number(entry.hours), 0) || 0
+      const totalHours = monthEntries?.reduce((sum: number, entry: { hours: number }) => sum + Number(entry.hours), 0) || 0
 
       setStats({
         active: activePacts?.length || 0,

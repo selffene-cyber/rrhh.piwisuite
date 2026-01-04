@@ -123,9 +123,9 @@ export default function AlertFab() {
 
     if (alerts) {
       const counts = {
-        critical: alerts.filter(a => a.severity === 'critical').length,
-        high: alerts.filter(a => a.severity === 'high').length,
-        info: alerts.filter(a => a.severity === 'info').length,
+        critical: alerts.filter((a: any) => a.severity === 'critical').length,
+        high: alerts.filter((a: any) => a.severity === 'high').length,
+        info: alerts.filter((a: any) => a.severity === 'info').length,
         total: alerts.length
       }
       setAlertCount(counts)

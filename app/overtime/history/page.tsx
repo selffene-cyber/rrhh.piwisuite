@@ -66,7 +66,7 @@ export default function OvertimeHistoryPage() {
         return
       }
 
-      const employeeIds = employeesData.map(emp => emp.id)
+      const employeeIds = employeesData.map((emp: { id: string }) => emp.id)
 
       // Obtener períodos primero para filtrar
       let periodQuery = supabase
@@ -92,7 +92,7 @@ export default function OvertimeHistoryPage() {
         return
       }
 
-      const periodIds = periods.map(p => p.id)
+      const periodIds = periods.map((p: { id: string }) => p.id)
 
       // Obtener liquidaciones
       let slipsQuery = supabase
@@ -124,7 +124,7 @@ export default function OvertimeHistoryPage() {
       }
 
       // Obtener items de horas extra para estas liquidaciones
-      const slipIds = slips.map(s => s.id)
+      const slipIds = slips.map((s: { id: string }) => s.id)
       console.log('🔍 Buscando items de horas extras para liquidaciones:', slipIds)
       
       const { data: items, error: itemsError } = await supabase
@@ -137,7 +137,7 @@ export default function OvertimeHistoryPage() {
       console.log('📋 Todos los items encontrados:', items)
       
       // Filtrar items de horas extras manualmente para ver qué hay
-      const overtimeItems = items?.filter(item => 
+      const overtimeItems = items?.filter((item: { type: string; category: string }) => 
         item.type === 'taxable_earning' && item.category === 'horas_extras'
       ) || []
       
@@ -156,10 +156,10 @@ export default function OvertimeHistoryPage() {
 
       console.log('🗺️ Mapa de items por liquidación:', Array.from(itemsBySlip.entries()))
 
-      const payrollData = slips.map(slip => ({
+      const payrollData = slips.map((slip: any) => ({
         ...slip,
         payroll_items: itemsBySlip.get(slip.id) || []
-      })).filter(slip => slip.payroll_items.length > 0)
+      })).filter((slip: any) => slip.payroll_items.length > 0)
       
       console.log('💼 Liquidaciones con horas extras:', payrollData.length)
 

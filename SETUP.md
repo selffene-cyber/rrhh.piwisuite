@@ -30,6 +30,16 @@ NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anon_aqui
 ```
 
+También puedes copiar el archivo `env.example`:
+
+```bash
+# Windows (PowerShell)
+Copy-Item env.example .env.local
+
+# macOS/Linux
+cp env.example .env.local
+```
+
 ## 3. Ejecutar el Proyecto
 
 ```bash

@@ -659,6 +659,15 @@ export async function updateSettlementStatus(
     notes?: string
   }
 ): Promise<Settlement> {
+  // Obtener el finiquito para acceder al employee_id
+  const { data: settlement, error: settlementError } = await (supabase as any)
+    .from('settlements')
+    .select('employee_id, contract_id')
+    .eq('id', settlementId)
+    .single()
+
+  if (settlementError) throw settlementError
+
   const updateData: any = {
     status,
     updated_at: new Date().toISOString()
@@ -671,6 +680,40 @@ export async function updateSettlementStatus(
   } else if (status === 'approved') {
     updateData.approved_at = new Date().toISOString()
     updateData.approved_by = userId
+
+    // Si se aprueba el finiquito y hay un contrato activo, cambiar estado del trabajador a "despido"
+    if (settlement.contract_id) {
+      // Verificar si el contrato sigue activo
+      const { data: contractData } = await supabase
+        .from('contracts')
+        .select('status')
+        .eq('id', settlement.contract_id)
+        .maybeSingle()
+
+      const contract = contractData as any
+      if (contract && contract.status === 'active') {
+        // Cambiar estado del trabajador a "despido"
+        const { error: employeeUpdateError } = await (supabase
+          .from('employees') as any)
+          .update({ status: 'despido' })
+          .eq('id', settlement.employee_id)
+
+        if (employeeUpdateError) {
+          console.error('Error al actualizar estado del trabajador:', employeeUpdateError)
+          // No lanzar error, solo loguear, para no bloquear la aprobación del finiquito
+        }
+      }
+    } else {
+      // Si no hay contract_id pero el finiquito se aprueba, cambiar estado a "despido"
+      const { error: employeeUpdateError } = await (supabase
+        .from('employees') as any)
+        .update({ status: 'despido' })
+        .eq('id', settlement.employee_id)
+
+      if (employeeUpdateError) {
+        console.error('Error al actualizar estado del trabajador:', employeeUpdateError)
+      }
+    }
   } else if (status === 'signed') {
     updateData.signed_at = new Date().toISOString()
   } else if (status === 'paid') {

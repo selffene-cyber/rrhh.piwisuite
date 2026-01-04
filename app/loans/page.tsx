@@ -44,7 +44,7 @@ export default function LoansManagementPage() {
 
       if (employeesError) throw employeesError
 
-      const employeeIds = employeesData?.map(emp => emp.id) || []
+      const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
 
       if (employeeIds.length === 0) {
         setLoans([])

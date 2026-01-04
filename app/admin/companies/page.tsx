@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/utils/date'
 
 interface Company {
   id: string
+  code: string | null
   name: string
   employer_name: string
   rut: string
@@ -94,6 +95,7 @@ export default function AdminCompaniesPage() {
           <table>
             <thead>
               <tr>
+                <th>Código</th>
                 <th>Nombre</th>
                 <th style={{ whiteSpace: 'nowrap', minWidth: '120px' }}>RUT</th>
                 <th>Empleador</th>
@@ -109,6 +111,11 @@ export default function AdminCompaniesPage() {
             <tbody>
               {companies.map((company) => (
                 <tr key={company.id}>
+                  <td>
+                    <span style={{ fontFamily: 'monospace', fontWeight: '600', color: '#3b82f6', fontSize: '13px' }}>
+                      {company.code || '-'}
+                    </span>
+                  </td>
                   <td>
                     <Link href={`/admin/companies/${company.id}`} style={{ fontWeight: '500', color: '#2563eb' }}>
                       {company.name}

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
-import { getCurrentMonthYear, MONTHS } from '@/lib/utils/date'
+import { getCurrentMonthYear, MONTHS, formatDate } from '@/lib/utils/date'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
@@ -112,7 +112,7 @@ export default function NewPayrollPage() {
     } else {
       setEmployees([])
     }
-  }, [companyId])
+  }, [companyId, formData.year, formData.month]) // Recargar cuando cambie el período
 
   useEffect(() => {
     if (formData.employee_id && selectedEmployee) {
@@ -130,14 +130,34 @@ export default function NewPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type')
-        .eq('status', 'active')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type, status, termination_date')
+        .in('status', ['active', 'licencia_medica', 'renuncia', 'despido']) // Incluir renuncia/despido para validar después
         .eq('company_id', companyId)
         .order('full_name')
 
       if (error) throw error
 
-      setEmployees(data || [])
+      // Filtrar empleados que renunciaron/despedidos antes del período seleccionado
+      const periodStart = new Date(formData.year, formData.month - 1, 1)
+      const filteredEmployees = (data || []).filter((emp: any) => {
+        // Si está activo o con licencia médica, incluirlo
+        if (emp.status === 'active' || emp.status === 'licencia_medica') {
+          return true
+        }
+        
+        // Si renunció o fue despedido, solo incluirlo si la fecha de término es posterior o igual al inicio del período
+        if (emp.status === 'renuncia' || emp.status === 'despido') {
+          if (!emp.termination_date) {
+            return false // Sin fecha de término, no incluirlo
+          }
+          const terminationDate = new Date(emp.termination_date)
+          return terminationDate >= periodStart
+        }
+        
+        return false
+      })
+
+      setEmployees(filteredEmployees)
 
       if (employeeIdParam && data) {
         const employee = data.find((e: any) => e.id === employeeIdParam)
@@ -151,6 +171,45 @@ export default function NewPayrollPage() {
             advances: employee.requests_advance ? (employee.advance_amount || 0) : 0,
           })
           setDefaultValuesLoaded(true)
+          
+          // Cargar bonos del contrato activo del trabajador
+          try {
+            const { data: activeContract } = await supabase
+              .from('contracts')
+              .select('other_allowances')
+              .eq('employee_id', employeeIdParam)
+              .eq('status', 'active')
+              .order('start_date', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (activeContract?.other_allowances) {
+              // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
+              const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
+              const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
+              
+              bonusStrings.forEach((bonusStr: string, idx: number) => {
+                const match = bonusStr.match(/^(.+?):\s*\$\s*(.+)$/)
+                if (match) {
+                  const bonusName = match[1].trim()
+                  const bonusAmount = parseFormattedNumber(match[2].trim()) || 0
+                  if (bonusName && bonusAmount > 0) {
+                    bonusesFromContract.push({
+                      id: `contract-bonus-${idx}-${Date.now()}`,
+                      name: bonusName,
+                      amount: bonusAmount
+                    })
+                  }
+                }
+              })
+
+              if (bonusesFromContract.length > 0) {
+                setBonuses(bonusesFromContract)
+              }
+            }
+          } catch (error) {
+            console.error('Error al cargar bonos del contrato:', error)
+          }
         }
       }
     } catch (error: any) {
@@ -160,7 +219,7 @@ export default function NewPayrollPage() {
     }
   }
 
-  const handleEmployeeChange = (employeeId: string) => {
+  const handleEmployeeChange = async (employeeId: string) => {
     const employee = employees.find((e: any) => e.id === employeeId)
     setSelectedEmployee(employee || null)
     setFormData({ 
@@ -171,13 +230,56 @@ export default function NewPayrollPage() {
       advances: employee?.requests_advance ? (employee?.advance_amount || 0) : 0,
       overtime_hours: 0,
     })
-    setBonuses([])
     setNonTaxableEarnings([])
     setDefaultValuesLoaded(true)
     setMedicalLeaveDays(0) // Resetear días de licencia al cambiar trabajador
     setVacationAmount(0)
     setVacationDetails([])
     setOvertimeAmount(0)
+
+    // Cargar bonos del contrato activo del trabajador
+    try {
+      const { data: activeContract } = await supabase
+        .from('contracts')
+        .select('other_allowances')
+        .eq('employee_id', employeeId)
+        .eq('status', 'active')
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (activeContract?.other_allowances) {
+        // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
+        const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
+        const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
+        
+        bonusStrings.forEach((bonusStr: string, idx: number) => {
+          const match = bonusStr.match(/^(.+?):\s*\$\s*(.+)$/)
+          if (match) {
+            const bonusName = match[1].trim()
+            const bonusAmount = parseFormattedNumber(match[2].trim()) || 0
+            if (bonusName && bonusAmount > 0) {
+              bonusesFromContract.push({
+                id: `contract-bonus-${idx}-${Date.now()}`,
+                name: bonusName,
+                amount: bonusAmount
+              })
+            }
+          }
+        })
+
+        if (bonusesFromContract.length > 0) {
+          setBonuses(bonusesFromContract)
+        } else {
+          setBonuses([])
+        }
+      } else {
+        setBonuses([])
+      }
+    } catch (error) {
+      console.error('Error al cargar bonos del contrato:', error)
+      setBonuses([])
+    }
   }
 
   const calculate = async () => {
@@ -444,17 +546,17 @@ export default function NewPayrollPage() {
     // Sumar anticipos del período
     let totalAdvancesAmount = 0
     if (periodAdvances && periodAdvances.length > 0) {
-      totalAdvancesAmount = periodAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0)
+      totalAdvancesAmount = periodAdvances.reduce((sum: number, adv: { amount: number | null }) => sum + Number(adv.amount), 0)
     }
 
     // Sumar anticipos manuales si los hay
     totalAdvancesAmount += formData.advances
 
     // Calcular total de bonos
-    const totalBonuses = bonuses.reduce((sum, bonus) => sum + (bonus.amount || 0), 0)
+    const totalBonuses = bonuses.reduce((sum: number, bonus: { amount: number }) => sum + (bonus.amount || 0), 0)
 
     // Calcular total de haberes no imponibles adicionales
-    const totalNonTaxableEarnings = nonTaxableEarnings.reduce((sum, earning) => sum + (earning.amount || 0), 0)
+    const totalNonTaxableEarnings = nonTaxableEarnings.reduce((sum: number, earning: { amount: number }) => sum + (earning.amount || 0), 0)
 
     // Obtener indicadores de Previred
     // IMPORTANTE: Los indicadores de Previred son del mes anterior
@@ -504,6 +606,22 @@ export default function NewPayrollPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedEmployee || !calculation) return
+
+    // Validar que el trabajador no haya renunciado o sido despedido antes del período
+    if (selectedEmployee.status === 'renuncia' || selectedEmployee.status === 'despido') {
+      if (!selectedEmployee.termination_date) {
+        alert(`No se puede crear una liquidación para ${selectedEmployee.full_name} porque tiene estado "${selectedEmployee.status === 'renuncia' ? 'Renuncia' : 'Despido'}" pero no tiene fecha de término registrada. Por favor, complete la fecha de término en la ficha del trabajador.`)
+        return
+      }
+
+      const terminationDate = new Date(selectedEmployee.termination_date)
+      const periodStart = new Date(formData.year, formData.month - 1, 1)
+      
+      if (terminationDate < periodStart) {
+        alert(`No se puede crear una liquidación para ${selectedEmployee.full_name} en el período ${MONTHS[formData.month - 1]} ${formData.year} porque ${selectedEmployee.status === 'renuncia' ? 'renunció' : 'fue despedido'} el ${terminationDate.toLocaleDateString('es-CL')}, antes del inicio del período.`)
+        return
+      }
+    }
 
     setSaving(true)
 
@@ -1256,7 +1374,7 @@ export default function NewPayrollPage() {
                 <div style={{ marginTop: '12px', padding: '10px', background: '#eff6ff', borderRadius: '4px', fontSize: '12px', border: '1px solid #bfdbfe' }}>
                   <strong style={{ color: '#1e40af', display: 'block', marginBottom: '8px' }}>📋 Préstamos a Descontar Automáticamente:</strong>
                   {loansToPay.map((loan, idx) => {
-                    const totalFromLoans = loansToPay.reduce((sum, l) => sum + l.installment_amount, 0)
+                    const totalFromLoans = loansToPay.reduce((sum: number, l: { installment_amount: number }) => sum + l.installment_amount, 0)
                     return (
                       <div key={loan.id || idx} style={{ marginBottom: '6px', paddingBottom: '6px', borderBottom: idx < loansToPay.length - 1 ? '1px solid #dbeafe' : 'none' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1280,7 +1398,7 @@ export default function NewPayrollPage() {
                   })}
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#1e3a8a' }}>
                     <span>Total Préstamos Automáticos:</span>
-                    <span>${loansToPay.reduce((sum, l) => sum + l.installment_amount, 0).toLocaleString('es-CL')}</span>
+                    <span>${loansToPay.reduce((sum: number, l: { installment_amount: number }) => sum + l.installment_amount, 0).toLocaleString('es-CL')}</span>
                   </div>
                 </div>
               )}
@@ -1327,7 +1445,7 @@ export default function NewPayrollPage() {
                   ))}
                   <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#78350f' }}>
                     <span>Total Anticipos del Período:</span>
-                    <span>${periodAdvances.reduce((sum, a) => sum + Number(a.amount), 0).toLocaleString('es-CL')}</span>
+                    <span>${periodAdvances.reduce((sum: number, a: { amount: number | null }) => sum + Number(a.amount), 0).toLocaleString('es-CL')}</span>
                   </div>
                 </div>
               )}

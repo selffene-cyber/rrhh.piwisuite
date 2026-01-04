@@ -1,15 +1,11 @@
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+import { assertSupabasePublicEnv } from './env'
 
 // Para Server Components (usa cookies de next/headers)
 // Esta función SOLO debe usarse en Server Components
 export async function createServerClient() {
+  const { url: supabaseUrl, anonKey: supabaseAnonKey } = assertSupabasePublicEnv()
+
   try {
     // Importación dinámica para evitar problemas en build
     const { cookies } = await import('next/headers')
