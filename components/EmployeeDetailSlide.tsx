@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/utils/date'
 import { FaTimes, FaUser, FaBriefcase, FaDollarSign, FaShieldAlt, FaEnvelope, FaMapMarkerAlt, FaPhone, FaCalendarAlt, FaIdCard, FaBuilding, FaFileContract, FaChartLine, FaCreditCard, FaWallet } from 'react-icons/fa'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import OrganigramaCard from './OrganigramaCard'
 
 // Estilos para animaciones
 const styles = `
@@ -41,6 +42,10 @@ const CertificatesHistory = dynamic(() => import('@/app/employees/[id]/certifica
   ssr: false,
 })
 
+const AccidentsHistory = dynamic(() => import('@/app/employees/[id]/accidents-history'), {
+  ssr: false,
+})
+
 interface EmployeeDetailSlideProps {
   employeeId: string | null
   isOpen: boolean
@@ -67,6 +72,11 @@ export default function EmployeeDetailSlide({ employeeId, isOpen, onClose }: Emp
             id,
             code,
             name
+          ),
+          departments (
+            id,
+            name,
+            code
           )
         `)
         .eq('id', employeeId)
@@ -415,6 +425,20 @@ export default function EmployeeDetailSlide({ employeeId, isOpen, onClose }: Emp
                       marginBottom: '4px',
                       display: 'block'
                     }}>
+                      Departamento
+                    </label>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#111827' }}>
+                      {employee.departments?.name || '-'}
+                    </p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ 
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      color: '#6b7280',
+                      marginBottom: '4px',
+                      display: 'block'
+                    }}>
                       Centro de Costo
                     </label>
                     <p style={{ margin: 0, fontSize: '14px', color: '#111827' }}>
@@ -753,6 +777,16 @@ export default function EmployeeDetailSlide({ employeeId, isOpen, onClose }: Emp
                 )}
                 </div>
               </div>
+
+              {/* Historial de Seguridad y Salud */}
+              <AccidentsHistory employeeRut={employee.rut} />
+
+              {/* Organigrama */}
+              <OrganigramaCard
+                employeeId={employee.id}
+                employeeName={employee.full_name}
+                onUpdate={loadEmployeeData}
+              />
 
               {/* Accesos Rápidos */}
               <div className="card" style={{ 

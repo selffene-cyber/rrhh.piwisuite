@@ -80,6 +80,54 @@ export default function HomePage() {
   const [sortColumn, setSortColumn] = useState<string>('antiguedad')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
+  // Verificar si es trabajador y redirigir al portal
+  useEffect(() => {
+    const checkEmployeeAndRedirect = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Verificar si es super_admin (puede ver dashboard)
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.role === 'super_admin') {
+          return // Super admin puede ver el dashboard
+        }
+
+        // Verificar si es trabajador
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (employee) {
+          // Es trabajador, redirigir al portal
+          // Verificar si debe cambiar contraseña
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('must_change_password')
+            .eq('id', user.id)
+            .single()
+
+          if (profileData?.must_change_password === true) {
+            window.location.href = '/employee/change-password'
+          } else {
+            window.location.href = '/employee'
+          }
+        }
+      } catch (error) {
+        console.error('Error al verificar trabajador:', error)
+      }
+    }
+
+    checkEmployeeAndRedirect()
+  }, [])
+
   useEffect(() => {
     // Paralelizar carga de datos críticos
     Promise.all([

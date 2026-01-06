@@ -9,6 +9,7 @@ import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { CostCenter } from '@/types'
 import { getCostCenters, createCostCenter, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { isSuperAdmin } from '@/lib/services/auth'
+import DepartmentSelector from '@/components/DepartmentSelector'
 import { FaPlus, FaTimes } from 'react-icons/fa'
 
 export default function NewEmployeePage() {
@@ -33,6 +34,7 @@ export default function NewEmployeePage() {
     hire_date: '',
     position: '',
     cost_center_id: '',
+    department_id: '',
     afp: 'PROVIDA',
     health_system: 'FONASA',
     health_plan: '',
@@ -198,19 +200,20 @@ export default function NewEmployeePage() {
         meal_allowance: parseFloat(formData.meal_allowance) || 0,
         status: formData.status,
         contract_type: formData.contract_type,
-        contract_end_date: formData.contract_type === 'plazo_fijo' ? formData.contract_end_date : null,
-        contract_other: formData.contract_type === 'otro' ? formData.contract_other : null,
+        contract_end_date: formData.contract_type === 'plazo_fijo' ? (formData.contract_end_date?.trim() || null) : null,
+        contract_other: formData.contract_type === 'otro' ? (formData.contract_other?.trim() || null) : null,
       }
 
       // Agregar campos opcionales solo si tienen valor
-      if (formData.birth_date) employeeData.birth_date = formData.birth_date
+      if (formData.birth_date?.trim()) employeeData.birth_date = formData.birth_date.trim()
       if (formData.address?.trim()) employeeData.address = formData.address.trim()
       if (formData.phone?.trim()) employeeData.phone = formData.phone.trim()
       if (formData.email?.trim()) employeeData.email = formData.email.trim()
       if (formData.bank_name?.trim()) employeeData.bank_name = formData.bank_name.trim()
       if (formData.account_type?.trim()) employeeData.account_type = formData.account_type.trim()
       if (formData.account_number?.trim()) employeeData.account_number = formData.account_number.trim()
-      if (formData.cost_center_id) employeeData.cost_center_id = formData.cost_center_id
+      if (formData.cost_center_id?.trim()) employeeData.cost_center_id = formData.cost_center_id.trim()
+      if (formData.department_id?.trim()) employeeData.department_id = formData.department_id.trim()
       if (formData.health_plan?.trim()) employeeData.health_plan = formData.health_plan.trim()
       
       // Porcentaje del plan ISAPRE
@@ -248,6 +251,38 @@ export default function NewEmployeePage() {
       }
 
       console.log('Trabajador creado exitosamente:', data)
+      
+      // Si se proporcionó email, crear usuario automáticamente
+      if (formData.email?.trim() && data && data[0]) {
+        try {
+          const createUserResponse = await fetch('/api/employees/create-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: formData.email.trim(),
+              employee_id: data[0].id,
+            }),
+          })
+
+          const createUserResult = await createUserResponse.json()
+
+          if (!createUserResponse.ok) {
+            console.error('Error al crear usuario:', createUserResult.error)
+            // El trabajador ya se creó, pero no se pudo crear el usuario
+            // Mostrar advertencia pero permitir continuar
+            alert(`Trabajador creado exitosamente, pero hubo un error al crear el usuario: ${createUserResult.error}. Puede crear el usuario manualmente más tarde.`)
+          } else {
+            console.log('Usuario creado exitosamente para el trabajador')
+          }
+        } catch (userError: any) {
+          console.error('Error al crear usuario:', userError)
+          // El trabajador ya se creó, pero no se pudo crear el usuario
+          alert(`Trabajador creado exitosamente, pero hubo un error al crear el usuario. Puede crear el usuario manualmente más tarde.`)
+        }
+      }
+      
       // Redirigir a la lista de trabajadores
       router.push('/employees')
     } catch (error: any) {
@@ -323,12 +358,17 @@ export default function NewEmployeePage() {
               />
             </div>
             <div className="form-group">
-              <label>Correo Electrónico</label>
+              <label>Correo Electrónico *</label>
               <input
                 type="email"
+                required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="correo@ejemplo.com"
               />
+              <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Se creará automáticamente un usuario para acceder al portal de trabajadores. Contraseña inicial: "colaborador1"
+              </small>
             </div>
           </div>
 
@@ -391,6 +431,18 @@ export default function NewEmployeePage() {
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
               />
             </div>
+            <div className="form-group">
+              <label>Departamento</label>
+              {companyId && (
+                <DepartmentSelector
+                  companyId={companyId}
+                  value={formData.department_id}
+                  onChange={(id) => setFormData({ ...formData, department_id: id || '' })}
+                />
+              )}
+            </div>
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label>Centro de Costo</label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>

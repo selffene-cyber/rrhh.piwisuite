@@ -495,15 +495,42 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
                       {vacation.status === 'solicitada' && (
                         <>
                           <button
-                            style={{ padding: '4px 8px', fontSize: '12px' }}
-                            onClick={() => handleStatusChange(vacation.id, 'aprobada')}
+                            style={{ padding: '4px 8px', fontSize: '12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/vacations/${vacation.id}/approve`, {
+                                  method: 'POST',
+                                })
+                                const result = await response.json()
+                                if (!response.ok) throw new Error(result.error || 'Error al aprobar')
+                                alert('Vacación aprobada exitosamente')
+                                loadData()
+                              } catch (error: any) {
+                                alert('Error: ' + error.message)
+                              }
+                            }}
                           >
                             Aprobar
                           </button>
                           <button
-                            style={{ padding: '4px 8px', fontSize: '12px' }}
-                            className="danger"
-                            onClick={() => handleStatusChange(vacation.id, 'rechazada')}
+                            style={{ padding: '4px 8px', fontSize: '12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={async () => {
+                              const reason = prompt('Ingrese el motivo del rechazo:')
+                              if (!reason || !reason.trim()) return
+                              try {
+                                const response = await fetch(`/api/vacations/${vacation.id}/reject`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ rejection_reason: reason }),
+                                })
+                                const result = await response.json()
+                                if (!response.ok) throw new Error(result.error || 'Error al rechazar')
+                                alert('Vacación rechazada')
+                                loadData()
+                              } catch (error: any) {
+                                alert('Error: ' + error.message)
+                              }
+                            }}
                           >
                             Rechazar
                           </button>

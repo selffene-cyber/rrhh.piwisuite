@@ -20,6 +20,10 @@
 16. [Cartas de Amonestación](#cartas-de-amonestación)
 17. [Libro de Remuneraciones](#libro-de-remuneraciones)
 18. [Módulo de Finiquitos](#módulo-de-finiquitos)
+19. [Sistema de Departamentos](#sistema-de-departamentos)
+20. [Módulo RAAT](#módulo-raat)
+21. [Portal para Trabajadores](#portal-para-trabajadores)
+22. [Organigramas](#organigramas)
 
 ---
 
@@ -137,14 +141,29 @@ RH.Piwi-Basic/
 │   │   ├── page.tsx              # Lista de finiquitos
 │   │   ├── new/                  # Nuevo finiquito
 │   │   └── [id]/                 # Detalle de finiquito
+│   ├── organigrama/              # Organigrama de trabajadores
+│   │   └── page.tsx              # Vista del organigrama
+│   ├── departments/              # Organigrama de departamentos
+│   │   └── chart/                # Vista del organigrama de departamentos
+│   ├── prevencion/               # Prevención de Riesgos
+│   │   └── page.tsx              # Página en construcción
+│   ├── raat/                     # Módulo RAAT
+│   │   ├── page.tsx              # Dashboard RAAT
+│   │   ├── new/                  # Registrar accidente
+│   │   ├── dashboard/            # Dashboard avanzado con gráficos
+│   │   ├── diat/                 # Gestión de DIATs
+│   │   └── [id]/                 # Detalle de accidente
+│   │       ├── page.tsx          # Vista detalle
+│   │       └── edit/             # Editar accidente
 │   ├── settings/                 # Configuración
 │   │   ├── page.tsx              # Configuración general
 │   │   ├── indicators/           # Indicadores previsionales
-│   │   ├── tax-brackets/         # Tramos de impuesto único
-│   │   └── cost-centers/         # Centros de costo
+│   │   └── tax-brackets/         # Tramos de impuesto único
 │   ├── admin/                    # Administración
 │   │   ├── users/                # Gestión de usuarios
-│   │   └── companies/            # Gestión de empresas
+│   │   ├── companies/            # Gestión de empresas
+│   │   ├── departments/           # Gestión de departamentos
+│   │   └── cost-centers/         # Gestión de centros de costo
 │   └── api/                      # API Routes
 │       ├── alerts/               # Sistema de alertas
 │       ├── tax-brackets/         # Tramos de impuesto
@@ -152,6 +171,39 @@ RH.Piwi-Basic/
 │       │   ├── ask/              # Endpoint principal
 │       │   ├── test/             # Test de conexión
 │       │   └── reset-rate-limit/ # Reset de límite
+│       ├── employee/              # Endpoints del portal trabajador
+│       │   ├── dashboard/        # Datos del dashboard
+│       │   ├── certificates/     # Certificados del trabajador
+│       │   │   └── request/      # Solicitar certificado
+│       │   ├── vacations/        # Vacaciones del trabajador
+│       │   │   └── request/      # Solicitar vacaciones
+│       │   ├── permissions/      # Permisos del trabajador
+│       │   │   └── request/      # Solicitar permiso
+│       │   └── permission-types/ # Tipos de permisos
+│       ├── employees/             # Endpoints de trabajadores
+│       │   └── create-user/      # Crear usuario automáticamente
+│       ├── certificates/         # Endpoints de certificados
+│       │   └── [id]/             # Aprobar/rechazar certificado
+│       │       ├── approve/      # Aprobar
+│       │       └── reject/       # Rechazar
+│       ├── vacations/            # Endpoints de vacaciones
+│       │   └── [id]/             # Aprobar/rechazar vacaciones
+│       │       ├── approve/      # Aprobar
+│       │       └── reject/       # Rechazar
+│       ├── permissions/           # Endpoints de permisos
+│       │   └── [id]/             # Aprobar/rechazar permiso
+│       │       ├── approve/      # Aprobar
+│       │       └── reject/       # Rechazar
+│       ├── organigrama/           # Endpoints de organigrama
+│       │   └── tree/             # Árbol jerárquico de trabajadores
+│       ├── departments/           # Endpoints de departamentos
+│       │   ├── tree/             # Árbol jerárquico de departamentos
+│       │   └── chart/            # Datos para organigrama de departamentos
+│       ├── raat/                 # Endpoints de RAAT
+│       │   ├── stats/            # Estadísticas de accidentes
+│       │   └── [id]/             # Operaciones sobre accidente
+│       │       ├── diat/         # Marcar DIAT como enviado
+│       │       └── close/        # Cerrar accidente
 │       └── admin/                # Endpoints de administración
 ├── components/                    # Componentes React reutilizables
 │   ├── Layout.tsx                # Layout principal
@@ -166,6 +218,13 @@ RH.Piwi-Basic/
 │   ├── DateInput.tsx             # Input de fecha (formato chileno)
 │   ├── MonthInput.tsx            # Input de mes/año
 │   ├── ToggleSwitch.tsx          # Switch toggle personalizado
+│   ├── EnhancedOrgChart.tsx      # Organigrama de trabajadores (D3.js)
+│   ├── EmployeeNodeCard.tsx      # Card de trabajador en organigrama
+│   ├── DepartmentChart.tsx       # Organigrama de departamentos (D3.js)
+│   ├── DepartmentNodeCard.tsx   # Card de departamento en organigrama
+│   ├── DepartmentSelector.tsx   # Selector de departamento (dropdown)
+│   ├── AccidentPDFButton.tsx    # Botón de descarga PDF de accidente
+│   ├── AccidentPDFDocument.tsx  # PDF de accidente RAAT
 │   └── reports/                  # Componentes de reportes PDF
 │       ├── HeadcountReportPDF.tsx
 │       ├── SalaryReportPDF.tsx
@@ -189,6 +248,9 @@ RH.Piwi-Basic/
 │   │   ├── contractService.ts   # Servicio de contratos
 │   │   ├── settlementService.ts # Servicio de finiquitos
 │   │   ├── costCenterService.ts # Servicio de centros de costo
+│   │   ├── departmentService.ts # Servicio de departamentos
+│   │   ├── raatService.ts       # Servicio de RAAT (accidentes)
+│   │   ├── permissionService.ts  # Servicio de permisos
 │   │   └── reports/              # Servicios de reportes
 │   │       ├── headcountReports.ts
 │   │       ├── salaryReports.ts
@@ -241,13 +303,17 @@ Información de trabajadores.
 **Campos:**
 - `id` (UUID, PK)
 - `company_id` (UUID, FK → companies)
+- `user_id` (UUID, FK → auth.users, nullable) - Usuario vinculado para portal del trabajador
+- `email` (VARCHAR) - Email del trabajador (para crear usuario automáticamente)
 - `full_name` (VARCHAR) - Nombre completo
 - `rut` (VARCHAR, UNIQUE) - RUT del trabajador
 - `birth_date` (DATE)
-- `address`, `phone`, `email` (TEXT/VARCHAR)
+- `address`, `phone` (TEXT/VARCHAR)
 - `hire_date` (DATE) - Fecha de ingreso
 - `position` (VARCHAR) - Cargo
-- `cost_center` (VARCHAR) - Centro de costo
+- `superior_id` (UUID, FK → employees, nullable) - Supervisor/jefe directo (para organigrama)
+- `cost_center_id` (UUID, FK → cost_centers, nullable) - Centro de costo (relación)
+- `department_id` (UUID, FK → departments, nullable) - Departamento asignado
 - `afp` (VARCHAR) - AFP afiliado (PROVIDA, HABITAT, etc.)
 - `health_system` (VARCHAR) - FONASA o ISAPRE
 - `health_plan` (VARCHAR) - Plan de salud (si ISAPRE)
@@ -259,7 +325,7 @@ Información de trabajadores.
 - `contract_end_date` (DATE) - Fecha fin de contrato (si plazo fijo)
 - `requests_advance` (BOOLEAN) - Solicita anticipos
 - `advance_amount` (DECIMAL) - Monto de anticipo solicitado
-- `status` (VARCHAR) - active/inactive
+- `status` (VARCHAR) - active/inactive/licencia_medica/renuncia/despido
 - `created_at`, `updated_at` (TIMESTAMP)
 
 #### 3. `payroll_periods`
@@ -371,9 +437,16 @@ Solicitudes y registros de vacaciones.
 - `start_date` (DATE) - Fecha inicio
 - `end_date` (DATE) - Fecha fin
 - `days_business` (INTEGER) - Días hábiles
+- `days_count` (INTEGER) - Días totales (calculado)
 - `status` (VARCHAR) - solicitada/aprobada/rechazada/tomada/cancelada
 - `period_year` (INTEGER) - Año del período al que se descuentan los días
-- `requested_at`, `approved_at`, `rejected_at`, `taken_at` (TIMESTAMP)
+- `requested_by` (UUID, FK → auth.users, nullable) - Usuario que solicitó (si es desde portal)
+- `requested_at` (TIMESTAMP, nullable) - Fecha de solicitud
+- `approved_by` (UUID, FK → auth.users, nullable) - Usuario que aprobó
+- `approved_at` (TIMESTAMP, nullable) - Fecha de aprobación
+- `rejection_reason` (TEXT, nullable) - Motivo de rechazo
+- `rejected_at` (TIMESTAMP, nullable) - Fecha de rechazo
+- `taken_at` (TIMESTAMP, nullable)
 - `created_at`, `updated_at` (TIMESTAMP)
 
 #### 10. `vacation_periods`
@@ -451,6 +524,8 @@ Perfiles de usuario (extensión de auth.users).
 - `full_name` (VARCHAR)
 - `role` (VARCHAR) - super_admin/admin/user
 - `company_id` (UUID, FK → companies, nullable)
+- `must_change_password` (BOOLEAN, default true) - Obliga cambio de contraseña en primer login
+- `password_changed_at` (TIMESTAMP, nullable) - Fecha del último cambio de contraseña
 - `created_at`, `updated_at` (TIMESTAMP)
 
 #### 16. `cost_centers`
@@ -639,6 +714,115 @@ Relación usuarios-empresas con roles por empresa.
 - `role` (VARCHAR) - owner/admin/user
 - `created_at`, `updated_at` (TIMESTAMP)
 - **UNIQUE(user_id, company_id)**
+
+#### 27. `departments`
+Departamentos con estructura jerárquica.
+
+**Campos:**
+- `id` (UUID, PK)
+- `company_id` (UUID, FK → companies)
+- `name` (VARCHAR) - Nombre del departamento
+- `code` (VARCHAR) - Código único del departamento
+- `status` (VARCHAR) - active/inactive
+- `parent_department_id` (UUID, FK → departments, nullable) - Departamento padre
+- `created_at`, `updated_at` (TIMESTAMP)
+- **UNIQUE(company_id, code)**
+- **CHECK**: No puede ser su propio padre
+
+#### 28. `accidents`
+Registro de accidentes del trabajo y enfermedades profesionales (RAAT).
+
+**Campos:**
+- `id` (UUID, PK)
+- `company_id` (UUID, FK → companies)
+- `employee_id` (UUID, FK → employees)
+- `employee_snapshot` (JSONB) - Snapshot histórico del trabajador al momento del evento
+- `cost_center_id` (UUID, FK → cost_centers)
+- `accident_number` (VARCHAR, UNIQUE) - Número correlativo por empresa
+- `event_date` (DATE) - Fecha del evento
+- `event_time` (TIME) - Hora del evento
+- `event_location` (TEXT) - Lugar del evento
+- `event_type` (VARCHAR) - accidente_trabajo/enfermedad_profesional/accidente_trayecto
+- `labor_performed` (TEXT) - Labor que realizaba
+- `event_description` (TEXT) - Descripción técnica del evento
+- `identified_hazards` (TEXT) - Peligros identificados
+- `body_part_affected` (VARCHAR) - Parte del cuerpo afectada
+- `injury_type` (VARCHAR) - Tipo de lesión
+- `witnesses` (JSONB) - Array de testigos [{name, rut}]
+- `possible_sequelae` (TEXT) - Posibles secuelas
+- `immediate_actions` (TEXT) - Acciones inmediatas tomadas
+- `medical_transfer` (BOOLEAN) - Si fue trasladado a centro médico
+- `medical_transfer_location` (TEXT) - Lugar de traslado
+- `notification_date` (DATE) - Fecha de notificación
+- `notification_time` (TIME) - Hora de notificación
+- `diat_sent_at` (TIMESTAMP, nullable) - Fecha de envío de DIAT
+- `diat_number` (VARCHAR, nullable) - Número de DIAT
+- `diat_status` (VARCHAR) - pending/sent/overdue
+- `status` (VARCHAR) - open/closed
+- `registered_by` (UUID, FK → auth.users)
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 29. `accident_attachments`
+Archivos adjuntos a accidentes.
+
+**Campos:**
+- `id` (UUID, PK)
+- `accident_id` (UUID, FK → accidents)
+- `file_name` (VARCHAR)
+- `file_path` (TEXT)
+- `file_type` (VARCHAR)
+- `file_size` (INTEGER)
+- `description` (TEXT)
+- `uploaded_by` (UUID, FK → auth.users)
+- `created_at` (TIMESTAMP)
+
+#### 30. `permissions`
+Permisos laborales.
+
+**Campos:**
+- `id` (UUID, PK)
+- `employee_id` (UUID, FK → employees)
+- `permission_type_id` (UUID, FK → permission_types)
+- `start_date` (DATE)
+- `end_date` (DATE)
+- `days` (INTEGER) - Días de permiso
+- `reason` (TEXT) - Motivo del permiso
+- `status` (VARCHAR) - solicitada/aprobada/rechazada/tomada/cancelada
+- `requested_by` (UUID, FK → auth.users, nullable) - Usuario que solicitó (si es desde portal)
+- `requested_at` (TIMESTAMP, nullable) - Fecha de solicitud
+- `approved_by` (UUID, FK → auth.users, nullable) - Usuario que aprobó
+- `approved_at` (TIMESTAMP, nullable) - Fecha de aprobación
+- `rejection_reason` (TEXT, nullable) - Motivo de rechazo
+- `rejected_at` (TIMESTAMP, nullable) - Fecha de rechazo
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 31. `permission_types`
+Tipos de permisos laborales.
+
+**Campos:**
+- `id` (UUID, PK)
+- `name` (VARCHAR) - Nombre del tipo de permiso
+- `description` (TEXT) - Descripción
+- `requires_approval` (BOOLEAN) - Si requiere aprobación
+- `created_at`, `updated_at` (TIMESTAMP)
+
+#### 32. `certificates`
+Certificados laborales.
+
+**Campos:**
+- `id` (UUID, PK)
+- `employee_id` (UUID, FK → employees)
+- `certificate_type` (VARCHAR) - trabajo/renta/antiguedad/otro
+- `purpose` (TEXT) - Propósito del certificado
+- `status` (VARCHAR) - solicitada/aprobada/rechazada/emitida
+- `requested_by` (UUID, FK → auth.users, nullable) - Usuario que solicitó (si es desde portal)
+- `requested_at` (TIMESTAMP, nullable) - Fecha de solicitud
+- `approved_by` (UUID, FK → auth.users, nullable) - Usuario que aprobó
+- `approved_at` (TIMESTAMP, nullable) - Fecha de aprobación
+- `rejection_reason` (TEXT, nullable) - Motivo de rechazo
+- `rejected_at` (TIMESTAMP, nullable) - Fecha de rechazo
+- `issued_at` (TIMESTAMP, nullable) - Fecha de emisión
+- `created_at`, `updated_at` (TIMESTAMP)
 
 ---
 
@@ -1232,6 +1416,47 @@ ANTICIPO-{RUT}-{MES/AÑO}-{ID}.pdf
 - Período de trabajo
 - Cargo
 - Firmas: Empresa
+
+### 6. Registro de Accidente RAAT (`components/AccidentPDFDocument.tsx`)
+
+**Estructura:**
+- Encabezado: Datos de la empresa
+- Título: "REGISTRO DE ACCIDENTE DEL TRABAJO"
+- Identificación del evento:
+  - Número de accidente
+  - Fecha y hora
+  - Lugar
+  - Tipo de evento
+- Datos del trabajador (snapshot histórico):
+  - Nombre completo y RUT
+  - Centro de costo
+  - Cargo
+  - Tipo de contrato
+  - Departamento
+- Descripción técnica:
+  - Labor que realizaba
+  - Descripción detallada
+  - Peligros identificados
+  - Parte del cuerpo afectada
+  - Tipo de lesión
+  - Posibles secuelas
+- Testigos (lista)
+- Acciones inmediatas:
+  - Acciones tomadas
+  - Traslado médico (si aplica)
+- Notificación:
+  - Fecha y hora de notificación
+- Estado DIAT:
+  - Número de DIAT (si enviado)
+  - Fecha de envío
+- Disclaimers legales
+- Firmas: Trabajador y empresa
+
+**Nombre de archivo:**
+```
+RAAT-{NUMERO}-{RUT}-{FECHA}.pdf
+Ejemplo: RAAT-001-18.968.229-8-2025-01-15.pdf
+```
 
 ---
 
@@ -2106,6 +2331,7 @@ Sistema completo de cálculo y gestión de finiquitos conforme al Código del Tr
 - Cartas de amonestación: `CA-##` (CA-01, CA-02, etc.)
 - Libros de remuneraciones: `LB-###` (LB-001, LB-002, etc.)
 - Empresas: `EMP-{##}-{ddmmaaaa}` (EMP-01-02012026)
+- Accidentes RAAT: Número correlativo por empresa (auto-incremental)
 - Se generan automáticamente al crear
 
 ### Historial y Versiones

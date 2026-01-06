@@ -87,3 +87,6 @@ Una vez configuradas las políticas, intenta subir un documento nuevamente. Debe
 - **Acceso público**: Si marcas el bucket como público o cambias las políticas SELECT a `public`, los documentos serán accesibles sin autenticación.
 - **Estructura de carpetas**: Los documentos se organizan automáticamente en `documents/{company_id}/{timestamp}-{filename}`.
 
+
+
+

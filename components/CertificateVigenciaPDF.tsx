@@ -2,6 +2,8 @@
 
 import { Document, Page, Text, View, StyleSheet, PDFViewer } from '@react-pdf/renderer'
 import { formatDateLegal } from '@/lib/utils/contractText'
+import Link from 'next/link'
+import { FaArrowLeft } from 'react-icons/fa'
 
 const styles = StyleSheet.create({
   page: {
@@ -140,25 +142,41 @@ export default function CertificateVigenciaPDF({
     return 'Indefinido'
   }
 
-  const getWorkScheduleText = () => {
-    if (!contract) return '-'
-    if (contract.work_schedule === 'full_time') {
-      return 'Jornada Completa'
-    } else if (contract.work_schedule === 'part_time') {
-      return 'Jornada Parcial'
-    } else if (contract.work_schedule === 'shift') {
-      return 'Por Turnos'
-    } else if (contract.work_schedule === 'other') {
-      return contract.work_schedule_other || 'Otro'
-    }
-    return '-'
-  }
-
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
+    <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+      {/* Botón para volver al dashboard de certificados */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '20px',
+        zIndex: 1000,
+        background: 'white',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <Link 
+          href="/certificates"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            textDecoration: 'none',
+            color: '#2563eb',
+            fontWeight: '500',
+            fontSize: '14px'
+          }}
+        >
+          <FaArrowLeft size={16} />
+          <span>Volver a Certificados</span>
+        </Link>
+      </div>
       <PDFViewer width="100%" height="100%">
         <Document>
-          <Page size="A4" style={styles.page}>
+          <Page size="LETTER" style={styles.page}>
             {/* Encabezado: empresa a la izquierda, paginador a la derecha - misma altura */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
               {/* Datos de la empresa - esquina superior izquierda */}
@@ -221,44 +239,25 @@ export default function CertificateVigenciaPDF({
                 <Text style={{ fontFamily: 'Helvetica-Bold' }}>activo</Text> y cumpliendo con todas sus obligaciones contractuales.
               </Text>
 
-              {/* Tabla con información del contrato */}
+              {/* Información del contrato en prosa legal */}
               {contract && (
                 <>
-                  <Text style={[styles.paragraph, { marginTop: 14, fontFamily: 'Helvetica-Bold' }]}>
-                    Detalles del Contrato Vigente:
-                  </Text>
-                  <View style={styles.table}>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCellLabel}>Fecha de Inicio:</Text>
-                      <Text style={styles.tableCellValue}>
-                        {contract.start_date ? formatDateLegal(contract.start_date) : '-'}
-                      </Text>
-                    </View>
-                    {contract.end_date && (
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCellLabel}>Fecha de Término:</Text>
-                        <Text style={styles.tableCellValue}>
-                          {formatDateLegal(contract.end_date)}
-                        </Text>
-                      </View>
+                  <Text style={styles.paragraph}>
+                    El trabajador se encuentra vinculado a esta empresa mediante un contrato de trabajo de tipo{' '}
+                    <Text style={{ fontFamily: 'Helvetica-Bold' }}>{getContractTypeText()}</Text>
+                    {contract.start_date && (
+                      <> que tuvo inicio el día <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatDateLegal(contract.start_date)}</Text></>
                     )}
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCellLabel}>Tipo de Contrato:</Text>
-                      <Text style={styles.tableCellValue}>{getContractTypeText()}</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCellLabel}>Jornada de Trabajo:</Text>
-                      <Text style={styles.tableCellValue}>{getWorkScheduleText()}</Text>
-                    </View>
-                    {contract.start_time && (
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCellLabel}>Horario:</Text>
-                        <Text style={styles.tableCellValue}>
-                          {contract.start_time} {contract.end_time ? `a ${contract.end_time}` : ''}
-                        </Text>
-                      </View>
+                    {contract.end_date ? (
+                      <> y que tiene término el día <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatDateLegal(contract.end_date)}</Text>.</>
+                    ) : (
+                      <>.</>
                     )}
-                  </View>
+                </Text>
+
+                <Text style={styles.paragraph}>
+                  El contrato se encuentra vigente a la fecha de emisión de este certificado ({formatDateLegal(issueDate)}).
+                </Text>
                 </>
               )}
 

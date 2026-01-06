@@ -276,6 +276,38 @@ export type Database = {
           created_at?: string
         }
       }
+      departments: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          code: string | null
+          status: 'active' | 'inactive'
+          parent_department_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          name: string
+          code?: string | null
+          status?: 'active' | 'inactive'
+          parent_department_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          name?: string
+          code?: string | null
+          status?: 'active' | 'inactive'
+          parent_department_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }

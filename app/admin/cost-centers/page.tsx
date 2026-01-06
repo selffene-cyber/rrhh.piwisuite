@@ -178,8 +178,8 @@ export default function CostCentersPage() {
               <FaPlus /> Nuevo Centro de Costo
             </button>
           )}
-          <Link href="/settings">
-            <button className="secondary">Volver a Configuración</button>
+          <Link href="/organigrama">
+            <button className="secondary">Volver a Organización</button>
           </Link>
         </div>
       </div>

@@ -90,10 +90,11 @@ const styles = StyleSheet.create({
   signatureRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 30,
+    alignItems: 'flex-start',
+    width: '100%',
   },
   signatureBox: {
-    width: '45%',
+    width: '48%',
     borderTopWidth: 1,
     borderTopColor: '#000',
     paddingTop: 5,

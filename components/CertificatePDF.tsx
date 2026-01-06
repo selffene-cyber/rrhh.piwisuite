@@ -2,6 +2,8 @@
 
 import { Document, Page, Text, View, StyleSheet, PDFViewer } from '@react-pdf/renderer'
 import { formatDateLegal } from '@/lib/utils/contractText'
+import Link from 'next/link'
+import { FaArrowLeft } from 'react-icons/fa'
 
 const styles = StyleSheet.create({
   page: {
@@ -100,10 +102,40 @@ export default function CertificatePDF({ employee, company, issueDate, purpose, 
   }
 
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
+    <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+      {/* Botón para volver al dashboard de certificados */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '20px',
+        zIndex: 1000,
+        background: 'white',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <Link 
+          href="/certificates"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            textDecoration: 'none',
+            color: '#2563eb',
+            fontWeight: '500',
+            fontSize: '14px'
+          }}
+        >
+          <FaArrowLeft size={16} />
+          <span>Volver a Certificados</span>
+        </Link>
+      </div>
       <PDFViewer width="100%" height="100%">
         <Document>
-          <Page size="A4" style={styles.page}>
+          <Page size="LETTER" style={styles.page}>
             {/* Encabezado: empresa a la izquierda, paginador a la derecha - misma altura */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
               {/* Datos de la empresa - esquina superior izquierda */}

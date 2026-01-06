@@ -8,6 +8,7 @@ import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { CostCenter } from '@/types'
 import { getCostCenters, createCostCenter, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { isSuperAdmin } from '@/lib/services/auth'
+import DepartmentSelector from '@/components/DepartmentSelector'
 import { FaPlus, FaTimes } from 'react-icons/fa'
 
 export default function EditEmployeePage({ params }: { params: { id: string } }) {
@@ -33,6 +34,7 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     hire_date: '',
     position: '',
     cost_center_id: '',
+    department_id: '',
     afp: 'PROVIDA',
     health_system: 'FONASA',
     health_plan: '',
@@ -163,6 +165,7 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           hire_date: data.hire_date,
           position: data.position,
           cost_center_id: data.cost_center_id || '',
+          department_id: data.department_id || '',
           afp: data.afp,
           health_system: data.health_system,
           health_plan: data.health_plan || '',
@@ -252,10 +255,14 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
         requests_advance: formData.requests_advance,
         advance_amount: formData.requests_advance ? advanceAmount : 0,
         contract_type: formData.contract_type,
-        contract_end_date: formData.contract_type === 'plazo_fijo' ? formData.contract_end_date : null,
-        contract_other: formData.contract_type === 'otro' ? formData.contract_other : null,
-        termination_date: (formData.status === 'renuncia' || formData.status === 'despido') ? formData.termination_date : null,
-        inactive_note: formData.status === 'inactive' ? formData.inactive_note : null,
+        // Convertir cadenas vacías a null para campos de fecha y UUID
+        birth_date: formData.birth_date?.trim() || null,
+        department_id: formData.department_id?.trim() || null,
+        cost_center_id: formData.cost_center_id?.trim() || null,
+        contract_end_date: formData.contract_type === 'plazo_fijo' ? (formData.contract_end_date?.trim() || null) : null,
+        contract_other: formData.contract_type === 'otro' ? (formData.contract_other?.trim() || null) : null,
+        termination_date: (formData.status === 'renuncia' || formData.status === 'despido') ? (formData.termination_date?.trim() || null) : null,
+        inactive_note: formData.status === 'inactive' ? (formData.inactive_note?.trim() || null) : null,
       }
 
       // Porcentaje del plan ISAPRE
@@ -455,6 +462,18 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
               />
             </div>
+            <div className="form-group">
+              <label>Departamento</label>
+              {companyId && (
+                <DepartmentSelector
+                  companyId={companyId}
+                  value={formData.department_id}
+                  onChange={(id) => setFormData({ ...formData, department_id: id || '' })}
+                />
+              )}
+            </div>
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label>Centro de Costo</label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>

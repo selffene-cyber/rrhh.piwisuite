@@ -60,22 +60,80 @@ export class EmployeeEligibilityService {
 
   /**
    * Verifica si un empleado tiene un contrato activo
+   * Un contrato se considera activo si:
+   * - Tiene estado 'active' (si está marcado como activo, se considera válido independientemente de fechas)
+   * - O tiene estado 'signed' y la fecha de inicio ya pasó o es hoy
+   * - Y no tiene fecha de término o la fecha de término es futura
    */
   async hasActiveContract(employeeId: string): Promise<{ hasActive: boolean; contract: Contract | null }> {
+    const today = new Date().toISOString().split('T')[0]
+    
+    // Buscar contratos que estén activos o firmados
+    // Si está 'active', se considera válido sin importar la fecha de inicio
+    // Si está 'signed', se verifica que la fecha de inicio ya haya pasado
     const { data, error } = await this.supabase
       .from('contracts')
       .select('*')
       .eq('employee_id', employeeId)
-      .eq('status', 'active')
-      .maybeSingle()
+      .in('status', ['active', 'signed'])
+      .order('start_date', { ascending: false })
 
     if (error && error.code !== 'PGRST116') {
       throw error
     }
 
+    if (!data || data.length === 0) {
+      return {
+        hasActive: false,
+        contract: null,
+      }
+    }
+
+    // Buscar el contrato más reciente que cumpla las condiciones
+    for (const contract of data) {
+      const contractAny = contract as any
+      // Si el contrato está 'active', se considera válido (confiamos en el estado)
+      if (contractAny.status === 'active') {
+        // Verificar que no haya expirado (si tiene fecha de término)
+        if (contractAny.end_date) {
+          const endDate = new Date(contractAny.end_date)
+          const todayDate = new Date(today)
+          if (endDate < todayDate) {
+            // El contrato expiró, continuar con el siguiente
+            continue
+          }
+        }
+        return {
+          hasActive: true,
+          contract: contract as Contract,
+        }
+      }
+      
+      // Si está 'signed', verificar que la fecha de inicio ya haya pasado
+      if (contractAny.status === 'signed') {
+        const startDate = new Date(contractAny.start_date)
+        const todayDate = new Date(today)
+        if (startDate <= todayDate) {
+          // Verificar que no haya expirado (si tiene fecha de término)
+          if (contractAny.end_date) {
+            const endDate = new Date(contractAny.end_date)
+            if (endDate < todayDate) {
+              // El contrato expiró, continuar con el siguiente
+              continue
+            }
+          }
+          return {
+            hasActive: true,
+            contract: contract as Contract,
+          }
+        }
+      }
+    }
+
+    // No se encontró ningún contrato válido
     return {
-      hasActive: !!data,
-      contract: data || null,
+      hasActive: false,
+      contract: null,
     }
   }
 

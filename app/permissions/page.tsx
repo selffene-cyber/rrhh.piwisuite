@@ -9,14 +9,18 @@ import { FaCalendarAlt, FaUser, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaT
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
+  requested: 'Solicitado',
   approved: 'Aprobado',
+  rejected: 'Rechazado',
   applied: 'Aplicado',
   void: 'Anulado',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   draft: '#6b7280',
+  requested: '#f59e0b',
   approved: '#3b82f6',
+  rejected: '#ef4444',
   applied: '#10b981',
   void: '#ef4444',
 }
@@ -51,6 +55,7 @@ export default function PermissionsDashboardPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
+  const [recentPermissions, setRecentPermissions] = useState<any[]>([])
 
   useEffect(() => {
     if (currentCompany) {
@@ -158,14 +163,61 @@ export default function PermissionsDashboardPage() {
         employeesWithPermissions,
       })
 
+      // Obtener últimos 10 permisos ordenados por fecha con información completa
+      const sortedPermissions = [...permissions].sort(
+        (a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime()
+      )
+      
+      // Obtener información de empleados y tipos de permiso para los últimos 10
+      const recentPerms = sortedPermissions.slice(0, 10)
+      const recentEmployeeIds = [...new Set(recentPerms.map((p: any) => p.employee_id))]
+      const recentPermissionTypeIds = [...new Set(recentPerms.map((p: any) => p.permission_type_id).filter(Boolean))]
+
+      let recentEmployeesMap = new Map()
+      if (recentEmployeeIds.length > 0) {
+        const { data: recentEmployeesData } = await supabase
+          .from('employees')
+          .select('id, full_name, rut')
+          .in('id', recentEmployeeIds)
+        
+        recentEmployeesData?.forEach((emp: any) => {
+          recentEmployeesMap.set(emp.id, emp)
+        })
+      }
+
+      let recentPermissionTypesMap = new Map()
+      if (recentPermissionTypeIds.length > 0) {
+        const { data: recentTypesData } = await supabase
+          .from('permission_types')
+          .select('id, name, code')
+          .in('id', recentPermissionTypeIds)
+        
+        recentTypesData?.forEach((type: any) => {
+          recentPermissionTypesMap.set(type.id, type)
+        })
+      }
+
+      // Enriquecer datos
+      const enrichedRecentPerms = recentPerms.map((perm: any) => ({
+        ...perm,
+        employees: recentEmployeesMap.get(perm.employee_id) || null,
+        permission_types: recentPermissionTypesMap.get(perm.permission_type_id) || null,
+      }))
+
+      setRecentPermissions(enrichedRecentPerms)
+
       // Filtrar y ordenar
       let filteredEmployees = Array.from(employeesMap.values())
 
       // Aplicar filtros
       if (filterStatus !== 'all') {
         filteredEmployees = filteredEmployees.filter((emp) => {
-          if (filterStatus === 'pending') {
-            return emp.pendingApproval > 0
+          if (filterStatus === 'requested') {
+            return emp.recentPermissions.some((p: any) => p.status === 'requested')
+          } else if (filterStatus === 'approved') {
+            return emp.recentPermissions.some((p: any) => p.status === 'approved')
+          } else if (filterStatus === 'rejected') {
+            return emp.recentPermissions.some((p: any) => p.status === 'rejected')
           } else if (filterStatus === 'applied') {
             return emp.appliedPermissions > 0
           }
@@ -246,42 +298,54 @@ export default function PermissionsDashboardPage() {
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#3b82f6' }}>
-            {stats.totalPermissions}
+        <Link href="/permissions/list" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#3b82f6' }}>
+              {stats.totalPermissions}
+            </div>
+            <div style={{ color: '#6b7280', marginTop: '8px' }}>Total Permisos</div>
           </div>
-          <div style={{ color: '#6b7280', marginTop: '8px' }}>Total Permisos</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981' }}>
-            {stats.totalWithPay}
+        </Link>
+        <Link href="/permissions/list?filter=with_pay" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981' }}>
+              {stats.totalWithPay}
+            </div>
+            <div style={{ color: '#6b7280', marginTop: '8px' }}>Con Goce de Sueldo</div>
           </div>
-          <div style={{ color: '#6b7280', marginTop: '8px' }}>Con Goce de Sueldo</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f59e0b' }}>
-            {stats.totalWithoutPay}
+        </Link>
+        <Link href="/permissions/list?filter=without_pay" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f59e0b' }}>
+              {stats.totalWithoutPay}
+            </div>
+            <div style={{ color: '#6b7280', marginTop: '8px' }}>Sin Goce de Sueldo</div>
           </div>
-          <div style={{ color: '#6b7280', marginTop: '8px' }}>Sin Goce de Sueldo</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#ef4444' }}>
-            {stats.pendingApproval}
+        </Link>
+        <Link href="/permissions/list?status=draft" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#ef4444' }}>
+              {stats.pendingApproval}
+            </div>
+            <div style={{ color: '#6b7280', marginTop: '8px' }}>Pendientes de Aprobación</div>
           </div>
-          <div style={{ color: '#6b7280', marginTop: '8px' }}>Pendientes de Aprobación</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#059669' }}>
-            {stats.appliedPermissions}
+        </Link>
+        <Link href="/permissions/list?status=applied" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#059669' }}>
+              {stats.appliedPermissions}
+            </div>
+            <div style={{ color: '#6b7280', marginTop: '8px' }}>Aplicados a Liquidación</div>
           </div>
-          <div style={{ color: '#6b7280', marginTop: '8px' }}>Aplicados a Liquidación</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#8b5cf6' }}>
-            {stats.employeesWithPermissions}
+        </Link>
+        <Link href="/permissions/list" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#8b5cf6' }}>
+              {stats.employeesWithPermissions}
+            </div>
+            <div style={{ color: '#6b7280', marginTop: '8px' }}>Trabajadores con Permisos</div>
           </div>
-          <div style={{ color: '#6b7280', marginTop: '8px' }}>Trabajadores con Permisos</div>
-        </div>
+        </Link>
       </div>
 
       {/* Filtros */}
@@ -297,8 +361,10 @@ export default function PermissionsDashboardPage() {
               style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
             >
               <option value="all">Todos</option>
-              <option value="pending">Pendientes</option>
-              <option value="applied">Aplicados</option>
+              <option value="requested">Solicitado</option>
+              <option value="approved">Aprobado</option>
+              <option value="rejected">Rechazado</option>
+              <option value="applied">Aplicado</option>
             </select>
           </div>
           <div>
@@ -315,6 +381,88 @@ export default function PermissionsDashboardPage() {
               <option value="without_pay">Sin Goce</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* Tabla de últimos 10 permisos */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>Últimos Permisos</h2>
+          <Link href="/permissions/list">
+            <button style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+              Ver Todos
+            </button>
+          </Link>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Trabajador</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Tipo</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Período</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Días</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentPermissions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
+                    No hay permisos registrados
+                  </td>
+                </tr>
+              ) : (
+                recentPermissions.map((perm: any) => (
+                  <tr key={perm.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ fontWeight: '500' }}>{perm.employees?.full_name || '-'}</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>{perm.employees?.rut || '-'}</div>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      {perm.permission_types?.name || perm.permission_type_code || '-'}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      {formatDate(perm.start_date)} - {formatDate(perm.end_date)}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>{perm.days || '-'}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <span
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          background: STATUS_COLORS[perm.status] || '#6b7280',
+                          color: 'white',
+                          fontSize: '12px',
+                        }}
+                      >
+                        {STATUS_LABELS[perm.status] || perm.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <Link href={`/employees/${perm.employee_id}/permissions`}>
+                        <button
+                          style={{
+                            padding: '4px 8px',
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                          }}
+                        >
+                          <FaEye style={{ marginRight: '4px' }} />
+                          Ver
+                        </button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -492,25 +640,87 @@ export default function PermissionsDashboardPage() {
                         >
                           {STATUS_LABELS[perm.status] || perm.status}
                         </span>
-                        <Link href={`/permissions/${perm.id}/pdf`} target="_blank">
-                          <button
-                            style={{
-                              padding: '4px 8px',
-                              background: '#3b82f6',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                            title="Ver PDF"
-                          >
-                            <FaFilePdf /> Ver PDF
-                          </button>
-                        </Link>
+                        {perm.status === 'requested' && (
+                          <>
+                            <button
+                              style={{
+                                padding: '4px 8px',
+                                background: '#22c55e',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                              }}
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/permissions/${perm.id}/approve`, {
+                                    method: 'POST',
+                                  })
+                                  const result = await response.json()
+                                  if (!response.ok) throw new Error(result.error || 'Error al aprobar')
+                                  alert('Permiso aprobado exitosamente')
+                                  loadData()
+                                } catch (error: any) {
+                                  alert('Error: ' + error.message)
+                                }
+                              }}
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              style={{
+                                padding: '4px 8px',
+                                background: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                              }}
+                              onClick={async () => {
+                                const reason = prompt('Ingrese el motivo del rechazo:')
+                                if (!reason || !reason.trim()) return
+                                try {
+                                  const response = await fetch(`/api/permissions/${perm.id}/reject`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ rejection_reason: reason }),
+                                  })
+                                  const result = await response.json()
+                                  if (!response.ok) throw new Error(result.error || 'Error al rechazar')
+                                  alert('Permiso rechazado')
+                                  loadData()
+                                } catch (error: any) {
+                                  alert('Error: ' + error.message)
+                                }
+                              }}
+                            >
+                              Rechazar
+                            </button>
+                          </>
+                        )}
+                        {(perm.status === 'approved' || perm.status === 'applied') && (
+                          <Link href={`/permissions/${perm.id}/pdf`} target="_blank">
+                            <button
+                              style={{
+                                padding: '4px 8px',
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                              title="Ver PDF"
+                            >
+                              <FaFilePdf /> Ver PDF
+                            </button>
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>

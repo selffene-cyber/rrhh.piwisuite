@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot, FaSitemap, FaProjectDiagram, FaBuilding, FaShieldAlt, FaExclamationCircle } from 'react-icons/fa'
 import AlertFab from './AlertFab'
 import CompanySelector from './CompanySelector'
 import AIChatWidget from './AIChatWidget'
@@ -53,15 +53,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [remuneracionesOpen, setRemuneracionesOpen] = useState(false)
   const [trabajadoresOpen, setTrabajadoresOpen] = useState(false)
+  const [organizacionOpen, setOrganizacionOpen] = useState(false)
+  const [gestionPersonasOpen, setGestionPersonasOpen] = useState(false)
   const [aiChatOpen, setAiChatOpen] = useState(false)
   const hasLoaded = useRef(false)
 
-  // Si estamos en login, no hacer nada - SALIR INMEDIATAMENTE
-  if (pathname === '/login') {
-    return <>{children}</>
-  }
-
   useEffect(() => {
+    // Si estamos en login, no hacer nada
+    if (pathname === '/login') {
+      setLoading(false)
+      return
+    }
     // Prevenir múltiples cargas
     if (hasLoaded.current) {
       return
@@ -142,7 +144,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       setRemuneracionesOpen(true)
     }
     // Verificar si estamos en una página de trabajadores para mantener abierto el submenú
-    if (pathname?.startsWith('/employees') ||
+    if (pathname?.startsWith('/employees') || pathname?.startsWith('/contracts') || pathname?.startsWith('/vacations') || pathname?.startsWith('/permissions') || pathname?.startsWith('/certificates') || pathname?.startsWith('/disciplinary-actions') ||
         pathname?.startsWith('/contracts') ||
         pathname?.startsWith('/vacations') || 
         pathname?.startsWith('/permissions') || 
@@ -150,7 +152,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         pathname?.startsWith('/certificates')) {
       setTrabajadoresOpen(true)
     }
+    // Verificar si estamos en una página de organización para mantener abierto el submenú
+    if (pathname?.startsWith('/organigrama') || pathname?.startsWith('/reports') || pathname?.startsWith('/admin/departments') || pathname?.startsWith('/departments/chart')) {
+      setOrganizacionOpen(true)
+    }
+    // Verificar si estamos en una página de gestión de personas para mantener abierto el submenú
+    if (pathname?.startsWith('/compliance') || pathname?.startsWith('/raat')) {
+      setGestionPersonasOpen(true)
+    }
   }, [pathname])
+
+  // Si estamos en login o en rutas de empleado (portal trabajador), no renderizar el Layout (después de todos los hooks)
+  // Nota: /employee/* es el portal del trabajador, /employees/* es la vista admin
+  // Verificar que sea /employee (singular) pero NO /employees (plural)
+  const isEmployeePortal = pathname && !pathname.startsWith('/employees') && (
+    pathname === '/employee' || pathname.startsWith('/employee/')
+  )
+  
+  if (pathname === '/login' || isEmployeePortal) {
+    return <>{children}</>
+  }
 
   const navItems: Array<{
     href?: string
@@ -185,11 +206,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
         { href: '/loans', label: 'Gestionar Préstamos', icon: FaHandHoldingUsd },
         { href: '/overtime', label: 'Gestión Horas Extras', icon: FaClock },
+        { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },
       ]
     },
-    { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },
-    { href: '/documents', label: 'Banco de Documentos', icon: FaFolderOpen },
-    { href: '/reports', label: 'Reportes', icon: FaChartBar },
+    {
+      label: 'Organización',
+      icon: FaSitemap,
+      openState: organizacionOpen,
+      setOpenState: setOrganizacionOpen,
+      subItems: [
+        { href: '/organigrama', label: 'Organigrama', icon: FaProjectDiagram },
+        { href: '/departments/chart', label: 'Organigrama de Departamentos', icon: FaBuilding },
+        { href: '/admin/departments', label: 'Departamentos', icon: FaBuilding },
+        { href: '/admin/cost-centers', label: 'Centros de Costo', icon: FaBuilding },
+        { href: '/reports', label: 'Reportes', icon: FaChartBar },
+        { href: '/documents', label: 'Banco de Documentos', icon: FaFolderOpen },
+      ]
+    },
+    {
+      label: 'Gestión de Personas',
+      icon: FaUsers,
+      openState: gestionPersonasOpen,
+      setOpenState: setGestionPersonasOpen,
+      subItems: [
+        { href: '/compliance', label: 'Cumplimientos y Vencimientos', icon: FaShieldAlt },
+        { href: '/raat', label: 'RAAT', icon: FaExclamationCircle },
+      ]
+    },
     { href: '/settings', label: 'Configuración', icon: FaCog },
   ]
 
@@ -264,8 +307,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               return (
                 <div key={item.label} className="sidebar-nav-group">
                   <button
+                    type="button"
                     className={`sidebar-nav-item ${isParentActive ? 'active' : ''}`}
-                    onClick={() => toggleOpen(!isOpen)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      toggleOpen(!isOpen)
+                    }}
                     title={item.label}
                   >
                     <Icon size={20} />
@@ -283,7 +330,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             href={subItem.href}
                             className={`sidebar-nav-item sidebar-nav-subitem ${isSubActive ? 'active' : ''}`}
                             title={subItem.label}
-                            onClick={closeMobileMenu}
+                            onClick={(e) => {
+                              closeMobileMenu()
+                              // Permitir que el Link navegue normalmente
+                            }}
                           >
                             <SubIcon size={16} />
                             <span className="sidebar-nav-label">{subItem.label}</span>

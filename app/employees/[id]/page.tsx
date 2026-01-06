@@ -9,6 +9,10 @@ const CertificatesHistory = dynamic(() => import('./certificates-history'), {
   ssr: false,
 })
 
+const AccidentsHistory = dynamic(() => import('./accidents-history'), {
+  ssr: false,
+})
+
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createServerClient()
   
@@ -20,6 +24,11 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         id,
         code,
         name
+      ),
+      departments (
+        id,
+        name,
+        code
       )
     `)
     .eq('id', params.id)
@@ -464,6 +473,8 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           </p>
         )}
       </div>
+
+      <AccidentsHistory employeeRut={employee.rut} />
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

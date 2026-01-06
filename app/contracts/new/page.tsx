@@ -380,7 +380,7 @@ export default function NewContractPage() {
       // Cargar datos completos del empleado seleccionado (incluyendo datos bancarios y personales)
       const { data: employee, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, position, base_salary, hire_date, bank_name, account_type, account_number, address, phone, email, status')
+        .select('id, full_name, rut, position, base_salary, hire_date, bank_name, account_type, account_number, address, phone, email, status, contract_type, contract_end_date, afp, health_system, health_plan')
         .eq('id', formData.employee_id)
         .single()
 
@@ -390,6 +390,10 @@ export default function NewContractPage() {
         setSelectedEmployee(employee)
         // Precargar fecha de ingreso como fecha de inicio del contrato
         const hireDate = employee.hire_date ? employee.hire_date.split('T')[0] : new Date().toISOString().split('T')[0]
+        // Precargar tipo de contrato si existe en la ficha del empleado
+        const contractType = (employee as any).contract_type || 'indefinido'
+        // Precargar fecha de término si existe y el tipo de contrato lo requiere
+        const endDate = (employee as any).contract_end_date ? (employee as any).contract_end_date.split('T')[0] : ''
         // Cargar dirección de la empresa actual si no está cargada
         let workLocation = formData.work_location || ''
         if (!workLocation && company) {
@@ -402,6 +406,8 @@ export default function NewContractPage() {
           base_salary: formatNumberForInput(employee.base_salary || 0),
           work_location: workLocation,
           start_date: hireDate, // Precargar fecha de ingreso
+          contract_type: contractType as 'indefinido' | 'plazo_fijo' | 'obra_faena' | 'part_time', // Precargar tipo de contrato
+          end_date: endDate, // Precargar fecha de término si existe
           bank_name: employee.bank_name || '',
           account_type: employee.account_type || '',
           account_number: employee.account_number || '',

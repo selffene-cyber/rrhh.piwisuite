@@ -288,9 +288,14 @@ export default function SettingsPage() {
         <h1>Configuración</h1>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {isAdmin && (
-            <Link href="/admin/cost-centers">
-              <button>Centros de Costo</button>
-            </Link>
+            <>
+              <Link href="/admin/cost-centers">
+                <button>Centros de Costo</button>
+              </Link>
+              <Link href="/settings/signatures">
+                <button>Firmas Digitales</button>
+              </Link>
+            </>
           )}
           <Link href="/settings/indicators">
             <button>Indicadores Previsionales</button>

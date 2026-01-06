@@ -45,3 +45,6 @@ TO authenticated
 USING (bucket_id = 'documents')
 WITH CHECK (bucket_id = 'documents');
 
+
+
+

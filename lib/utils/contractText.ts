@@ -9,10 +9,29 @@ const MONTHS_SPANISH = [
 // Formatear fecha en formato legal chileno: "17 de Marzo del 2020"
 export function formatDateLegal(dateStr: string): string {
   if (!dateStr) return ''
-  const date = new Date(dateStr + 'T00:00:00')
+  
+  // Extraer solo la parte de la fecha (YYYY-MM-DD) si viene con hora
+  const dateOnly = dateStr.split('T')[0].split(' ')[0]
+  
+  // Crear fecha asegurándonos de que esté en formato correcto
+  const date = new Date(dateOnly + 'T00:00:00')
+  
+  // Validar que la fecha sea válida
+  if (isNaN(date.getTime())) {
+    console.error('Fecha inválida:', dateStr)
+    return ''
+  }
+  
   const day = date.getDate()
   const month = MONTHS_SPANISH[date.getMonth()]
   const year = date.getFullYear()
+  
+  // Validar que los valores sean válidos
+  if (!day || !month || !year) {
+    console.error('Valores de fecha inválidos:', { day, month, year, dateStr })
+    return ''
+  }
+  
   return `${day} de ${month} del ${year}`
 }
 

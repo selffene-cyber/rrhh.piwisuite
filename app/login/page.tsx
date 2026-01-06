@@ -32,9 +32,49 @@ export default function LoginPage() {
 
       if (data.user) {
         // Esperar un momento para que la sesión y las cookies se establezcan
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        // Forzar recarga completa de la página para sincronizar cookies con el middleware
-        window.location.replace('/')
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Verificar si es trabajador y si debe cambiar contraseña
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('must_change_password')
+          .eq('id', data.user.id)
+          .single()
+
+        // Verificar si el usuario está vinculado a un empleado
+        const { data: employee, error: employeeError } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .single()
+
+        const isEmployee = !!employee && !employeeError
+        const mustChangePassword = profile?.must_change_password === true
+
+        console.log('Login - user_id:', data.user.id)
+        console.log('Login - employee:', employee, 'employeeError:', employeeError)
+        console.log('Login - profile:', profile, 'profileError:', profileError)
+        console.log('Login - isEmployee:', isEmployee, 'mustChangePassword:', mustChangePassword)
+
+        // Redirigir según el tipo de usuario
+        if (isEmployee) {
+          // Es trabajador
+          if (mustChangePassword) {
+            // Debe cambiar contraseña en primer login
+            console.log('Redirigiendo trabajador a cambio de contraseña')
+            window.location.href = '/employee/change-password'
+            return
+          } else {
+            // Ya cambió contraseña, ir al portal del trabajador
+            console.log('Redirigiendo trabajador a portal')
+            window.location.href = '/employee'
+            return
+          }
+        } else {
+          // No es trabajador (o hubo error), es admin/owner, ir al dashboard administrativo
+          console.log('Redirigiendo admin/owner a dashboard (isEmployee:', isEmployee, ')')
+          window.location.href = '/'
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
