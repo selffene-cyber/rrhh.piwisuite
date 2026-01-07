@@ -406,12 +406,49 @@ export default function EditContractPage() {
         additional_clauses: formData.additional_clauses || null,
       }
 
+      // Obtener datos anteriores para auditoría
+      const { data: oldContract } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', params.id)
+        .single()
+
       const { error } = await supabase
         .from('contracts')
         .update(updateData)
         .eq('id', params.id)
 
       if (error) throw error
+
+      // Registrar evento de auditoría
+      try {
+        await fetch('/api/audit/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: oldContract?.company_id,
+            employeeId: oldContract?.employee_id,
+            source: 'admin_dashboard',
+            actionType: 'contract.updated',
+            module: 'contracts',
+            entityType: 'contracts',
+            entityId: params.id,
+            status: 'success',
+            beforeData: {
+              position: oldContract?.position,
+              base_salary: oldContract?.base_salary,
+              contract_type: oldContract?.contract_type,
+            },
+            afterData: {
+              position: updateData.position,
+              base_salary: updateData.base_salary,
+              contract_type: updateData.contract_type,
+            },
+          }),
+        }).catch((err) => console.error('Error al registrar auditoría:', err))
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+      }
 
       alert('Contrato actualizado correctamente')
       router.push(`/contracts/${params.id}`)

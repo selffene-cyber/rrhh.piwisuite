@@ -54,6 +54,9 @@ export default function AnnexDetailPage() {
     }
 
     try {
+      // Guardar estado anterior para auditoría
+      const previousStatus = annex?.status
+
       const updateData: any = { status: newStatus }
       
       if (newStatus === 'issued') {
@@ -62,12 +65,70 @@ export default function AnnexDetailPage() {
         updateData.signed_at = new Date().toISOString()
       }
 
-      const { error } = await supabase
+      const { error, data: updatedAnnex } = await supabase
         .from('contract_annexes')
         .update(updateData)
         .eq('id', params.id)
+        .select()
+        .single()
 
       if (error) throw error
+
+      // Registrar evento de auditoría
+      const actionTypeMap: Record<string, string> = {
+        issued: 'annex.issued',
+        signed: 'annex.signed',
+        active: 'annex.activated',
+        cancelled: 'annex.cancelled',
+      }
+
+      const actionType = actionTypeMap[newStatus] || 'annex.updated'
+
+      try {
+        await fetch('/api/audit/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: annex?.company_id || company?.id,
+            employeeId: annex?.employee_id,
+            source: 'admin_dashboard',
+            actionType,
+            module: 'annexes',
+            entityType: 'contract_annexes',
+            entityId: params.id,
+            status: 'success',
+            beforeData: { status: previousStatus },
+            afterData: { status: newStatus, ...updateData },
+            metadata: {
+              previous_status: previousStatus,
+              new_status: newStatus,
+            },
+          }),
+        }).catch((err) => console.error('Error al registrar auditoría:', err))
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+      }
+
+      // Si se activa o firma, actualizar contrato y empleado
+      if ((newStatus === 'active' || newStatus === 'signed') && updatedAnnex) {
+        try {
+          // Obtener conceptValues desde metadata del anexo
+          const conceptValues = updatedAnnex.metadata?.concept_values || {}
+          
+          // Solo actualizar si hay conceptValues
+          if (Object.keys(conceptValues).length > 0) {
+            // Importar el servicio dinámicamente
+            const { createAnnexUpdateService } = await import('@/lib/services/annexUpdateService')
+            const updateService = createAnnexUpdateService(supabase)
+            
+            // Actualizar contrato y empleado con los valores modificados
+            await updateService.updateContractAndEmployeeFromAnnex(params.id as string, conceptValues)
+          }
+        } catch (updateError) {
+          console.error('Error al actualizar contrato/empleado:', updateError)
+          // No bloquear el flujo si falla
+        }
+      }
 
       alert('Estado actualizado correctamente')
       loadData()

@@ -507,6 +507,36 @@ export default function NewContractPage() {
 
       if (error) throw error
 
+      // Registrar evento de auditoría
+      try {
+        await fetch('/api/audit/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: companyId,
+            employeeId: formData.employee_id,
+            source: 'admin_dashboard',
+            actionType: 'contract.created',
+            module: 'contracts',
+            entityType: 'contracts',
+            entityId: data.id,
+            status: 'success',
+            afterData: {
+              contract_type: contractData.contract_type,
+              position: contractData.position,
+              base_salary: contractData.base_salary,
+              start_date: contractData.start_date,
+              status: contractData.status,
+            },
+            metadata: {
+              contract_number: data.contract_number,
+            },
+          }),
+        }).catch((err) => console.error('Error al registrar auditoría:', err))
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+      }
+
       alert('Contrato creado correctamente')
       router.push(`/contracts/${data.id}`)
     } catch (error: any) {

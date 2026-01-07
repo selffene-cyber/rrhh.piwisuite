@@ -13,6 +13,10 @@ const AccidentsHistory = dynamic(() => import('./accidents-history'), {
   ssr: false,
 })
 
+const AuditHistoryTab = dynamic(() => import('@/components/AuditHistoryTab'), {
+  ssr: false,
+})
+
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createServerClient()
   
@@ -533,6 +537,15 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
         ) : (
           <p>No hay liquidaciones registradas para este trabajador.</p>
         )}
+      </div>
+
+      {/* Historial de Auditoría */}
+      <div className="card">
+        <h2>Histórico de Acciones</h2>
+        <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
+          Registro completo de todas las acciones realizadas relacionadas con este trabajador.
+        </p>
+        <AuditHistoryTab employeeId={params.id} isEmployeePortal={false} />
       </div>
     </div>
   )

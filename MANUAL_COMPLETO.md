@@ -24,6 +24,7 @@
 20. [Módulo RAAT](#módulo-raat)
 21. [Portal para Trabajadores](#portal-para-trabajadores)
 22. [Organigramas](#organigramas)
+23. [Sistema de Storage y PDFs](#sistema-de-storage-y-pdfs)
 
 ---
 
@@ -164,6 +165,16 @@ RH.Piwi-Basic/
 │   │   ├── companies/            # Gestión de empresas
 │   │   ├── departments/           # Gestión de departamentos
 │   │   └── cost-centers/         # Gestión de centros de costo
+│   ├── employee/                 # Portal del trabajador
+│   │   ├── page.tsx              # Dashboard principal
+│   │   ├── documents/            # Mis Documentos
+│   │   │   └── page.tsx          # Lista de documentos (generales y laborales)
+│   │   ├── loans/                # Historial de Préstamos
+│   │   │   └── page.tsx          # Vista con cards y modal de detalle
+│   │   ├── certificates/         # Solicitar certificado
+│   │   ├── vacations/            # Solicitar vacaciones
+│   │   ├── permissions/          # Solicitar permisos
+│   │   └── requests/             # Mis Solicitudes
 │   └── api/                      # API Routes
 │       ├── alerts/               # Sistema de alertas
 │       ├── tax-brackets/         # Tramos de impuesto
@@ -179,7 +190,12 @@ RH.Piwi-Basic/
 │       │   │   └── request/      # Solicitar vacaciones
 │       │   ├── permissions/      # Permisos del trabajador
 │       │   │   └── request/      # Solicitar permiso
-│       │   └── permission-types/ # Tipos de permisos
+│       │   ├── permission-types/ # Tipos de permisos
+│       │   ├── payroll-slips/    # Liquidaciones del trabajador
+│       │   ├── overtime-pacts/   # Pactos de horas extra del trabajador
+│       │   ├── contract-annexes/ # Anexos de contrato del trabajador
+│       │   ├── advances/         # Anticipos del trabajador
+│       │   └── loans/            # Préstamos del trabajador
 │       ├── employees/             # Endpoints de trabajadores
 │       │   └── create-user/      # Crear usuario automáticamente
 │       ├── certificates/         # Endpoints de certificados
@@ -271,7 +287,11 @@ RH.Piwi-Basic/
 ├── supabase/                      # Scripts SQL
 │   ├── schema.sql                # Esquema principal
 │   ├── rls_policies.sql          # Políticas RLS
-│   └── [migraciones].sql         # Migraciones específicas
+│   └── migrations/               # Migraciones específicas
+│       ├── 068_allow_employees_view_own_overtime_pacts.sql  # RLS para trabajadores vean sus documentos
+│       ├── 069_add_pdf_url_to_payroll_slips.sql            # Agrega campo pdf_url
+│       ├── 070_allow_update_pdf_url_payroll_slips.sql      # RLS para actualizar pdf_url
+│       └── 071_storage_policies_signed_documents.sql       # Políticas Storage para PDFs
 ├── public/                        # Archivos estáticos
 ├── vercel.json                    # Configuración Vercel (cron jobs)
 ├── package.json                   # Dependencias
@@ -358,6 +378,7 @@ Liquidaciones de sueldo.
 - `total_other_deductions` (DECIMAL) - Total otros descuentos
 - `total_deductions` (DECIMAL) - Total descuentos
 - `net_pay` (DECIMAL) - Líquido a pagar
+- `pdf_url` (TEXT, nullable) - URL del PDF guardado en Storage (generado automáticamente al emitir)
 - `status` (VARCHAR) - draft/issued/sent
 - `issued_at`, `sent_at` (TIMESTAMP)
 - `created_at`, `updated_at` (TIMESTAMP)
@@ -1325,6 +1346,30 @@ Total = AFP Empleador + SIS + AFC Empleador
 
 ## 📄 Generación de PDFs
 
+### Sistema de Generación Automática de PDFs
+
+#### Generación al Emitir Liquidación
+- Al emitir una liquidación (cambiar estado a "issued"), se genera automáticamente el PDF
+- El PDF se guarda en Supabase Storage (`signed-documents/{company_id}/payroll/{slip_id}.pdf`)
+- La URL pública del PDF se guarda en `payroll_slips.pdf_url`
+- API Route: `/api/payroll/[id]/generate-pdf` (POST)
+- Flujo: Cliente genera PDF con `@react-pdf/renderer` → envía blob al servidor → servidor guarda en Storage → actualiza `pdf_url`
+
+#### Visualización de PDFs
+- **Liquidaciones**: `/payroll/[id]/pdf`
+  - Si existe `pdf_url`, muestra el PDF guardado en un `<iframe>`
+  - Si no existe `pdf_url`, genera el PDF dinámicamente
+  - Layout sin contenedor (solo PDF visible)
+- **Pactos de horas extra**: `/overtime/[id]/pdf`
+  - Misma lógica que liquidaciones
+- **Anexos de contrato**: `/contracts/annex/[id]/pdf`
+  - Misma lógica que liquidaciones
+
+#### Políticas RLS para Storage
+- Migración `071_storage_policies_signed_documents.sql`
+- Permite a usuarios autenticados subir, leer, actualizar y eliminar archivos en `signed-documents`
+- Estructura de carpetas: `{company_id}/payroll/`, `{company_id}/certificates/`, etc.
+
 ### 1. Liquidación de Sueldo (`components/PayrollPDF.tsx`)
 
 **Estructura:**
@@ -1534,6 +1579,20 @@ https://www.sii.cl/valores_y_fechas/impuesto_segunda_categoria/impuesto_segunda_
 - Scrapea mes actual y mes siguiente
 
 ### 3. API Routes Internas
+
+#### `/api/payroll/[id]/generate-pdf`
+- **Método**: POST
+- **Autenticación**: Requerida
+- **Funcionalidad**: Recibe PDF como blob desde el cliente y lo guarda en Storage
+- **Body**: `FormData` con campo `pdf` (File)
+- **Proceso**:
+  1. Verifica autenticación
+  2. Obtiene `company_id` desde la liquidación
+  3. Sube PDF a Storage: `{company_id}/payroll/{slip_id}.pdf`
+  4. Obtiene URL pública del PDF
+  5. Actualiza `payroll_slips.pdf_url` en la base de datos
+- **Respuesta**: `{ pdf_url: string }`
+- **RLS**: Requiere política para actualizar `pdf_url` (migración `070`)
 
 #### `/api/alerts`
 - `GET`: Obtiene alertas por empresa
@@ -2339,6 +2398,158 @@ Sistema completo de cálculo y gestión de finiquitos conforme al Código del Tr
 - Indicadores previsionales: Se guardan por mes/año
 - Permite revisar valores históricos sin re-scrapear
 
+### Storage de Documentos
+- **Bucket**: `signed-documents` (configurado como público)
+- **Estructura de carpetas**:
+  - `{company_id}/payroll/{slip_id}.pdf` - Liquidaciones
+  - `{company_id}/certificates/{certificate_id}.pdf` - Certificados
+  - `{company_id}/vacations/{vacation_id}.pdf` - Vacaciones
+  - `{company_id}/permissions/{permission_id}.pdf` - Permisos
+- **Políticas RLS**: Usuarios autenticados pueden subir, leer, actualizar y eliminar archivos
+- **Generación automática**: PDFs de liquidaciones se generan y guardan automáticamente al emitir
+
+---
+
+## 👤 Portal para Trabajadores
+
+### Descripción General
+Sistema completo de portal para que los trabajadores accedan a sus propios documentos, realicen solicitudes y descarguen PDFs desde cualquier dispositivo.
+
+### Funcionalidades Principales
+
+#### Dashboard (`/employee`)
+- Vista general con acceso rápido a:
+  - Mis Documentos
+  - Historial de Préstamos
+  - Solicitar Certificado
+  - Solicitar Vacaciones
+  - Solicitar Permiso
+  - Mis Solicitudes
+
+#### Mis Documentos (`/employee/documents`)
+**Pestañas:**
+1. **Documentos Generales**:
+   - Certificados (aprobados/emitidos)
+   - Vacaciones (aprobadas/tomadas)
+   - Permisos (aprobados/aplicados)
+   - Liquidaciones de Sueldo (emitidas/enviadas)
+   - Cartas de Amonestación
+   - Anticipos (firmados/pagados)
+   
+2. **Documentos Laborales**:
+   - Contratos (firmados/activos)
+   - Anexos de Contrato (firmados/activos)
+   - Pactos de Horas Extra (activos/renovados)
+
+**Características:**
+- Filtros por tipo de documento
+- Filtros específicos para liquidaciones (año/mes)
+- Botón "Ver Detalle" para liquidaciones y pactos (modal con información completa)
+- Botón "Descargar" que abre PDF en nueva pestaña sin contenedor
+- Descarga nativa con botones del navegador
+
+**APIs utilizadas:**
+- `/api/employee/certificates`
+- `/api/employee/vacations`
+- `/api/employee/permissions`
+- `/api/employee/payroll-slips`
+- `/api/employee/disciplinary-actions`
+- `/api/employee/advances`
+- `/api/employee/contracts`
+- `/api/employee/contract-annexes`
+- `/api/employee/overtime-pacts`
+
+#### Historial de Préstamos (`/employee/loans`)
+- Vista exclusiva de préstamos del trabajador
+- Cards con información resumida:
+  - Número de préstamo (PT-##)
+  - Monto total y pendiente
+  - Cuotas pagadas/total
+  - Barra de progreso
+- Botón "Ver Detalle" que abre modal con:
+  - Número del préstamo
+  - Fecha de inicio y término
+  - Cuotas pagadas
+  - Monto, tasa de interés, total a pagar
+  - Botón "Descargar" para PDF del préstamo
+
+**API:** `/api/employee/loans`
+
+### Autenticación y Autorización
+
+#### Middleware
+- Rutas `/employee/*` requieren autenticación
+- Verifica que el usuario esté vinculado a un trabajador
+- Excepciones para rutas PDF:
+  - `/payroll/[id]/pdf`
+  - `/overtime/[id]/pdf`
+  - `/contracts/annex/[id]/pdf`
+  - `/employees/[id]/loans/[loanId]/pdf`
+  - `/employees/[id]/certificates/[type]/pdf`
+
+#### Row Level Security (RLS)
+- Migración `068_allow_employees_view_own_overtime_pacts.sql`
+- Permite a trabajadores ver sus propios documentos:
+  - `overtime_pacts` (pactos de horas extra)
+  - `overtime_entries` (entradas de horas extra)
+  - `advances` (anticipos)
+  - `payroll_slips` (liquidaciones)
+  - `contract_annexes` (anexos de contrato)
+  - `loans` (préstamos)
+- Validación mediante `employees.user_id = auth.uid()`
+
+### Flujos de Descarga de PDFs
+
+1. **Liquidaciones**:
+   - Click en "Descargar" → Abre `/payroll/[id]/pdf` en nueva pestaña
+   - Si `pdf_url` existe: muestra PDF guardado directamente
+   - Si no existe: genera PDF dinámicamente con todos los datos
+
+2. **Pactos de Horas Extra**:
+   - Click en "Descargar" → Abre `/overtime/[id]/pdf` en nueva pestaña
+   - Genera PDF dinámicamente
+
+3. **Anexos de Contrato**:
+   - Click en "Descargar" → Abre `/contracts/annex/[id]/pdf` en nueva pestaña
+   - Si `pdf_url` existe: muestra PDF guardado directamente
+   - Si no existe: genera PDF dinámicamente
+
+4. **Préstamos**:
+   - Click en "Descargar" desde modal → Abre `/employees/[id]/loans/[loanId]/pdf`
+
+### APIs del Portal Trabajador
+
+#### `/api/employee/payroll-slips`
+- **Método**: GET
+- **Autenticación**: Requerida
+- **Funcionalidad**: Obtiene liquidaciones emitidas/enviadas del trabajador
+- **Filtros**: `year`, `month` (opcionales)
+- **Respuesta**: Array de liquidaciones con datos del período
+
+#### `/api/employee/overtime-pacts`
+- **Método**: GET
+- **Autenticación**: Requerida
+- **Funcionalidad**: Obtiene pactos activos/renovados del trabajador
+- **Respuesta**: Array de pactos con datos completos
+
+#### `/api/employee/contract-annexes`
+- **Método**: GET
+- **Autenticación**: Requerida
+- **Funcionalidad**: Obtiene anexos firmados/activos del trabajador
+- **Respuesta**: Array de anexos
+
+#### `/api/employee/advances`
+- **Método**: GET
+- **Autenticación**: Requerida
+- **Funcionalidad**: Obtiene anticipos del trabajador (excluye borradores)
+- **Respuesta**: Array de anticipos
+
+#### `/api/employee/loans`
+- **Método**: GET
+- **Autenticación**: Requerida
+- **Funcionalidad**: Obtiene préstamos activos/pagados del trabajador
+- **Respuesta**: Array de préstamos con todos los datos
+
 ---
 
 ## 🔍 Búsqueda y Referencias Rápidas
@@ -2389,6 +2600,70 @@ Sistema completo de cálculo y gestión de finiquitos conforme al Código del Tr
 - `lib/services/contractService.ts` - Servicio de contratos
 - `lib/services/settlementService.ts` - Servicio de finiquitos
 - `lib/services/costCenterService.ts` - Servicio de centros de costo
+
+---
+
+## 💾 Sistema de Storage y PDFs
+
+### Descripción General
+Sistema integrado de generación, almacenamiento y distribución de PDFs usando Supabase Storage.
+
+### Generación Automática
+
+#### Liquidaciones de Sueldo
+- **Trigger**: Al emitir liquidación (estado → "issued")
+- **Proceso**:
+  1. Cliente genera PDF usando `PayrollPDF` component y `@react-pdf/renderer`
+  2. Convierte PDF a blob
+  3. Envía blob a `/api/payroll/[id]/generate-pdf`
+  4. Servidor guarda en Storage: `{company_id}/payroll/{slip_id}.pdf`
+  5. Obtiene URL pública y actualiza `payroll_slips.pdf_url`
+- **Ventajas**:
+  - PDF original se preserva (no se regenera)
+  - Consistencia en datos mostrados
+  - Rendimiento mejorado (no regenera cada vez)
+
+### Visualización Inteligente
+
+#### Estrategia de Renderizado
+- **Si existe `pdf_url`**: Muestra PDF guardado directamente en `<iframe>`
+- **Si no existe `pdf_url`**: Genera PDF dinámicamente con todos los datos
+- **Layout especial**: Rutas `/pdf` tienen layout sin contenedor para mostrar solo el PDF
+
+#### Rutas PDF
+- `/payroll/[id]/pdf` - Liquidaciones
+- `/overtime/[id]/pdf` - Pactos de horas extra
+- `/contracts/annex/[id]/pdf` - Anexos de contrato
+- `/employees/[id]/loans/[loanId]/pdf` - Préstamos
+- `/employees/[id]/certificates/[type]/pdf` - Certificados
+
+### Migraciones Relacionadas
+
+#### `069_add_pdf_url_to_payroll_slips.sql`
+- Agrega columna `pdf_url TEXT` a `payroll_slips`
+
+#### `070_allow_update_pdf_url_payroll_slips.sql`
+- Política RLS para permitir actualizar `pdf_url`
+- Solo usuarios autenticados de la misma empresa
+
+#### `071_storage_policies_signed_documents.sql`
+- Políticas de Storage para bucket `signed-documents`
+- INSERT: Subir documentos (autenticados)
+- SELECT: Leer documentos (autenticados)
+- UPDATE: Actualizar documentos (autenticados)
+- DELETE: Eliminar documentos (autenticados)
+
+### Seguridad
+
+#### Row Level Security
+- Trabajadores solo pueden ver sus propios documentos
+- Validación mediante `employees.user_id = auth.uid()`
+- Aplicado a: payroll_slips, overtime_pacts, advances, contract_annexes, loans
+
+#### Storage Policies
+- Bucket `signed-documents` requiere autenticación
+- Estructura por `company_id` previene acceso cruzado
+- URLs públicas solo para documentos aprobados
 
 ---
 

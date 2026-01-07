@@ -80,17 +80,15 @@ export default function EditAnnexPage() {
     end_date: '',
     content: '',
     modifications_summary: '',
-    // Cláusulas individuales (1-6)
+    // Cláusulas individuales (1-6, sin TERCERO)
     clause_1: '',
     clause_2: '',
-    clause_3: '',
     clause_4: '',
     clause_5: '',
     clause_6: '',
     // Estados de activación de cláusulas
     clause_1_enabled: true,
     clause_2_enabled: true,
-    clause_3_enabled: true,
     clause_4_enabled: true,
     clause_5_enabled: true,
     clause_6_enabled: true,
@@ -134,13 +132,11 @@ export default function EditAnnexPage() {
           modifications_summary: annexData.modifications_summary || '',
           clause_1: clauses.clause_1 || '',
           clause_2: clauses.clause_2 || '',
-          clause_3: clauses.clause_3 || '',
           clause_4: clauses.clause_4 || '',
           clause_5: clauses.clause_5 || '',
           clause_6: clauses.clause_6 || '',
           clause_1_enabled: clauses.clause_1_enabled !== undefined ? clauses.clause_1_enabled : true,
           clause_2_enabled: clauses.clause_2_enabled !== undefined ? clauses.clause_2_enabled : true,
-          clause_3_enabled: clauses.clause_3_enabled !== undefined ? clauses.clause_3_enabled : true,
           clause_4_enabled: clauses.clause_4_enabled !== undefined ? clauses.clause_4_enabled : true,
           clause_5_enabled: clauses.clause_5_enabled !== undefined ? clauses.clause_5_enabled : true,
           clause_6_enabled: clauses.clause_6_enabled !== undefined ? clauses.clause_6_enabled : true,
@@ -148,7 +144,8 @@ export default function EditAnnexPage() {
       } else {
         // Formato legacy: generar cláusulas desde el contenido plano
         const clauses: any = {}
-        for (let i = 1; i <= 6; i++) {
+        // Generar cláusulas 1, 2, 4, 5, 6 (sin TERCERO)
+        for (let i of [1, 2, 4, 5, 6]) {
           clauses[`clause_${i}`] = generateAnnexClauseText(i, annexData, annexData.contracts, annexData.employees, annexData.companies)
         }
         setFormData({
@@ -159,13 +156,11 @@ export default function EditAnnexPage() {
           modifications_summary: annexData.modifications_summary || '',
           clause_1: clauses.clause_1 || '',
           clause_2: clauses.clause_2 || '',
-          clause_3: clauses.clause_3 || '',
           clause_4: clauses.clause_4 || '',
           clause_5: clauses.clause_5 || '',
           clause_6: clauses.clause_6 || '',
           clause_1_enabled: true,
           clause_2_enabled: true,
-          clause_3_enabled: true,
           clause_4_enabled: true,
           clause_5_enabled: true,
           clause_6_enabled: true,
@@ -193,13 +188,11 @@ export default function EditAnnexPage() {
       const clausesData = {
         clause_1: formData.clause_1,
         clause_2: formData.clause_2,
-        clause_3: formData.clause_3,
         clause_4: formData.clause_4,
         clause_5: formData.clause_5,
         clause_6: formData.clause_6,
         clause_1_enabled: formData.clause_1_enabled,
         clause_2_enabled: formData.clause_2_enabled,
-        clause_3_enabled: formData.clause_3_enabled,
         clause_4_enabled: formData.clause_4_enabled,
         clause_5_enabled: formData.clause_5_enabled,
         clause_6_enabled: formData.clause_6_enabled,
@@ -216,12 +209,52 @@ export default function EditAnnexPage() {
         modifications_summary: formData.modifications_summary || null,
       }
 
+      // Obtener datos anteriores para auditoría
+      const { data: oldAnnex } = await supabase
+        .from('contract_annexes')
+        .select('*')
+        .eq('id', params.id)
+        .single()
+
       const { error } = await supabase
         .from('contract_annexes')
         .update(updateData)
         .eq('id', params.id)
 
       if (error) throw error
+
+      // Registrar evento de auditoría
+      try {
+        await fetch('/api/audit/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: oldAnnex?.company_id,
+            employeeId: oldAnnex?.employee_id,
+            source: 'admin_dashboard',
+            actionType: 'annex.updated',
+            module: 'annexes',
+            entityType: 'contract_annexes',
+            entityId: params.id,
+            status: 'success',
+            beforeData: {
+              annex_type: oldAnnex?.annex_type,
+              start_date: oldAnnex?.start_date,
+              end_date: oldAnnex?.end_date,
+            },
+            afterData: {
+              annex_type: updateData.annex_type,
+              start_date: updateData.start_date,
+              end_date: updateData.end_date,
+            },
+            metadata: {
+              modifications_summary: updateData.modifications_summary,
+            },
+          }),
+        }).catch((err) => console.error('Error al registrar auditoría:', err))
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+      }
 
       alert('Anexo actualizado correctamente')
       router.push(`/contracts/annex/${params.id}`)
@@ -322,7 +355,6 @@ export default function EditAnnexPage() {
           {[
             { num: 1, title: 'PRIMERO', label: 'Identificación y Contrato Base', key: 'clause_1' as const, enabledKey: 'clause_1_enabled' as const },
             { num: 2, title: 'SEGUNDO', label: 'Vigencia', key: 'clause_2' as const, enabledKey: 'clause_2_enabled' as const },
-            { num: 3, title: 'TERCERO', label: 'Resumen de Modificaciones', key: 'clause_3' as const, enabledKey: 'clause_3_enabled' as const },
             { num: 4, title: 'CUARTO', label: 'Contenido del Anexo', key: 'clause_4' as const, enabledKey: 'clause_4_enabled' as const },
             { num: 5, title: 'QUINTO', label: 'Continuidad del Contrato', key: 'clause_5' as const, enabledKey: 'clause_5_enabled' as const },
             { num: 6, title: 'SEXTO', label: 'Ejemplares', key: 'clause_6' as const, enabledKey: 'clause_6_enabled' as const },

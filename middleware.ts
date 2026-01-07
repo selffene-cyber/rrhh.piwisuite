@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.includes(pathname)
 
   // Crear respuesta
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -164,6 +164,7 @@ export async function middleware(request: NextRequest) {
 
   // Excepciones: rutas de PDF que los trabajadores SÍ pueden acceder
   // Estas rutas permiten a los trabajadores ver sus propios documentos PDF
+  // IMPORTANTE: Esta verificación debe ir ANTES de las verificaciones de rutas administrativas
   const isPDFRoute = 
     pathname.match(/^\/payroll\/[^/]+\/pdf$/) ||
     pathname.match(/^\/overtime\/[^/]+\/pdf$/) ||
@@ -171,9 +172,15 @@ export async function middleware(request: NextRequest) {
     pathname.match(/^\/employees\/[^/]+\/loans\/[^/]+\/pdf$/) ||
     pathname.match(/^\/employees\/[^/]+\/certificates\/[^/]+\/pdf/)
 
+  // Si es una ruta PDF permitida, permitir acceso inmediatamente (sin verificar si es trabajador)
+  // Las rutas PDF tienen su propia validación de permisos en el componente
+  if (isPDFRoute && user) {
+    return response
+  }
+
   // Verificar que los trabajadores no accedan a rutas administrativas
   // Solo verificar si NO es super_admin para evitar consultas innecesarias
-  // EXCEPTO para rutas de PDF que los trabajadores pueden ver
+  // EXCEPTO para rutas de PDF que los trabajadores pueden ver (ya manejadas arriba)
   if (user && !isPDFRoute && (pathname.startsWith('/employees') || pathname.startsWith('/contracts') || pathname.startsWith('/vacations') || pathname.startsWith('/permissions') || pathname.startsWith('/certificates') || pathname.startsWith('/payroll') || pathname.startsWith('/advances') || pathname.startsWith('/loans') || pathname.startsWith('/overtime') || pathname.startsWith('/settlements') || pathname.startsWith('/disciplinary-actions') || pathname.startsWith('/organigrama') || pathname.startsWith('/departments') || pathname.startsWith('/reports') || pathname.startsWith('/documents') || pathname.startsWith('/settings'))) {
     try {
       // Primero verificar si es super_admin (puede acceder a todo)

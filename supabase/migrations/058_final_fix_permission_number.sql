@@ -70,3 +70,4 @@ SELECT
 FROM pg_indexes
 WHERE indexname = 'idx_permissions_number';
 
+

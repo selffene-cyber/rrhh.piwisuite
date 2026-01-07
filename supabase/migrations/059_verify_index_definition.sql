@@ -22,3 +22,4 @@ WHERE t.relname = 'permissions'
   AND i.relname = 'idx_permissions_number'
 ORDER BY a.attnum;
 
+

@@ -1,5 +1,6 @@
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { NextRequest, NextResponse } from 'next/server'
+import { createAuditService } from '@/lib/services/auditService'
 
 /**
  * API para rechazar una solicitud de vacaciones
@@ -93,6 +94,33 @@ export async function POST(
       }, { status: 500 })
     }
 
+    // Registrar evento de auditoría
+    try {
+      const auditService = createAuditService(supabase)
+      await auditService.logEvent({
+        companyId: (vacation.employees as any).company_id,
+        employeeId: vacation.employee_id,
+        actorUserId: user.id,
+        source: 'admin_dashboard',
+        actionType: 'vacation.rejected',
+        module: 'vacations',
+        entityType: 'vacations',
+        entityId: params.id,
+        status: 'success',
+        beforeData: { status: vacation.status },
+        afterData: { 
+          status: 'rechazada',
+          rejection_reason: rejection_reason.trim(),
+        },
+        metadata: {
+          rejection_reason: rejection_reason.trim(),
+        },
+      })
+    } catch (auditError) {
+      console.error('Error al registrar auditoría:', auditError)
+      // No interrumpir el flujo
+    }
+
     return NextResponse.json({ 
       success: true, 
       vacation: updated,
@@ -105,6 +133,7 @@ export async function POST(
     }, { status: 500 })
   }
 }
+
 
 
 

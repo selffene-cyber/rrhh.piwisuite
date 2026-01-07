@@ -8,6 +8,10 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import OrganigramaCard from './OrganigramaCard'
 
+const AuditHistoryTab = dynamic(() => import('@/components/AuditHistoryTab'), {
+  ssr: false,
+})
+
 // Estilos para animaciones
 const styles = `
   @keyframes fadeIn {
@@ -949,6 +953,36 @@ export default function EmployeeDetailSlide({ employeeId, isOpen, onClose }: Emp
                     </Link>
                   )}
                 </div>
+                </div>
+              </div>
+
+              {/* Histórico de Acciones */}
+              <div className="card" style={{ 
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+                marginTop: '20px',
+              }}>
+                <div style={{
+                  padding: '16px 20px',
+                  borderBottom: '1px solid #e5e7eb',
+                }}>
+                  <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>
+                    Histórico de Acciones
+                  </h2>
+                  <p style={{ 
+                    margin: '8px 0 0 0', 
+                    fontSize: '13px', 
+                    color: '#6b7280',
+                    lineHeight: '1.5'
+                  }}>
+                    Registro completo de todas las acciones realizadas relacionadas con este trabajador.
+                  </p>
+                </div>
+                <div style={{ padding: '20px' }}>
+                  {employeeId && (
+                    <AuditHistoryTab employeeId={employeeId} isEmployeePortal={false} />
+                  )}
                 </div>
               </div>
             </>

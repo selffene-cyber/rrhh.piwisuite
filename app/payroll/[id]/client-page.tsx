@@ -108,6 +108,32 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
         throw error
       }
 
+      // Registrar evento de auditoría
+      try {
+        await fetch('/api/audit/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: company?.id,
+            employeeId: slip.employee_id,
+            source: 'admin_dashboard',
+            actionType: 'payroll.issued',
+            module: 'payroll',
+            entityType: 'payroll_slips',
+            entityId: slip.id,
+            status: 'success',
+            beforeData: { status: slip.status },
+            afterData: { status: 'issued', issued_at: new Date().toISOString() },
+            metadata: {
+              period_id: slip.period_id,
+              net_pay: slip.net_pay,
+            },
+          }),
+        }).catch((err) => console.error('Error al registrar auditoría:', err))
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+      }
+
       // Esperar un momento para asegurar que la actualización se complete
       await new Promise(resolve => setTimeout(resolve, 300))
 

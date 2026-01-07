@@ -32,3 +32,4 @@ COMMENT ON COLUMN vacations.verification_url IS 'URL pública para verificar el 
 COMMENT ON COLUMN vacations.qr_code_data IS 'Datos del QR code (JSON con código, URL, etc.)';
 
 
+

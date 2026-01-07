@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FaUmbrellaBeach, FaFileAlt, FaCalendarCheck, FaFolderOpen, FaChartLine, FaShieldAlt, FaHandHoldingUsd } from 'react-icons/fa'
+import { FaUmbrellaBeach, FaFileAlt, FaCalendarCheck, FaFolderOpen, FaChartLine, FaShieldAlt, FaHandHoldingUsd, FaHistory } from 'react-icons/fa'
 import './employee-portal.css'
 
 interface DashboardData {
@@ -245,6 +245,14 @@ export default function EmployeeDashboard() {
             <FaHandHoldingUsd className="quick-action-icon" style={{ fontSize: '36px', color: '#F59E0B' }} />
             <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Préstamos</div>
             <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver historial</div>
+          </Link>
+          <Link
+            href="/employee/audit-history"
+            className="quick-action-card"
+          >
+            <FaHistory className="quick-action-icon" style={{ fontSize: '36px', color: '#8B5CF6' }} />
+            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Historial</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver todas mis acciones</div>
           </Link>
         </div>
       </div>

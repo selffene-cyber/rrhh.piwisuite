@@ -250,3 +250,4 @@ COMMENT ON TABLE compliance_assignments IS 'Asignaciones masivas de ítems de cu
 COMMENT ON FUNCTION recalculate_compliance_status() IS 'Recalcula el estado de cumplimientos basado en fecha de vencimiento';
 COMMENT ON FUNCTION generate_compliance_notifications() IS 'Genera notificaciones automáticas según hitos de vencimiento';
 
+

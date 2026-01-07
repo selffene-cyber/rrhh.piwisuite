@@ -188,3 +188,4 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION generate_permission_number() IS 
 'Genera un número de permiso único por empresa usando locks para evitar race conditions';
 
+

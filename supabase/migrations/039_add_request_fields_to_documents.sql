@@ -78,3 +78,4 @@ COMMENT ON COLUMN permissions.rejection_reason IS 'Motivo del rechazo si fue rec
 
 
 
+

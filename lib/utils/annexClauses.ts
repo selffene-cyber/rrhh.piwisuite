@@ -7,13 +7,13 @@ import { formatDateLegal } from './annexText'
 export interface AnnexClauses {
   clause_1: string
   clause_2: string
-  clause_3: string
+  clause_3?: string // Opcional, ya no se usa pero se mantiene para compatibilidad
   clause_4: string
   clause_5: string
   clause_6: string
   clause_1_enabled: boolean
   clause_2_enabled: boolean
-  clause_3_enabled: boolean
+  clause_3_enabled?: boolean // Opcional, ya no se usa pero se mantiene para compatibilidad
   clause_4_enabled: boolean
   clause_5_enabled: boolean
   clause_6_enabled: boolean
@@ -45,9 +45,6 @@ export function generateAnnexClauseText(
         vigenciaText += ` y mantendrá su vigencia mientras subsista el contrato de trabajo que lo origina`
       }
       return vigenciaText + '.'
-
-    case 3:
-      return annex.modifications_summary || 'Las modificaciones se detallan a continuación.'
 
     case 4:
       // Para la cláusula CUARTO, usar el contenido específico del anexo si está disponible
@@ -98,10 +95,10 @@ export function generateAnnexTextFromClauses(
   // Párrafo inicial
   let text = `En ${company?.city || 'Santiago'}, a ${annexDate}, entre ${company?.name || 'EMPRESA'}, R.U.T ${company?.rut || 'N/A'}, representado legalmente por ${company?.employer_name || 'REPRESENTANTE LEGAL'}, cédula de identidad ${company?.rut || 'N/A'}, ambos con domicilio en ${company?.address || 'N/A'}${company?.city ? `, comuna de ${company.city}` : ''}, en adelante el "Empleador" y don/doña: *${employee?.full_name || 'N/A'}*, con Rut: ${employee?.rut || 'N/A'}, domiciliado(a) en ${employee?.address || 'N/A'}, en adelante "Trabajador". Las partes convienen en modificar el contrato de trabajo que las vincula mediante el siguiente ANEXO DE CONTRATO DE TRABAJO, de tipo ${getAnnexTypeText(annex.annex_type)}, para cuyo efecto, las partes convienen denominarse respectivamente *EMPLEADOR* Y *TRABAJADOR*.\n\n`
 
-  // Agregar cláusulas habilitadas
-  const clauseTitles = ['PRIMERO', 'SEGUNDO', 'TERCERO', 'CUARTO', 'QUINTO', 'SEXTO']
-  const clauseKeys = ['clause_1', 'clause_2', 'clause_3', 'clause_4', 'clause_5', 'clause_6'] as const
-  const enabledKeys = ['clause_1_enabled', 'clause_2_enabled', 'clause_3_enabled', 'clause_4_enabled', 'clause_5_enabled', 'clause_6_enabled'] as const
+  // Agregar cláusulas habilitadas (excluyendo TERCERO que ya no se usa)
+  const clauseTitles = ['PRIMERO', 'SEGUNDO', 'CUARTO', 'QUINTO', 'SEXTO']
+  const clauseKeys = ['clause_1', 'clause_2', 'clause_4', 'clause_5', 'clause_6'] as const
+  const enabledKeys = ['clause_1_enabled', 'clause_2_enabled', 'clause_4_enabled', 'clause_5_enabled', 'clause_6_enabled'] as const
 
   let clauseCounter = 0
   for (let i = 0; i < clauseKeys.length; i++) {

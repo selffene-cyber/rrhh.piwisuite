@@ -203,13 +203,13 @@ export default function AnnexPDF({ annex, contract, employee, company }: AnnexPD
               <View style={styles.signatureRow}>
                 <View style={styles.signatureBox}>
                   <Text>{employee?.full_name || 'TRABAJADOR'}</Text>
-                  <Text style={{ fontSize: 8, marginTop: 20 }}>RUT: {employee?.rut || 'N/A'}</Text>
-                  <Text style={{ fontSize: 8, marginTop: 30 }}>FIRMA</Text>
+                  <Text style={{ fontSize: 8, marginTop: 4 }}>RUT: {employee?.rut || 'N/A'}</Text>
+                  <Text style={{ fontSize: 8, marginTop: 4 }}>FIRMA</Text>
                 </View>
                 <View style={styles.signatureBox}>
                   <Text>{company?.name || 'EMPLEADOR'}</Text>
-                  <Text style={{ fontSize: 8, marginTop: 20 }}>RUT: {company?.rut || 'N/A'}</Text>
-                  <Text style={{ fontSize: 8, marginTop: 30 }}>FIRMA</Text>
+                  <Text style={{ fontSize: 8, marginTop: 4 }}>RUT: {company?.rut || 'N/A'}</Text>
+                  <Text style={{ fontSize: 8, marginTop: 4 }}>FIRMA</Text>
                 </View>
               </View>
               

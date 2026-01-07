@@ -32,3 +32,4 @@ COMMENT ON COLUMN certificates.verification_url IS 'URL pública para verificar 
 COMMENT ON COLUMN certificates.qr_code_data IS 'Datos del QR code (JSON con código, URL, etc.)';
 
 
+

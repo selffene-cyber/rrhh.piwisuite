@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { createValidationServices, handleValidationError } from '@/lib/services/validationHelpers'
+import { createAuditService } from '@/lib/services/auditService'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +33,48 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // Obtener company_id del empleado
+    let companyId: string | null = null
+    if (body.employee_id) {
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('company_id')
+        .eq('id', body.employee_id)
+        .single()
+      
+      companyId = employee?.company_id || null
+    }
+
+    // Registrar evento de auditoría
+    if (companyId) {
+      try {
+        const auditService = createAuditService(supabase)
+        await auditService.logEvent({
+          companyId,
+          employeeId: body.employee_id,
+          actorUserId: user.id,
+          source: 'admin_dashboard',
+          actionType: 'vacation.requested',
+          module: 'vacations',
+          entityType: 'vacations',
+          entityId: data.id,
+          status: 'success',
+          afterData: {
+            start_date: body.start_date,
+            end_date: body.end_date,
+            days_count: body.days_count,
+            status: body.status,
+          },
+          metadata: {
+            request_date: body.request_date,
+          },
+        })
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+        // No interrumpir el flujo
+      }
+    }
 
     return NextResponse.json(data, { status: 201 })
   } catch (error: any) {

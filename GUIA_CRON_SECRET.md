@@ -232,3 +232,4 @@ Deberías recibir una respuesta JSON:
 - [Vercel Cron Jobs Documentation](https://vercel.com/docs/cron-jobs)
 - [Vercel Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables)
 
+

@@ -716,6 +716,37 @@ export default function NewPayrollPage() {
         throw slipError
       }
 
+      // Registrar evento de auditoría
+      try {
+        await fetch('/api/audit/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: companyId,
+            employeeId: formData.employee_id,
+            source: 'admin_dashboard',
+            actionType: 'payroll.created',
+            module: 'payroll',
+            entityType: 'payroll_slips',
+            entityId: slip.id,
+            status: 'success',
+            afterData: {
+              period_id: period.id,
+              days_worked: slip.days_worked,
+              base_salary: slip.base_salary,
+              net_pay: slip.net_pay,
+              status: slip.status,
+            },
+            metadata: {
+              year: formData.year,
+              month: formData.month,
+            },
+          }),
+        }).catch((err) => console.error('Error al registrar auditoría:', err))
+      } catch (auditError) {
+        console.error('Error al registrar auditoría:', auditError)
+      }
+
       // Marcar anticipos como descontados y linkearlos a la liquidación
       if (calculation.periodAdvances && calculation.periodAdvances.length > 0) {
         const advanceIds = calculation.periodAdvances.map((adv: any) => adv.id)

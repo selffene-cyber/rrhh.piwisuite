@@ -7,6 +7,7 @@ import {
   saveSignedPdfToStorage,
 } from '@/lib/services/documentSigner'
 import { generateVacationPdf } from '@/lib/services/vacationPdfGenerator'
+import { createAuditService } from '@/lib/services/auditService'
 
 /**
  * API para aprobar una solicitud de vacaciones y firmarla digitalmente
@@ -188,6 +189,34 @@ export async function POST(
       return NextResponse.json({ 
         error: updateError.message || 'Error al aprobar vacación' 
       }, { status: 500 })
+    }
+
+    // Registrar evento de auditoría
+    try {
+      const auditService = createAuditService(supabase)
+      await auditService.logEvent({
+        companyId: companyId,
+        employeeId: vacation.employee_id,
+        actorUserId: user.id,
+        source: 'admin_dashboard',
+        actionType: 'vacation.approved',
+        module: 'vacations',
+        entityType: 'vacations',
+        entityId: params.id,
+        status: 'success',
+        beforeData: { status: vacation.status },
+        afterData: { 
+          status: 'aprobada',
+          approved_at: updated.approved_at,
+          signed_pdf_url: updated.signed_pdf_url,
+        },
+        metadata: {
+          approval_date: updated.approval_date,
+        },
+      })
+    } catch (auditError) {
+      console.error('Error al registrar auditoría:', auditError)
+      // No interrumpir el flujo
     }
 
     return NextResponse.json({ 

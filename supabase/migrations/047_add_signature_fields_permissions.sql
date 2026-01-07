@@ -32,3 +32,4 @@ COMMENT ON COLUMN permissions.verification_url IS 'URL pública para verificar e
 COMMENT ON COLUMN permissions.qr_code_data IS 'Datos del QR code (JSON con código, URL, etc.)';
 
 
+

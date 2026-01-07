@@ -32,3 +32,4 @@ COMMENT ON INDEX unique_active_signature_partial IS
 'Restricción parcial única que asegura que solo haya una firma activa por usuario por empresa. Permite múltiples firmas inactivas.';
 
 
+
