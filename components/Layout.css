@@ -72,7 +72,7 @@
 .logo-icon-collapsed {
   width: 48px;
   height: 48px;
-  background: rgba(255, 255, 255, 0.2);
+  background: transparent;
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -80,7 +80,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   opacity: 1;
-  padding: 8px;
+  padding: 0;
 }
 
 .sidebar:hover .logo-icon-collapsed {

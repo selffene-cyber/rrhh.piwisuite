@@ -1,6 +1,8 @@
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * API para que un trabajador vea sus cartas de amonestación
  * Solo puede ver sus propias amonestaciones

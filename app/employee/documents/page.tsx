@@ -7,7 +7,7 @@ import '../employee-portal.css'
 
 interface Document {
   id: string
-  type: 'certificate' | 'vacation' | 'permission' | 'payroll' | 'disciplinary' | 'contract' | 'annex' | 'overtime'
+  type: 'certificate' | 'vacation' | 'permission' | 'payroll' | 'disciplinary' | 'contract' | 'annex' | 'overtime' | 'advance'
   title: string
   status: string
   created_at: string
@@ -23,7 +23,7 @@ export default function DocumentsPage() {
   const [laborDocuments, setLaborDocuments] = useState<Document[]>([])
   
   // Filtros para documentos generales
-  const [typeFilter, setTypeFilter] = useState<'all' | 'certificate' | 'permission' | 'vacation' | 'payroll' | 'disciplinary'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'certificate' | 'permission' | 'vacation' | 'payroll' | 'disciplinary' | 'advance'>('all')
   
   // Filtros para liquidaciones
   const [payrollYear, setPayrollYear] = useState<string>('')
@@ -31,6 +31,11 @@ export default function DocumentsPage() {
   
   // Filtros para documentos laborales
   const [laborTypeFilter, setLaborTypeFilter] = useState<'all' | 'contract' | 'annex' | 'overtime'>('all')
+  
+  // Estado para modales
+  const [selectedPayroll, setSelectedPayroll] = useState<any>(null)
+  const [selectedOvertime, setSelectedOvertime] = useState<any>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
     if (activeTab === 'general') {
@@ -48,7 +53,9 @@ export default function DocumentsPage() {
       // Cargar certificados aprobados/emitidos
       if (typeFilter === 'all' || typeFilter === 'certificate') {
         try {
-          const certResponse = await fetch('/api/employee/certificates?status=approved')
+          const certResponse = await fetch(`/api/employee/certificates?status=approved&_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
           if (certResponse.ok) {
             const certData = await certResponse.json()
             const certs = (certData.certificates || [])
@@ -70,7 +77,9 @@ export default function DocumentsPage() {
       // Cargar vacaciones aprobadas
       if (typeFilter === 'all' || typeFilter === 'vacation') {
         try {
-          const vacResponse = await fetch('/api/employee/vacations?status=aprobada')
+          const vacResponse = await fetch(`/api/employee/vacations?status=aprobada&_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
           if (vacResponse.ok) {
             const vacData = await vacResponse.json()
             const vacs = (vacData.vacations || [])
@@ -92,7 +101,9 @@ export default function DocumentsPage() {
       // Cargar permisos aprobados
       if (typeFilter === 'all' || typeFilter === 'permission') {
         try {
-          const permResponse = await fetch('/api/employee/permissions?status=approved')
+          const permResponse = await fetch(`/api/employee/permissions?status=approved&_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
           if (permResponse.ok) {
             const permData = await permResponse.json()
             const perms = (permData.permissions || [])
@@ -118,11 +129,23 @@ export default function DocumentsPage() {
           const params = new URLSearchParams()
           if (payrollYear) params.append('year', payrollYear)
           if (payrollMonth) params.append('month', payrollMonth)
+          // Agregar timestamp para evitar cache
+          params.append('_t', Date.now().toString())
           if (params.toString()) url += '?' + params.toString()
           
-          const payrollResponse = await fetch(url)
+          const payrollResponse = await fetch(url, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          })
+          console.log('[FRONTEND] Respuesta de API de liquidaciones:', payrollResponse.status, payrollResponse.ok)
           if (payrollResponse.ok) {
             const payrollData = await payrollResponse.json()
+            console.log('[FRONTEND] Datos de liquidaciones recibidos:', payrollData)
+            if (payrollData.debug) {
+              console.log('[FRONTEND] DEBUG Liquidaciones:', payrollData.debug)
+            }
             const slips = (payrollData.slips || []).map((s: any) => {
               const period = s.payroll_periods
               const monthName = period?.month ? new Date(2000, period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' }) : ''
@@ -162,6 +185,28 @@ export default function DocumentsPage() {
         }
       }
 
+      // Cargar anticipos
+      if (typeFilter === 'all' || typeFilter === 'advance') {
+        try {
+          const advanceResponse = await fetch(`/api/employee/advances?_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
+          if (advanceResponse.ok) {
+            const advanceData = await advanceResponse.json()
+            const advances = (advanceData.advances || []).map((a: any) => ({
+              ...a,
+              type: 'advance' as const,
+              title: `Anticipo - $${a.amount?.toLocaleString('es-CL') || 0}`,
+              date: a.advance_date || a.created_at,
+              downloadUrl: a.pdf_url || `/advances/${a.id}/pdf`,
+            }))
+            allDocs.push(...advances)
+          }
+        } catch (err) {
+          console.error('Error al cargar anticipos:', err)
+        }
+      }
+
       // Ordenar por fecha (más recientes primero)
       allDocs.sort((a, b) => {
         const dateA = new Date(a.date).getTime()
@@ -185,7 +230,9 @@ export default function DocumentsPage() {
       // Cargar contratos firmados
       if (laborTypeFilter === 'all' || laborTypeFilter === 'contract') {
         try {
-          const contractResponse = await fetch('/api/employee/contracts')
+          const contractResponse = await fetch(`/api/employee/contracts?_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
           if (contractResponse.ok) {
             const contractData = await contractResponse.json()
             const contracts = (contractData.contracts || []).map((c: any) => ({
@@ -193,7 +240,7 @@ export default function DocumentsPage() {
               type: 'contract' as const,
               title: `Contrato de Trabajo - ${c.contract_number || 'Sin número'}`,
               date: c.start_date || c.signed_at || c.created_at,
-              downloadUrl: c.pdf_url || `/contracts/${c.id}/pdf`,
+              downloadUrl: c.pdf_url || `/api/contracts/${c.id}/download`,
             }))
             allDocs.push(...contracts)
           }
@@ -205,16 +252,23 @@ export default function DocumentsPage() {
       // Cargar anexos de contratos
       if (laborTypeFilter === 'all' || laborTypeFilter === 'annex') {
         try {
-          const annexResponse = await fetch('/api/employee/contract-annexes')
+          const annexResponse = await fetch(`/api/employee/contract-annexes?_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
           if (annexResponse.ok) {
             const annexData = await annexResponse.json()
+            console.log('[FRONTEND] Datos de anexos recibidos:', annexData)
+            if (annexData.debug) {
+              console.log('[FRONTEND] DEBUG Anexos:', annexData.debug)
+            }
             const annexes = (annexData.annexes || []).map((a: any) => ({
               ...a,
               type: 'annex' as const,
               title: `Anexo de Contrato - ${a.annex_number || 'Sin número'}`,
               date: a.start_date || a.signed_at || a.created_at,
-              downloadUrl: a.pdf_url || `/contracts/annex/${a.id}/pdf`,
+              downloadUrl: `/contracts/annex/${a.id}/pdf`,
             }))
+            console.log('Anexos mapeados:', annexes.length)
             allDocs.push(...annexes)
           }
         } catch (err) {
@@ -225,9 +279,20 @@ export default function DocumentsPage() {
       // Cargar pactos de horas extra
       if (laborTypeFilter === 'all' || laborTypeFilter === 'overtime') {
         try {
-          const overtimeResponse = await fetch('/api/employee/overtime-pacts')
+          console.log('Cargando pactos de horas extra...')
+          const overtimeResponse = await fetch(`/api/employee/overtime-pacts?_t=${Date.now()}`, {
+            cache: 'no-store'
+          })
+          console.log('[FRONTEND] Respuesta de API de pactos:', overtimeResponse.status, overtimeResponse.ok)
           if (overtimeResponse.ok) {
             const overtimeData = await overtimeResponse.json()
+            console.log('[FRONTEND] Datos de pactos recibidos:', overtimeData)
+            if (overtimeData.debug) {
+              console.log('[FRONTEND] DEBUG Pactos:', overtimeData.debug)
+            }
+            if (overtimeData.error) {
+              console.error('[FRONTEND] Error en respuesta de pactos:', overtimeData.error, overtimeData.details)
+            }
             const pacts = (overtimeData.pacts || []).map((p: any) => ({
               ...p,
               type: 'overtime' as const,
@@ -235,7 +300,11 @@ export default function DocumentsPage() {
               date: p.start_date || p.created_at,
               downloadUrl: p.pdf_url || `/overtime/${p.id}/pdf`,
             }))
+            console.log('Pactos mapeados:', pacts.length)
             allDocs.push(...pacts)
+          } else {
+            const errorData = await overtimeResponse.json().catch(() => ({}))
+            console.error('Error en respuesta de API de pactos:', errorData)
           }
         } catch (err) {
           console.error('Error al cargar pactos:', err)
@@ -267,6 +336,7 @@ export default function DocumentsPage() {
       contract: '📋',
       annex: '📎',
       overtime: '⏰',
+      advance: '💵',
     }
     return icons[type] || '📋'
   }
@@ -279,9 +349,76 @@ export default function DocumentsPage() {
     })
   }
 
-  const handleDownload = (doc: Document) => {
-    if (doc.downloadUrl) {
-      window.open(doc.downloadUrl, '_blank')
+  const handleDownload = async (doc: Document) => {
+    if (!doc.downloadUrl) return
+    
+    try {
+      if (doc.type === 'payroll') {
+        await downloadPayrollPDF(doc)
+      } else if (doc.type === 'overtime') {
+        await downloadOvertimePDF(doc)
+      } else if (doc.type === 'annex') {
+        await downloadAnnexPDF(doc)
+      } else {
+        // Para otros tipos, abrir en nueva ventana
+        window.open(doc.downloadUrl, '_blank')
+      }
+    } catch (error) {
+      console.error('Error al descargar:', error)
+      alert('Error al descargar el documento: ' + (error instanceof Error ? error.message : 'Error desconocido'))
+    }
+  }
+
+  const downloadPayrollPDF = async (doc: Document) => {
+    // Abrir la página del PDF en una nueva pestaña
+    // Esa página tiene todos los datos correctos y el botón de descarga nativo
+    window.open(`/payroll/${doc.id}/pdf`, '_blank')
+  }
+
+  const downloadOvertimePDF = async (doc: Document) => {
+    // Abrir la página del PDF en una nueva pestaña
+    // Esa página tiene todos los datos correctos y el botón de descarga nativo
+    window.open(`/overtime/${doc.id}/pdf`, '_blank')
+  }
+
+  const downloadAnnexPDF = async (doc: Document) => {
+    // Abrir la página del PDF en una nueva pestaña
+    // Esa página tiene todos los datos correctos y el botón de descarga nativo
+    window.open(`/contracts/annex/${doc.id}/pdf`, '_blank')
+  }
+
+  const handleViewDetail = async (doc: Document) => {
+    setLoadingDetail(true)
+    try {
+      if (doc.type === 'payroll') {
+        // Cargar detalles de la liquidación
+        const response = await fetch(`/api/employee/payroll-slips?_t=${Date.now()}`, {
+          cache: 'no-store'
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const slip = data.slips?.find((s: any) => s.id === doc.id)
+          if (slip) {
+            setSelectedPayroll(slip)
+          }
+        }
+      } else if (doc.type === 'overtime') {
+        // Cargar detalles del pacto
+        const response = await fetch(`/api/employee/overtime-pacts?_t=${Date.now()}`, {
+          cache: 'no-store'
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const pact = data.pacts?.find((p: any) => p.id === doc.id)
+          if (pact) {
+            setSelectedOvertime(pact)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar detalles:', error)
+    } finally {
+      setLoadingDetail(false)
     }
   }
 
@@ -380,7 +517,7 @@ export default function DocumentsPage() {
             marginBottom: '12px',
             flexWrap: 'wrap'
           }}>
-            {(['all', 'certificate', 'permission', 'vacation', 'payroll', 'disciplinary'] as const).map((t) => (
+            {(['all', 'certificate', 'permission', 'vacation', 'payroll', 'disciplinary', 'advance'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTypeFilter(t)}
@@ -397,7 +534,7 @@ export default function DocumentsPage() {
                   boxShadow: typeFilter === t ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
                 }}
               >
-                {t === 'all' ? 'Todos' : t === 'certificate' ? 'Certificados' : t === 'permission' ? 'Permisos' : t === 'vacation' ? 'Vacaciones' : t === 'payroll' ? 'Liquidaciones' : 'Amonestaciones'}
+                {t === 'all' ? 'Todos' : t === 'certificate' ? 'Certificados' : t === 'permission' ? 'Permisos' : t === 'vacation' ? 'Vacaciones' : t === 'payroll' ? 'Liquidaciones' : t === 'disciplinary' ? 'Amonestaciones' : 'Anticipos'}
               </button>
             ))}
           </div>
@@ -576,32 +713,327 @@ export default function DocumentsPage() {
                       Período: {new Date(2000, doc.period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' })} {doc.period.year}
                     </div>
                   )}
+                  {doc.type === 'advance' && doc.advance_date && (
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#6b7280'
+                    }}>
+                      Fecha: {formatDate(doc.advance_date)}
+                    </div>
+                  )}
+                  {doc.type === 'overtime' && doc.start_date && doc.end_date && (
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#6b7280'
+                    }}>
+                      Vigente desde {formatDate(doc.start_date)} hasta {formatDate(doc.end_date)}
+                    </div>
+                  )}
                 </div>
-                {doc.downloadUrl && (
-                  <button
-                    onClick={() => handleDownload(doc)}
-                    style={{
-                      padding: '8px 16px',
-                      background: '#6366f1',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <FaDownload size={14} />
-                    Descargar
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {(doc.type === 'payroll' || doc.type === 'overtime') && (
+                    <button
+                      onClick={() => handleViewDetail(doc)}
+                      disabled={loadingDetail}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#f3f4f6',
+                        color: '#374151',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        cursor: loadingDetail ? 'wait' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        opacity: loadingDetail ? 0.6 : 1
+                      }}
+                    >
+                      {loadingDetail ? 'Cargando...' : 'Ver Detalle'}
+                    </button>
+                  )}
+                  {doc.downloadUrl && (
+                    <button
+                      onClick={() => handleDownload(doc)}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#6366f1',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <FaDownload size={14} />
+                      Descargar
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal para detalle de liquidación */}
+      {selectedPayroll && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }} onClick={() => setSelectedPayroll(null)}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            width: '100%',
+            overflow: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+                Detalle de Liquidación
+              </h2>
+              <button
+                onClick={() => setSelectedPayroll(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '24px' }}>
+              {selectedPayroll.period && (
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Período</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
+                    {new Date(2000, selectedPayroll.period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' })} {selectedPayroll.period.year}
+                  </p>
+                </div>
+              )}
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Estado</p>
+                <p style={{ margin: 0, fontSize: '16px', fontWeight: '500', textTransform: 'capitalize' }}>
+                  {selectedPayroll.status === 'issued' ? 'Emitida' : selectedPayroll.status === 'sent' ? 'Enviada' : selectedPayroll.status}
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Días Trabajados</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>{selectedPayroll.days_worked}</p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Sueldo Base</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
+                    ${selectedPayroll.base_salary?.toLocaleString('es-CL') || 0}
+                  </p>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Total Haberes</p>
+                <p style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#10b981' }}>
+                  ${selectedPayroll.total_earnings?.toLocaleString('es-CL') || 0}
+                </p>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Total Descuentos</p>
+                <p style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#ef4444' }}>
+                  ${selectedPayroll.total_deductions?.toLocaleString('es-CL') || 0}
+                </p>
+              </div>
+              <div style={{ 
+                padding: '16px',
+                background: '#f3f4f6',
+                borderRadius: '8px',
+                marginTop: '24px'
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Líquido a Pagar</p>
+                <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#6366f1' }}>
+                  ${selectedPayroll.net_pay?.toLocaleString('es-CL') || 0}
+                </p>
+              </div>
+              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => {
+                    const doc: Document = {
+                      ...selectedPayroll,
+                      type: 'payroll',
+                      downloadUrl: `/payroll/${selectedPayroll.id}/pdf`,
+                      period: selectedPayroll.payroll_periods
+                    }
+                    handleDownload(doc)
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <FaDownload size={16} />
+                  Descargar PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para detalle de pacto de horas extra */}
+      {selectedOvertime && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }} onClick={() => setSelectedOvertime(null)}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            width: '100%',
+            overflow: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+                Detalle del Pacto de Horas Extra
+              </h2>
+              <button
+                onClick={() => setSelectedOvertime(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Estado</p>
+                <p style={{ margin: 0, fontSize: '16px', fontWeight: '500', textTransform: 'capitalize' }}>
+                  {selectedOvertime.status === 'active' ? 'Activo' : selectedOvertime.status === 'draft' ? 'Borrador' : selectedOvertime.status}
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Horas Máximas Diarias</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>{selectedOvertime.max_daily_hours} horas</p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Horas Máximas Semanales</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>{selectedOvertime.max_weekly_hours || '-'} horas</p>
+                </div>
+              </div>
+              {selectedOvertime.start_date && (
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Fecha de Inicio</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
+                    {formatDate(selectedOvertime.start_date)}
+                  </p>
+                </div>
+              )}
+              {selectedOvertime.end_date && (
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Fecha de Término</p>
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
+                    {formatDate(selectedOvertime.end_date)}
+                  </p>
+                </div>
+              )}
+              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => {
+                    const doc: Document = {
+                      ...selectedOvertime,
+                      type: 'overtime',
+                      downloadUrl: `/overtime/${selectedOvertime.id}/pdf`,
+                      start_date: selectedOvertime.start_date
+                    }
+                    handleDownload(doc)
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <FaDownload size={16} />
+                  Descargar PDF
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -170,7 +170,7 @@ interface PayrollPDFProps {
 }
 
 // Componente interno para el Document (necesario para usar pdf())
-const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, generateFileName }: any) => {
+export const PayrollDocument = ({ slip, company, vacations, loanPayments, advances, generateFileName }: any) => {
   const taxableItems = slip.payroll_items?.filter((item: any) => item.type === 'taxable_earning') || []
   const nonTaxableItems = slip.payroll_items?.filter((item: any) => item.type === 'non_taxable_earning') || []
   const allLegalDeductions = slip.payroll_items?.filter((item: any) => item.type === 'legal_deduction') || []

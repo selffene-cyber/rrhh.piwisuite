@@ -2,6 +2,8 @@ import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyDocumentByCode } from '@/lib/services/pdfIntegrityVerifier'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * API pública para verificar documentos usando código de verificación
  * No requiere autenticación

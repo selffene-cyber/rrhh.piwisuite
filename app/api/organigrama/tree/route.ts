@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 
+export const dynamic = 'force-dynamic'
+
 interface OrgNode {
   id: string
   name: string

@@ -2,6 +2,8 @@ import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { calculateAccumulatedVacations, calculateBusinessDays } from '@/lib/services/vacationCalculator'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * API para obtener el dashboard del trabajador
  * Incluye: saldo de vacaciones, resumen de solicitudes, próximas vacaciones

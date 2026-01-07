@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { formatDate, formatMonthYear } from '@/lib/utils/date'
+import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { useRouter, usePathname } from 'next/navigation'
+import { pdf } from '@react-pdf/renderer'
+import { PayrollDocument } from '@/components/PayrollPDF'
+import React from 'react'
 
 export default function PayrollDetailClient({ initialSlip, company, vacations, advances, loanPayments }: { initialSlip: any, company: any, vacations?: any[] | null, advances?: any[], loanPayments?: any[] }) {
   const router = useRouter()
@@ -127,6 +130,94 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
       if (updatedSlip) {
         console.log('Liquidación actualizada:', updatedSlip.status)
         setSlip(updatedSlip)
+        
+        // Generar y guardar el PDF automáticamente
+        try {
+          console.log('[handleIssue] Iniciando generación de PDF...')
+          console.log('[handleIssue] Datos del slip:', {
+            id: updatedSlip.id,
+            payroll_items_count: updatedSlip.payroll_items?.length || 0,
+            vacations_count: vacations?.length || 0,
+            loanPayments_count: loanPayments?.length || 0,
+            advances_count: advances?.length || 0
+          })
+
+          // Generar nombre del archivo
+          const generateFileName = () => {
+            const rut = updatedSlip.employees?.rut || 'SIN-RUT'
+            const month = updatedSlip.payroll_periods?.month || new Date().getMonth() + 1
+            const year = updatedSlip.payroll_periods?.year || new Date().getFullYear()
+            const monthAbbr = MONTHS[month - 1]?.substring(0, 3) || 'XXX'
+            return `LIQUIDACIÓN-${rut}-${monthAbbr}-${year}`
+          }
+
+          console.log('[handleIssue] Generando PDF blob...')
+          // Generar PDF usando @react-pdf/renderer
+          const pdfDoc = pdf(
+            React.createElement(PayrollDocument, {
+              slip: updatedSlip,
+              company,
+              vacations: vacations || [],
+              loanPayments: loanPayments || [],
+              advances: advances || [],
+              generateFileName
+            })
+          )
+
+          // Convertir a blob
+          const blob = await pdfDoc.toBlob()
+          console.log('[handleIssue] PDF blob generado, tamaño:', blob.size, 'bytes')
+          
+          // Enviar PDF a la API para guardarlo
+          const formData = new FormData()
+          formData.append('pdf', blob, `${generateFileName()}.pdf`)
+
+          console.log('[handleIssue] Enviando PDF a API...')
+          const pdfResponse = await fetch(`/api/payroll/${slip.id}/generate-pdf`, {
+            method: 'POST',
+            body: formData
+          })
+
+          console.log('[handleIssue] Respuesta de API:', pdfResponse.status, pdfResponse.ok)
+
+          if (!pdfResponse.ok) {
+            const errorData = await pdfResponse.json()
+            console.error('[handleIssue] Error al guardar PDF:', errorData)
+            // No fallar la emisión si falla el guardado del PDF
+            alert(`Error al guardar PDF: ${errorData.error || 'Error desconocido'}. Revisa la consola para más detalles.`)
+          } else {
+            const responseData = await pdfResponse.json()
+            console.log('[handleIssue] Respuesta completa:', responseData)
+            const { pdf_url } = responseData
+            
+            if (!pdf_url) {
+              console.error('[handleIssue] No se recibió pdf_url en la respuesta')
+              alert('Error: No se recibió la URL del PDF guardado. Revisa la consola.')
+              return
+            }
+
+            console.log('[handleIssue] PDF guardado correctamente, URL:', pdf_url)
+            
+            // Actualizar la liquidación con el pdf_url
+            const { error: updateError } = await supabase
+              .from('payroll_slips')
+              .update({ pdf_url })
+              .eq('id', slip.id)
+
+            if (updateError) {
+              console.error('[handleIssue] Error al actualizar pdf_url en BD:', updateError)
+              alert(`PDF guardado en storage pero error al actualizar BD: ${updateError.message}`)
+            } else {
+              console.log('[handleIssue] pdf_url actualizado correctamente en BD')
+            }
+          }
+        } catch (pdfError: any) {
+          console.error('[handleIssue] Error al generar/guardar PDF:', pdfError)
+          console.error('[handleIssue] Error stack:', pdfError.stack)
+          // No fallar la emisión si falla la generación del PDF
+          alert(`Error al generar PDF: ${pdfError.message || 'Error desconocido'}. Revisa la consola para más detalles.`)
+        }
+
         alert('Liquidación emitida correctamente')
         // Recargar la página para asegurar que se vea el cambio actualizado
         window.location.reload()

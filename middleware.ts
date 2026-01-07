@@ -162,9 +162,19 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Excepciones: rutas de PDF que los trabajadores SÍ pueden acceder
+  // Estas rutas permiten a los trabajadores ver sus propios documentos PDF
+  const isPDFRoute = 
+    pathname.match(/^\/payroll\/[^/]+\/pdf$/) ||
+    pathname.match(/^\/overtime\/[^/]+\/pdf$/) ||
+    pathname.match(/^\/contracts\/annex\/[^/]+\/pdf$/) ||
+    pathname.match(/^\/employees\/[^/]+\/loans\/[^/]+\/pdf$/) ||
+    pathname.match(/^\/employees\/[^/]+\/certificates\/[^/]+\/pdf/)
+
   // Verificar que los trabajadores no accedan a rutas administrativas
   // Solo verificar si NO es super_admin para evitar consultas innecesarias
-  if (user && (pathname.startsWith('/employees') || pathname.startsWith('/contracts') || pathname.startsWith('/vacations') || pathname.startsWith('/permissions') || pathname.startsWith('/certificates') || pathname.startsWith('/payroll') || pathname.startsWith('/advances') || pathname.startsWith('/loans') || pathname.startsWith('/overtime') || pathname.startsWith('/settlements') || pathname.startsWith('/disciplinary-actions') || pathname.startsWith('/organigrama') || pathname.startsWith('/departments') || pathname.startsWith('/reports') || pathname.startsWith('/documents') || pathname.startsWith('/settings'))) {
+  // EXCEPTO para rutas de PDF que los trabajadores pueden ver
+  if (user && !isPDFRoute && (pathname.startsWith('/employees') || pathname.startsWith('/contracts') || pathname.startsWith('/vacations') || pathname.startsWith('/permissions') || pathname.startsWith('/certificates') || pathname.startsWith('/payroll') || pathname.startsWith('/advances') || pathname.startsWith('/loans') || pathname.startsWith('/overtime') || pathname.startsWith('/settlements') || pathname.startsWith('/disciplinary-actions') || pathname.startsWith('/organigrama') || pathname.startsWith('/departments') || pathname.startsWith('/reports') || pathname.startsWith('/documents') || pathname.startsWith('/settings'))) {
     try {
       // Primero verificar si es super_admin (puede acceder a todo)
       const { data: profile, error: profileError } = await supabase

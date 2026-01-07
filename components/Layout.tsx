@@ -11,37 +11,19 @@ import AIChatWidget from './AIChatWidget'
 import NotificationsDropdown from './NotificationsDropdown'
 import './Layout.css'
 
-// Componente de icono de pingüino en estilo de líneas
+// Componente de icono de pingüino usando imagen
 const PenguinIcon = ({ size = 32 }: { size?: number }) => (
-  <svg
+  <img
+    src="/pinguino-icon.png"
+    alt="PiwiSuite"
     width={size}
     height={size}
-    viewBox="0 0 64 64"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ display: 'block' }}
-  >
-    {/* Cuerpo del pingüino */}
-    <ellipse cx="32" cy="42" rx="18" ry="20" stroke="white" strokeWidth="2.5" fill="none"/>
-    {/* Cabeza */}
-    <ellipse cx="32" cy="18" rx="14" ry="16" stroke="white" strokeWidth="2.5" fill="none"/>
-    {/* Barriga blanca */}
-    <ellipse cx="32" cy="38" rx="10" ry="14" stroke="white" strokeWidth="2" fill="none" opacity="0.6"/>
-    {/* Ojo izquierdo */}
-    <circle cx="28" cy="16" r="2.5" fill="white"/>
-    {/* Ojo derecho */}
-    <circle cx="36" cy="16" r="2.5" fill="white"/>
-    {/* Pico */}
-    <path d="M 32 20 L 28 24 L 32 24 Z" fill="white" stroke="white" strokeWidth="1.5"/>
-    {/* Ala izquierda */}
-    <ellipse cx="20" cy="38" rx="6" ry="12" stroke="white" strokeWidth="2" fill="none"/>
-    {/* Ala derecha */}
-    <ellipse cx="44" cy="38" rx="6" ry="12" stroke="white" strokeWidth="2" fill="none"/>
-    {/* Pie izquierdo */}
-    <ellipse cx="26" cy="58" rx="4" ry="3" fill="white"/>
-    {/* Pie derecho */}
-    <ellipse cx="38" cy="58" rx="4" ry="3" fill="white"/>
-  </svg>
+    style={{
+      display: 'block',
+      objectFit: 'contain',
+      filter: 'brightness(0) invert(1)', // Hace la imagen blanca para que contraste con el fondo azul
+    }}
+  />
 )
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -169,7 +151,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     pathname === '/employee' || pathname.startsWith('/employee/')
   )
   
-  if (pathname === '/login' || isEmployeePortal) {
+  // Excluir rutas de PDF del Layout (mostrar solo el PDF)
+  const isPDFRoute = pathname?.includes('/pdf')
+  
+  if (pathname === '/login' || isEmployeePortal || isPDFRoute) {
     return <>{children}</>
   }
 

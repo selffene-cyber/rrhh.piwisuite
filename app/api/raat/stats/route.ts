@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { getAccidentStats } from '@/lib/services/raatService'
 
+export const dynamic = 'force-dynamic'
+
 // GET: Obtener estadísticas de accidentes
 export async function GET(request: NextRequest) {
   try {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { getDepartmentTree } from '@/lib/services/departmentService'
 
+export const dynamic = 'force-dynamic'
+
 // GET: Obtener árbol jerárquico de departamentos en formato compatible con D3.js
 // Similar a /api/organigrama/tree pero para departamentos
 export async function GET(request: NextRequest) {
