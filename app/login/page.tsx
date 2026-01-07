@@ -147,7 +147,7 @@ export default function LoginPage() {
         fontSize: '16px',
         fontWeight: 'bold'
       }}>
-        Sistema de Remuneraciones by Piwi Suite - 2025
+        Sistema de Gestión Integral de Personas by Piwi Suite - Noviembre2025
       </div>
     </div>
   )
