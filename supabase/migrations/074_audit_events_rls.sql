@@ -95,3 +95,4 @@ COMMENT ON POLICY "Authenticated users can insert audit events" ON audit_events 
 COMMENT ON POLICY "Employees see their own audit events" ON audit_events IS 
 'Permite a trabajadores ver solo los eventos relacionados con su employee_id';
 
+

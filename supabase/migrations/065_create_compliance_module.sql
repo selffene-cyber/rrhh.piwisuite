@@ -251,3 +251,4 @@ COMMENT ON FUNCTION recalculate_compliance_status() IS 'Recalcula el estado de c
 COMMENT ON FUNCTION generate_compliance_notifications() IS 'Genera notificaciones automáticas según hitos de vencimiento';
 
 
+

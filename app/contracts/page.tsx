@@ -75,7 +75,7 @@ export default function ContractsPage() {
 
       const { data: contractsData } = await contractsQuery
 
-      // Cargar anexos
+      // Cargar anexos de empleados de la empresa
       let annexesQuery = supabase
         .from('contract_annexes')
         .select(`
@@ -84,6 +84,7 @@ export default function ContractsPage() {
           employees (id, full_name, rut),
           companies (id, name, rut)
         `)
+        .in('employee_id', employeeIds.length > 0 ? employeeIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: false })
 
       if (employeeFilter !== 'all') {

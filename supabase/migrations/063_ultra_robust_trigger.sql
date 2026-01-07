@@ -107,3 +107,4 @@ FROM pg_trigger
 WHERE tgname = 'set_permission_number_trigger';
 
 
+

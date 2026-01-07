@@ -33,3 +33,4 @@ COMMENT ON COLUMN permissions.qr_code_data IS 'Datos del QR code (JSON con códi
 
 
 
+

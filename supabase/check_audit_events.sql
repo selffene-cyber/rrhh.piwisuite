@@ -55,3 +55,4 @@ WHERE employee_id IS NULL
 ORDER BY happened_at DESC
 LIMIT 20;
 
+

@@ -24,3 +24,4 @@ CREATE POLICY "Admins can delete contract annexes"
 COMMENT ON POLICY "Admins can delete contract annexes" ON contract_annexes IS 
 'Permite que usuarios con rol hr/admin/owner eliminen anexos de su empresa, pero solo si están en estado draft o cancelled';
 
+

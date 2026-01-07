@@ -23,3 +23,4 @@ WHERE t.relname = 'permissions'
 ORDER BY a.attnum;
 
 
+

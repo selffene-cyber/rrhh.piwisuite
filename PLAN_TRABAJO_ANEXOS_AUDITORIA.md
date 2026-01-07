@@ -194,3 +194,4 @@ Este plan cubre 3 iniciativas principales:
 - Los eventos deben respetar RLS estricto (trabajadores solo ven sus eventos)
 - Considerar performance: índices adecuados, posible archivado histórico en futuro
 
+

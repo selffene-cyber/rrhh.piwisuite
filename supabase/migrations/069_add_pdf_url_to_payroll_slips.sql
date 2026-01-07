@@ -6,3 +6,4 @@ ADD COLUMN IF NOT EXISTS pdf_url TEXT;
 CREATE INDEX IF NOT EXISTS idx_payroll_slips_pdf_url ON payroll_slips(pdf_url) WHERE pdf_url IS NOT NULL;
 
 
+

@@ -92,3 +92,4 @@ WHERE e.user_id = 'USER_ID_DEL_TRABAJADOR'  -- Reemplaza con el user_id real
 
 
 
+

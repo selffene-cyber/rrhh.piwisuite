@@ -76,3 +76,4 @@ COMMENT ON COLUMN audit_events.after_data IS 'Snapshot del estado nuevo de la en
 COMMENT ON COLUMN audit_events.diff_data IS 'Diff entre before_data y after_data (opcional, puede calcularse después)';
 COMMENT ON COLUMN audit_events.metadata IS 'Datos adicionales flexibles: motivo, fechas, montos, vigencia, batch_id, error messages, etc.';
 
+
