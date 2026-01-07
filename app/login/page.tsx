@@ -1,17 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
+import Image from 'next/image'
+import './login.css'
 
 export default function LoginPage() {
   const router = useRouter()
+  const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   })
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Mostrar el formulario después de que termine la animación del logo
+    const timer = setTimeout(() => {
+      setShowForm(true)
+    }, 1800)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,71 +97,153 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      alignItems: 'center', 
-      justifyContent: 'center',
-      background: '#2563eb',
-      position: 'relative'
-    }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '24px' }}>Iniciar Sesión</h1>
-        
-        {error && (
-          <div style={{ 
-            padding: '12px', 
-            background: '#fee2e2', 
-            border: '1px solid #dc2626', 
-            borderRadius: '4px',
-            marginBottom: '16px',
-            color: '#991b1b'
-          }}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Correo Electrónico *</label>
-            <input
-              type="email"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="tu@email.com"
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Contraseña *</label>
-            <input
-              type="password"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-          </div>
-
-          <button type="submit" disabled={loading} style={{ width: '100%', marginTop: '16px' }}>
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-          </button>
-        </form>
+    <div className="login-page-container">
+      {/* Background - Imagen antártica */}
+      <div
+        className="login-background"
+        style={{
+          backgroundImage: `url(/fondo_login.png)`,
+        }}
+      >
+        {/* Overlay sutil para legibilidad */}
+        <div className="login-overlay" />
       </div>
-      
-      <div style={{
-        position: 'absolute',
-        bottom: '24px',
-        textAlign: 'center',
-        color: '#ffffff',
-        fontSize: '16px',
-        fontWeight: 'bold'
-      }}>
-        Sistema de Gestión Integral de Personas by Piwi Suite - Noviembre2025
+
+      {/* Main content */}
+      <div className="login-content-wrapper">
+        <AnimatePresence mode="wait">
+          {!showForm ? (
+            // Logo animation phase
+            <motion.div
+              key="logo"
+              initial={{ scale: 0.3, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{
+                duration: 1.2,
+                ease: [0.34, 1.56, 0.64, 1],
+              }}
+              className="login-logo-container"
+            >
+              <Image
+                src="/pinguino-icon.png"
+                alt="Piwi Suite"
+                width={256}
+                height={256}
+                className="login-logo-large"
+                priority
+              />
+            </motion.div>
+          ) : (
+            // Login form phase
+            <motion.div
+              key="form"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{
+                duration: 0.6,
+                ease: [0.34, 1.56, 0.64, 1],
+              }}
+              className="login-form-wrapper"
+            >
+              {/* Contenedor principal del formulario */}
+              <div className="login-form-container">
+                {/* Logo pequeño en el header */}
+                <div className="login-header-logo">
+                  <Image
+                    src="/pinguino-icon.png"
+                    alt="Piwi Suite"
+                    width={80}
+                    height={80}
+                    className="login-logo-small"
+                    priority
+                  />
+                </div>
+
+                {/* Título y subtítulo */}
+                <div className="login-header-text">
+                  <h1 className="login-title">Iniciar Sesión</h1>
+                  <p className="login-subtitle">Sistema de Gestión de Personas</p>
+                </div>
+
+                {/* Mensaje de error */}
+                {error && (
+                  <div className="login-error-message">
+                    {error}
+                  </div>
+                )}
+
+                {/* Formulario */}
+                <form onSubmit={handleSubmit} className="login-form">
+                  {/* Campo Email */}
+                  <div className="login-field-group">
+                    <label htmlFor="email" className="login-label">
+                      Correo electrónico
+                    </label>
+                    <div className="login-input-wrapper">
+                      <Mail className="login-input-icon" />
+                      <input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="usuario@empresa.com"
+                        required
+                        autoComplete="email"
+                        className="login-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Campo Contraseña */}
+                  <div className="login-field-group">
+                    <label htmlFor="password" className="login-label">
+                      Contraseña
+                    </label>
+                    <div className="login-input-wrapper">
+                      <Lock className="login-input-icon" />
+                      <input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="••••••••"
+                        required
+                        autoComplete="current-password"
+                        className="login-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Botón de envío */}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="login-submit-button"
+                  >
+                    <span>{loading ? 'Iniciando sesión...' : 'Acceder al sistema'}</span>
+                    {!loading && (
+                      <ArrowRight className="login-button-icon" />
+                    )}
+                  </button>
+                </form>
+
+                {/* Footer */}
+                <div className="login-footer">
+                  <p className="login-footer-text">
+                    Sistema de Gestión Integral de Personas by Piwi Suite - Noviembre2025
+                  </p>
+                </div>
+              </div>
+
+              {/* Badge de seguridad */}
+              <div className="login-security-badge">
+                <div className="login-security-dot" />
+                <span>Conexión segura SSL</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
