@@ -39,10 +39,12 @@ export default function AuditHistoryTab({ employeeId, isEmployeePortal = false }
     to_date: '',
   })
   const [page, setPage] = useState(0)
-  const limit = 20
+  const limit = 100 // Aumentar límite para mostrar todos los eventos
 
   useEffect(() => {
+    console.log('[AuditHistoryTab] useEffect ejecutado - employeeId:', employeeId, 'filters:', filters, 'page:', page)
     loadEvents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId, filters, page])
 
   const loadEvents = async () => {
@@ -61,9 +63,14 @@ export default function AuditHistoryTab({ employeeId, isEmployeePortal = false }
       })
 
       const response = await fetch(`${apiUrl}?${params}`)
-      if (!response.ok) throw new Error('Error al cargar eventos')
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[AuditHistoryTab] Error en respuesta:', response.status, errorText)
+        throw new Error('Error al cargar eventos')
+      }
 
       const data = await response.json()
+      
       setEvents(data.events || [])
       setTotal(data.total || 0)
     } catch (error: any) {
@@ -87,15 +94,45 @@ export default function AuditHistoryTab({ employeeId, isEmployeePortal = false }
       'annex.issued': 'Anexo Emitido',
       'annex.signed': 'Anexo Firmado',
       'annex.activated': 'Anexo Activado',
+      'annex.expired': 'Anexo Expirado',
       'payroll.created': 'Liquidación Creada',
       'payroll.updated': 'Liquidación Actualizada',
       'payroll.issued': 'Liquidación Emitida',
+      'payroll.sent': 'Liquidación Enviada',
+      'payroll.pdf_generated': 'PDF de Liquidación Generado',
       'vacation.requested': 'Vacación Solicitada',
       'vacation.approved': 'Vacación Aprobada',
       'vacation.rejected': 'Vacación Rechazada',
       'vacation.taken': 'Vacación Tomada',
+      'vacation.cancelled': 'Vacación Cancelada',
+      'permission.requested': 'Permiso Solicitado',
+      'permission.approved': 'Permiso Aprobado',
+      'permission.rejected': 'Permiso Rechazado',
+      'permission.taken': 'Permiso Tomado',
+      'permission.cancelled': 'Permiso Cancelado',
+      'certificate.requested': 'Certificado Solicitado',
+      'certificate.approved': 'Certificado Aprobado',
+      'certificate.issued': 'Certificado Emitido',
       'employee.created': 'Trabajador Creado',
       'employee.updated': 'Trabajador Actualizado',
+      'employee.status_changed': 'Estado de Trabajador Cambiado',
+      'loan.created': 'Préstamo Creado',
+      'loan.issued': 'Préstamo Emitido',
+      'loan.payment_applied': 'Pago de Préstamo Aplicado',
+      'loan.completed': 'Préstamo Completado',
+      'loan.cancelled': 'Préstamo Cancelado',
+      'advance.created': 'Anticipo Creado',
+      'advance.signed': 'Anticipo Firmado',
+      'advance.paid': 'Anticipo Pagado',
+      'advance.discounted': 'Anticipo Descontado',
+      'advance.reversed': 'Anticipo Revertido',
+      'overtime_pact.created': 'Pacto de Horas Extra Creado',
+      'overtime_pact.renewed': 'Pacto de Horas Extra Renovado',
+      'overtime_pact.expired': 'Pacto de Horas Extra Expirado',
+      'settlement.created': 'Finiquito Creado',
+      'settlement.approved': 'Finiquito Aprobado',
+      'disciplinary_action.created': 'Acción Disciplinaria Creada',
+      'disciplinary_action.issued': 'Acción Disciplinaria Emitida',
     }
     return labels[actionType] || actionType
   }
@@ -110,6 +147,12 @@ export default function AuditHistoryTab({ employeeId, isEmployeePortal = false }
       loans: 'Préstamos',
       advances: 'Anticipos',
       employees: 'Trabajadores',
+      certificates: 'Certificados',
+      overtime: 'Horas Extra',
+      compliance: 'Cumplimiento',
+      raat: 'RAAT',
+      settlements: 'Finiquitos',
+      disciplinary: 'Acciones Disciplinarias',
     }
     return labels[module] || module
   }
@@ -253,32 +296,32 @@ export default function AuditHistoryTab({ employeeId, isEmployeePortal = false }
               </thead>
               <tbody>
                 {events.map((event) => (
-                  <tr key={event.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '12px', fontSize: '13px' }}>
-                      {formatDate(event.happened_at)}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '13px' }}>
-                      {getActionLabel(event.action_type)}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '13px' }}>
-                      {getModuleLabel(event.module)}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '13px' }}>
-                      {event.actor_name || event.actor_email || 'Sistema'}
-                      {event.actor_role && (
-                        <span style={{ color: '#6b7280', fontSize: '11px', marginLeft: '4px' }}>
-                          ({event.actor_role})
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '13px' }}>
-                      {getStatusBadge(event.status)}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '13px' }}>
-                      {getSourceBadge(event.source)}
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <button
+                      <tr key={event.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {formatDate(event.happened_at)}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {getActionLabel(event.action_type)}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {getModuleLabel(event.module)}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {event.actor_name || event.actor_email || 'Sistema'}
+                          {event.actor_role && (
+                            <span style={{ color: '#6b7280', fontSize: '11px', marginLeft: '4px' }}>
+                              ({event.actor_role})
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {getStatusBadge(event.status)}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {getSourceBadge(event.source)}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                          <button
                         onClick={() => setSelectedEvent(event)}
                         style={{
                           padding: '6px 12px',
@@ -351,7 +394,7 @@ export default function AuditHistoryTab({ employeeId, isEmployeePortal = false }
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 10001, // Mayor que el slide (9999) y que otros modales
           }}
           onClick={() => setSelectedEvent(null)}
         >

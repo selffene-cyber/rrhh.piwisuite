@@ -32,27 +32,53 @@ export async function GET(request: NextRequest) {
     }
 
     // Primero intentar obtener TODOS los anexos (sin filtro de status) para diagnóstico
-    console.log('Buscando anexos para employee_id:', employee.id, 'company_id:', employee.company_id)
+    console.log('[Employee Annexes API] Buscando anexos para employee_id:', employee.id, 'company_id:', employee.company_id)
     
     const { data: allAnnexesRaw, error: annexesRawError } = await supabase
       .from('contract_annexes')
-      .select('id, status, employee_id, company_id')
+      .select('id, annex_number, status, employee_id, company_id, start_date, created_at')
       .eq('employee_id', employee.id)
       .eq('company_id', employee.company_id)
     
-    console.log('Todos los anexos (sin filtro status):', allAnnexesRaw?.length || 0)
+    console.log(`[Employee Annexes API] Todos los anexos (sin filtro status): ${allAnnexesRaw?.length || 0}`)
     if (allAnnexesRaw && allAnnexesRaw.length > 0) {
-      console.log('Detalles de anexos encontrados:', allAnnexesRaw.map((a: any) => ({ id: a.id, status: a.status })))
+      console.log('[Employee Annexes API] Detalles de TODOS los anexos encontrados:')
+      allAnnexesRaw.forEach((a: any, idx: number) => {
+        console.log(`[Employee Annexes API] Anexo ${idx + 1}:`)
+        console.log(`  - ID: ${a.id}`)
+        console.log(`  - Número: ${a.annex_number}`)
+        console.log(`  - Status: ${a.status}`)
+        console.log(`  - start_date: ${a.start_date}`)
+        console.log(`  - created_at: ${a.created_at}`)
+      })
     }
     
-    // Obtener anexos firmados
+    // Obtener anexos emitidos, firmados o activos (excluir cancelled y draft)
+    // IMPORTANTE: Solo mostrar anexos que existen (no eliminados físicamente)
     const { data: annexes, error: annexesError } = await supabase
       .from('contract_annexes')
       .select('*')
       .eq('employee_id', employee.id)
       .eq('company_id', employee.company_id)
-      .in('status', ['signed', 'active'])
-      .order('start_date', { ascending: false })
+      .in('status', ['issued', 'signed', 'active'])
+      .order('created_at', { ascending: false })
+    
+    // Log detallado de anexos encontrados
+    console.log(`[Employee Annexes API] Total de anexos encontrados: ${annexes?.length || 0}`)
+    if (annexes && annexes.length > 0) {
+      console.log('[Employee Annexes API] Detalles de anexos:')
+      annexes.forEach((a: any, idx: number) => {
+        console.log(`[Employee Annexes API] Anexo ${idx + 1}:`)
+        console.log(`  - ID: ${a.id}`)
+        console.log(`  - Número: ${a.annex_number}`)
+        console.log(`  - Status: ${a.status}`)
+        console.log(`  - start_date: ${a.start_date}`)
+        console.log(`  - created_at: ${a.created_at}`)
+        console.log(`  - signed_at: ${a.signed_at}`)
+      })
+    } else {
+      console.log('[Employee Annexes API] No se encontraron anexos con status issued/signed/active')
+    }
 
     // Guardar el mensaje de error antes del return si existe
     const annexesErrorMessage = annexesError ? String(annexesError.message || annexesError) : undefined
@@ -74,7 +100,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log('Anexos encontrados con status signed/active:', annexes?.length || 0)
+    console.log('Anexos encontrados con status issued/signed/active:', annexes?.length || 0)
     
     return NextResponse.json({ 
       annexes: annexes || [],

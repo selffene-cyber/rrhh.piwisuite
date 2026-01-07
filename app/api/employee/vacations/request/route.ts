@@ -1,4 +1,5 @@
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
+import { createAuditService } from '@/lib/services/auditService'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -104,6 +105,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: vacError.message || 'Error al crear la solicitud de vacaciones' 
       }, { status: 500 })
+    }
+
+    // Registrar evento de auditoría
+    try {
+      const auditService = createAuditService(supabase)
+      await auditService.logEvent({
+        companyId: employee.company_id,
+        employeeId: employee.id,
+        actorUserId: user.id,
+        source: 'employee_portal',
+        actionType: 'vacation.requested',
+        module: 'vacations',
+        entityType: 'vacations',
+        entityId: vacation.id,
+        status: 'success',
+        afterData: {
+          start_date: start_date,
+          end_date: end_date,
+          days_count: daysCount,
+          status: 'solicitada',
+        },
+        metadata: {
+          notes: notes || null,
+        },
+      }).catch((err) => console.error('Error al registrar auditoría:', err))
+    } catch (auditError) {
+      // No interrumpir el flujo si falla el logging
+      console.error('Error al registrar auditoría:', auditError)
     }
 
     return NextResponse.json({ 

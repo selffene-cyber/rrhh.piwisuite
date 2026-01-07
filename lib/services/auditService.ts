@@ -200,14 +200,21 @@ export class AuditService {
       }
 
       // Insertar evento (usando supabase directo ya que la tabla puede no estar en types aún)
-      const { error: insertError } = await (this.supabase
+      const { data: insertedData, error: insertError } = await (this.supabase
         .from('audit_events') as any)
         .insert(eventData)
+        .select()
 
       if (insertError) {
         console.error('[AuditService] Error al insertar evento de auditoría:', insertError)
+        console.error('[AuditService] Código de error:', insertError.code)
+        console.error('[AuditService] Mensaje:', insertError.message)
+        console.error('[AuditService] Detalles:', insertError.details)
+        console.error('[AuditService] Hint:', insertError.hint)
         console.error('[AuditService] Datos del evento:', JSON.stringify(eventData, null, 2))
         // NO lanzar excepción - solo loggear
+      } else {
+        console.log(`[AuditService] Evento insertado exitosamente. ID: ${insertedData?.[0]?.id}, employee_id: ${eventData.employee_id}`)
       }
     } catch (error: any) {
       // Capturar cualquier error y solo loggearlo, nunca interrumpir el flujo principal

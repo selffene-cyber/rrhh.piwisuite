@@ -58,10 +58,13 @@ export default function LoansManagementPage() {
         .select(`
           id,
           employee_id,
+          loan_number,
           amount,
+          total_amount,
           remaining_amount,
           installment_amount,
           installments,
+          paid_installments,
           interest_rate,
           loan_date,
           status,
@@ -251,8 +254,8 @@ export default function LoansManagementPage() {
                   <td>{loan.employees?.full_name || 'N/A'}</td>
                   <td>{loan.employees?.rut || 'N/A'}</td>
                   <td>{formatDate(loan.loan_date)}</td>
-                  <td>${Number(loan.amount).toLocaleString('es-CL')}</td>
-                  <td>${Number(loan.total_amount).toLocaleString('es-CL')}</td>
+                  <td>${Number(loan.amount || 0).toLocaleString('es-CL')}</td>
+                  <td>${Number(loan.total_amount || 0).toLocaleString('es-CL')}</td>
                   <td>{loan.installments}</td>
                   <td>
                     <span style={{ fontWeight: '600' }}>

@@ -1,4 +1,5 @@
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
+import { createAuditService } from '@/lib/services/auditService'
 import { NextRequest, NextResponse } from 'next/server'
 import { createValidationServices, handleValidationError } from '@/lib/services/validationHelpers'
 
@@ -139,6 +140,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: permError.message || 'Error al crear la solicitud de permiso' 
       }, { status: 500 })
+    }
+
+    // Registrar evento de auditoría
+    try {
+      const auditService = createAuditService(supabase)
+      await auditService.logEvent({
+        companyId: employee.company_id,
+        employeeId: employee.id,
+        actorUserId: user.id,
+        source: 'employee_portal',
+        actionType: 'permission.requested',
+        module: 'permissions',
+        entityType: 'permissions',
+        entityId: permission.id,
+        status: 'success',
+        afterData: {
+          permission_type_code,
+          start_date,
+          end_date,
+          days: calculatedDays,
+          hours: hours || 0,
+          status: 'requested',
+        },
+        metadata: {
+          reason: reason.trim(),
+          notes: notes || null,
+        },
+      }).catch((err) => console.error('Error al registrar auditoría:', err))
+    } catch (auditError) {
+      // No interrumpir el flujo si falla el logging
+      console.error('Error al registrar auditoría:', auditError)
     }
 
     return NextResponse.json({ 

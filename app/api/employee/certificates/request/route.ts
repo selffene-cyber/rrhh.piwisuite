@@ -1,7 +1,7 @@
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
+import { createAuditService } from '@/lib/services/auditService'
 import { NextRequest, NextResponse } from 'next/server'
 import { createValidationServices, handleValidationError } from '@/lib/services/validationHelpers'
-import { createClient } from '@supabase/supabase-js'
 
 /**
  * API para que un trabajador solicite un certificado
@@ -79,30 +79,59 @@ export async function POST(request: NextRequest) {
       certificateData.months_period = months_period || 12
     }
 
-    // Usar adminClient para insertar el certificado (bypass RLS)
-    // porque las políticas RLS actuales solo permiten a admins crear certificados
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
-
-    const { data: certificate, error: certError } = await adminClient
+    // Usar el cliente normal de supabase (con RLS)
+    // La política RLS "Employees can request certificates for themselves" permite esto
+    console.log('[Certificate Request] Intentando crear certificado con datos:', JSON.stringify(certificateData, null, 2))
+    const { data: certificate, error: certError } = await supabase
       .from('certificates')
       .insert(certificateData)
       .select()
       .single()
 
     if (certError) {
-      console.error('Error al crear certificado:', certError)
+      console.error('[Certificate Request] Error al crear certificado:', certError)
+      console.error('[Certificate Request] Error code:', certError.code)
+      console.error('[Certificate Request] Error message:', certError.message)
+      console.error('[Certificate Request] Error details:', certError.details)
+      console.error('[Certificate Request] Error hint:', certError.hint)
       return NextResponse.json({ 
         error: certError.message || 'Error al crear la solicitud de certificado' 
       }, { status: 500 })
+    }
+
+    console.log('[Certificate Request] Certificado creado exitosamente:', certificate?.id)
+    console.log('[Certificate Request] Status del certificado:', certificate?.status)
+
+    // Registrar evento de auditoría
+    try {
+      const auditService = createAuditService(supabase)
+      const auditResult = await auditService.logEvent({
+        companyId: employee.company_id,
+        employeeId: employee.id,
+        actorUserId: user.id,
+        source: 'employee_portal',
+        actionType: 'certificate.requested',
+        module: 'certificates',
+        entityType: 'certificates',
+        entityId: certificate.id,
+        status: 'success',
+        afterData: {
+          certificate_type,
+          status: 'requested',
+          months_period: certificate_type === 'renta' ? (months_period || 12) : null,
+        },
+        metadata: {
+          purpose: purpose || null,
+        },
+      })
+      console.log(`[Certificate Request] Evento de auditoría registrado para employee_id: ${employee.id}, company_id: ${employee.company_id}`)
+    } catch (auditError: any) {
+      // No interrumpir el flujo si falla el logging
+      console.error('[Certificate Request] Error al registrar auditoría:', auditError)
+      console.error('[Certificate Request] Employee ID:', employee.id)
+      console.error('[Certificate Request] User ID:', user.id)
+      console.error('[Certificate Request] Company ID:', employee.company_id)
+      console.error('[Certificate Request] Error details:', JSON.stringify(auditError, null, 2))
     }
 
     return NextResponse.json({ 

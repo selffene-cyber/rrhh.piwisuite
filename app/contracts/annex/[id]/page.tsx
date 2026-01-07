@@ -113,7 +113,11 @@ export default function AnnexDetailPage() {
       if ((newStatus === 'active' || newStatus === 'signed') && updatedAnnex) {
         try {
           // Obtener conceptValues desde metadata del anexo
-          const conceptValues = updatedAnnex.metadata?.concept_values || {}
+          // Puede estar como concept_values (snake_case) o conceptValues (camelCase)
+          const conceptValues = updatedAnnex.metadata?.concept_values || updatedAnnex.metadata?.conceptValues || {}
+          
+          console.log('[Annex Activation] Metadata del anexo:', updatedAnnex.metadata)
+          console.log('[Annex Activation] ConceptValues encontrados:', conceptValues)
           
           // Solo actualizar si hay conceptValues
           if (Object.keys(conceptValues).length > 0) {
@@ -123,10 +127,15 @@ export default function AnnexDetailPage() {
             
             // Actualizar contrato y empleado con los valores modificados
             await updateService.updateContractAndEmployeeFromAnnex(params.id as string, conceptValues)
+            console.log('[Annex Activation] Contrato y empleado actualizados correctamente')
+          } else {
+            console.warn('[Annex Activation] No se encontraron conceptValues en metadata, no se actualizará el contrato')
           }
-        } catch (updateError) {
-          console.error('Error al actualizar contrato/empleado:', updateError)
-          // No bloquear el flujo si falla
+        } catch (updateError: any) {
+          console.error('[Annex Activation] ❌ Error al actualizar contrato/empleado:', updateError)
+          console.error('[Annex Activation] Detalles del error:', JSON.stringify(updateError, null, 2))
+          // No bloquear el flujo si falla, pero mostrar el error claramente
+          alert(`⚠️ El anexo se activó, pero hubo un error al actualizar el contrato: ${updateError?.message || 'Error desconocido'}`)
         }
       }
 

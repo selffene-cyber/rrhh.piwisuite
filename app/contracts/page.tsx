@@ -126,14 +126,28 @@ export default function ContractsPage() {
 
     try {
       const table = type === 'contract' ? 'contracts' : 'contract_annexes'
-      const { error } = await supabase.from(table).delete().eq('id', id)
+      console.log(`[Delete] Marcando como cancelled ${type} con id: ${id} de tabla: ${table}`)
+      
+      // En lugar de eliminar físicamente, marcar como 'cancelled' para mantener el historial
+      const { error, data } = await supabase
+        .from(table)
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+        .select()
+      
+      console.log(`[Delete] Resultado de actualización:`, { error, data })
 
-      if (error) throw error
+      if (error) {
+        console.error(`[Delete] Error al cancelar ${type}:`, error)
+        throw error
+      }
 
-      alert((type === 'contract' ? 'Contrato' : 'Anexo') + ' eliminado correctamente')
+      console.log(`[Delete] ${type} cancelado correctamente`)
+      alert((type === 'contract' ? 'Contrato' : 'Anexo') + ' cancelado correctamente')
       loadData()
     } catch (error: any) {
-      alert('Error al eliminar: ' + error.message)
+      console.error(`[Delete] Error al cancelar ${type}:`, error)
+      alert('Error al cancelar: ' + error.message)
     }
   }
 

@@ -637,17 +637,57 @@ export default function NewAnnexPage() {
         return
       }
 
+      // Determinar el tipo de anexo basándose en los conceptos seleccionados
+      const determineAnnexType = (concepts: string[]): string => {
+        if (concepts.length === 0) return 'otro'
+        
+        // Mapeo de conceptos a tipos de anexo (prioridad)
+        const conceptToType: Record<string, string> = {
+          'contract_type': 'cambio_tipo_contrato',
+          'position': 'cambio_cargo',
+          'work_schedule': 'cambio_jornada',
+          'remuneration': 'modificacion_sueldo',
+          'work_location': 'cambio_lugar_trabajo',
+          'payment': 'cambio_metodo_pago',
+        }
+        
+        // Si hay un solo concepto, usar su tipo correspondiente
+        if (concepts.length === 1) {
+          return conceptToType[concepts[0]] || 'otro'
+        }
+        
+        // Si hay múltiples conceptos, priorizar por importancia
+        // Prioridad: contract_type > position > work_schedule > remuneration > otros
+        const priority = ['contract_type', 'position', 'work_schedule', 'remuneration', 'work_location', 'payment']
+        for (const priorityConcept of priority) {
+          if (concepts.includes(priorityConcept)) {
+            return conceptToType[priorityConcept] || 'otro'
+          }
+        }
+        
+        return 'otro'
+      }
+      
+      const determinedAnnexType = determineAnnexType(selectedConcepts)
+      console.log('[Annex Creation] Conceptos seleccionados:', selectedConcepts)
+      console.log('[Annex Creation] Tipo de anexo determinado:', determinedAnnexType)
+
       // Preparar metadata con conceptValues para actualización automática posterior
       const metadata: any = {
         selected_concepts: selectedConcepts,
         concept_values: conceptValues,
       }
 
+      // Log para depuración
+      console.log('[Annex Creation] Conceptos seleccionados:', selectedConcepts)
+      console.log('[Annex Creation] ConceptValues a guardar:', JSON.stringify(conceptValues, null, 2))
+      console.log('[Annex Creation] Metadata completo:', JSON.stringify(metadata, null, 2))
+
       const annexData: any = {
         contract_id: formData.contract_id,
         employee_id: formData.employee_id,
         company_id: companyId,
-        annex_type: formData.annex_type,
+        annex_type: determinedAnnexType, // Usar el tipo determinado automáticamente
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         content: contentWithClauses, // Almacenar cláusulas en JSON
@@ -1059,7 +1099,20 @@ export default function NewAnnexPage() {
                           <select
                             value={conceptValues.contract_type || ''}
                             onChange={(e) => {
-                              setConceptValues({ ...conceptValues, contract_type: e.target.value, end_date: e.target.value === 'plazo_fijo' ? conceptValues.end_date : '' })
+                              const newContractType = e.target.value
+                              const updatedValues: Record<string, any> = { ...conceptValues, contract_type: newContractType }
+                              // Si cambia a indefinido, eliminar end_date explícitamente
+                              if (newContractType === 'indefinido') {
+                                updatedValues.end_date = null
+                              } else if (newContractType === 'plazo_fijo') {
+                                // Mantener end_date si ya existe, sino dejarlo vacío para que el usuario lo complete
+                                updatedValues.end_date = conceptValues.end_date || ''
+                              } else {
+                                // Para otros tipos, limpiar end_date
+                                updatedValues.end_date = ''
+                              }
+                              setConceptValues(updatedValues)
+                              console.log('[Annex Form] Contract type cambiado a:', newContractType, 'conceptValues actualizado:', updatedValues)
                             }}
                           >
                             <option value="indefinido">Indefinido</option>

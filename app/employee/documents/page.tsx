@@ -261,14 +261,30 @@ export default function DocumentsPage() {
             if (annexData.debug) {
               console.log('[FRONTEND] DEBUG Anexos:', annexData.debug)
             }
-            const annexes = (annexData.annexes || []).map((a: any) => ({
-              ...a,
-              type: 'annex' as const,
-              title: `Anexo de Contrato - ${a.annex_number || 'Sin número'}`,
-              date: a.start_date || a.signed_at || a.created_at,
-              downloadUrl: `/contracts/annex/${a.id}/pdf`,
-            }))
+            const annexes = (annexData.annexes || []).map((a: any) => {
+              // IMPORTANTE: Mostrar created_at (fecha de creación) en lugar de start_date (fecha de inicio)
+              // El start_date es la fecha de inicio del anexo, no la fecha en que se creó
+              // Para mostrar cuándo se creó el anexo, usar created_at
+              const displayDate = a.created_at || a.signed_at || a.start_date
+              console.log(`[FRONTEND] Anexo ${a.annex_number}:`)
+              console.log(`  - start_date (fecha inicio): ${a.start_date}`)
+              console.log(`  - created_at (fecha creación): ${a.created_at}`)
+              console.log(`  - signed_at: ${a.signed_at}`)
+              console.log(`  - Usando fecha para mostrar: ${displayDate}`)
+              return {
+                ...a,
+                type: 'annex' as const,
+                title: `Anexo de Contrato - ${a.annex_number || 'Sin número'}`,
+                date: displayDate, // Usar created_at para mostrar fecha de creación
+                downloadUrl: `/contracts/annex/${a.id}/pdf`,
+              }
+            })
             console.log('Anexos mapeados:', annexes.length)
+            if (annexes.length > 0) {
+              annexes.forEach((a: any, idx: number) => {
+                console.log(`[FRONTEND] Anexo mapeado ${idx + 1}: ${a.annex_number}, fecha mostrada: ${a.date}`)
+              })
+            }
             allDocs.push(...annexes)
           }
         } catch (err) {

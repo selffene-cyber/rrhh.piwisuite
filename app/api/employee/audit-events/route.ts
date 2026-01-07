@@ -26,8 +26,12 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (empError || !employee) {
+      console.error('[Audit Events API] Error al obtener empleado:', empError)
+      console.error('[Audit Events API] User ID:', user.id)
       return NextResponse.json({ error: 'Trabajador no encontrado' }, { status: 404 })
     }
+
+    console.log(`[Audit Events API] Buscando eventos para employee_id: ${employee.id}, user_id: ${user.id}`)
 
     // Obtener parámetros de consulta
     const searchParams = request.nextUrl.searchParams
@@ -39,13 +43,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Construir query (solo eventos del trabajador)
+    // Construir query - Igual que en el admin
     let query = supabase
       .from('audit_events')
       .select('*')
       .eq('employee_id', employee.id)
       .order('happened_at', { ascending: false })
-      .range(offset, offset + limit - 1)
 
     if (module) {
       query = query.eq('module', module)
@@ -67,10 +70,13 @@ export async function GET(request: NextRequest) {
       query = query.lte('happened_at', toDate)
     }
 
+    // Aplicar paginación al final, después de todos los filtros
+    query = query.range(offset, offset + limit - 1)
+
     const { data, error } = await query
 
     if (error) {
-      console.error('Error al obtener eventos de auditoría:', error)
+      console.error('[Audit Events API] Error al obtener eventos:', error)
       return NextResponse.json(
         { error: error.message || 'Error al obtener eventos' },
         { status: 500 }

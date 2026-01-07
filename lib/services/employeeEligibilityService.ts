@@ -68,15 +68,26 @@ export class EmployeeEligibilityService {
   async hasActiveContract(employeeId: string): Promise<{ hasActive: boolean; contract: Contract | null }> {
     const today = new Date().toISOString().split('T')[0]
     
-    // Buscar contratos que estén activos o firmados
-    // Si está 'active', se considera válido sin importar la fecha de inicio
-    // Si está 'signed', se verifica que la fecha de inicio ya haya pasado
-    const { data, error } = await this.supabase
-      .from('contracts')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .in('status', ['active', 'signed'])
-      .order('start_date', { ascending: false })
+      // Buscar contratos que estén activos o firmados
+      // Si está 'active', se considera válido sin importar la fecha de inicio
+      // Si está 'signed', se verifica que la fecha de inicio ya haya pasado
+      // IMPORTANTE: Usar .order() con múltiples campos para obtener el contrato más reciente
+      // y asegurar que obtenemos el contrato actualizado (no caché)
+      const { data, error } = await this.supabase
+        .from('contracts')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .in('status', ['active', 'signed'])
+        .order('updated_at', { ascending: false }) // Ordenar por updated_at para obtener el más reciente
+        .order('start_date', { ascending: false })
+      
+      // Log para depuración
+      if (data && data.length > 0) {
+        console.log(`[hasActiveContract] Encontrados ${data.length} contratos para employee_id: ${employeeId}`)
+        data.forEach((c: any, idx: number) => {
+          console.log(`[hasActiveContract] Contrato ${idx + 1}: id=${c.id}, contract_type=${c.contract_type}, status=${c.status}, updated_at=${c.updated_at}, end_date=${c.end_date}`)
+        })
+      }
 
     if (error && error.code !== 'PGRST116') {
       throw error
@@ -92,10 +103,16 @@ export class EmployeeEligibilityService {
     // Buscar el contrato más reciente que cumpla las condiciones
     for (const contract of data) {
       const contractAny = contract as any
+      
+      // IMPORTANTE: Si el contrato es tipo 'indefinido', ignorar end_date
+      // porque los contratos indefinidos no tienen fecha de término válida
+      // (incluso si tienen end_date en la BD por razones históricas)
+      const isIndefinite = contractAny.contract_type === 'indefinido'
+      
       // Si el contrato está 'active', se considera válido (confiamos en el estado)
       if (contractAny.status === 'active') {
-        // Verificar que no haya expirado (si tiene fecha de término)
-        if (contractAny.end_date) {
+        // Verificar que no haya expirado (solo si NO es indefinido)
+        if (!isIndefinite && contractAny.end_date) {
           const endDate = new Date(contractAny.end_date)
           const todayDate = new Date(today)
           if (endDate < todayDate) {
@@ -114,8 +131,8 @@ export class EmployeeEligibilityService {
         const startDate = new Date(contractAny.start_date)
         const todayDate = new Date(today)
         if (startDate <= todayDate) {
-          // Verificar que no haya expirado (si tiene fecha de término)
-          if (contractAny.end_date) {
+          // Verificar que no haya expirado (solo si NO es indefinido)
+          if (!isIndefinite && contractAny.end_date) {
             const endDate = new Date(contractAny.end_date)
             if (endDate < todayDate) {
               // El contrato expiró, continuar con el siguiente

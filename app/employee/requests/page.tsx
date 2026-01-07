@@ -36,18 +36,21 @@ export default function RequestsPage() {
           const certResponse = await fetch('/api/employee/certificates')
           if (certResponse.ok) {
             const certData = await certResponse.json()
+            console.log('[Requests Page] Certificados recibidos:', certData)
             const certs = (certData.certificates || []).map((c: any) => ({
               ...c,
               type: 'certificate' as const,
               title: `Certificado de ${c.certificate_type === 'antiguedad' ? 'Antigüedad' : c.certificate_type === 'renta' ? 'Renta' : 'Vigencia'}`,
               date: c.requested_at || c.created_at,
             }))
+            console.log('[Requests Page] Certificados mapeados:', certs)
             allRequests.push(...certs)
           } else {
-            console.error('Error al cargar certificados:', await certResponse.text())
+            const errorText = await certResponse.text()
+            console.error('[Requests Page] Error al cargar certificados:', errorText)
           }
         } catch (err) {
-          console.error('Error al cargar certificados:', err)
+          console.error('[Requests Page] Error al cargar certificados:', err)
         }
       }
 
@@ -106,32 +109,73 @@ export default function RequestsPage() {
       })
 
       // Aplicar filtro de estado
+      // Nota: Diferentes tipos de documentos usan diferentes valores de status
+      // - Certificados: 'requested', 'approved', 'issued', 'void'
+      // - Vacaciones: 'solicitada', 'aprobada', 'rechazada', 'tomada', 'cancelada'
+      // - Permisos: 'requested', 'approved', 'rejected', 'applied', 'draft', 'void'
       let filtered = allRequests
       if (filter === 'pending') {
-        filtered = allRequests.filter(r => 
-          r.status === 'requested' || 
-          r.status === 'solicitada' || 
-          r.status === 'draft' // Los borradores también son pendientes
-        )
+        filtered = allRequests.filter(r => {
+          // Certificados pendientes
+          if (r.type === 'certificate') {
+            return r.status === 'requested' || r.status === 'draft'
+          }
+          // Vacaciones pendientes
+          if (r.type === 'vacation') {
+            return r.status === 'solicitada' || r.status === 'draft'
+          }
+          // Permisos pendientes
+          if (r.type === 'permission') {
+            return r.status === 'requested' || r.status === 'draft'
+          }
+          // Por defecto, cualquier status que no sea aprobado/rechazado
+          return r.status === 'requested' || r.status === 'solicitada' || r.status === 'draft'
+        })
       } else if (filter === 'approved') {
-        filtered = allRequests.filter(r => 
-          r.status === 'approved' || 
-          r.status === 'aprobada' || 
-          r.status === 'issued' || 
-          r.status === 'tomada' || 
-          r.status === 'applied'
-        )
+        filtered = allRequests.filter(r => {
+          // Certificados aprobados
+          if (r.type === 'certificate') {
+            return r.status === 'approved' || r.status === 'issued'
+          }
+          // Vacaciones aprobadas
+          if (r.type === 'vacation') {
+            return r.status === 'aprobada' || r.status === 'tomada'
+          }
+          // Permisos aprobados
+          if (r.type === 'permission') {
+            return r.status === 'approved' || r.status === 'applied'
+          }
+          // Por defecto
+          return r.status === 'approved' || r.status === 'aprobada' || r.status === 'issued' || r.status === 'tomada' || r.status === 'applied'
+        })
       } else if (filter === 'rejected') {
-        filtered = allRequests.filter(r => 
-          r.status === 'rejected' || 
-          r.status === 'rechazada'
-        )
+        filtered = allRequests.filter(r => {
+          // Todos los tipos usan 'rejected' o 'rechazada'
+          return r.status === 'rejected' || r.status === 'rechazada'
+        })
       }
 
       console.log('Total de solicitudes cargadas:', allRequests.length)
       console.log('Solicitudes filtradas:', filtered.length)
       console.log('Filtro de tipo:', typeFilter)
       console.log('Filtro de estado:', filter)
+      
+      // Log detallado para diagnosticar el problema con certificados
+      if (typeFilter === 'certificates' || typeFilter === 'all') {
+        const certs = allRequests.filter(r => r.type === 'certificate')
+        console.log(`[Requests Page] Certificados en allRequests: ${certs.length}`)
+        certs.forEach((cert, idx) => {
+          console.log(`[Requests Page] Certificado ${idx + 1}: id=${cert.id}, status="${cert.status}", type="${cert.type}"`)
+        })
+        
+        if (filter === 'pending') {
+          const pendingCerts = certs.filter(c => c.status === 'requested' || c.status === 'draft')
+          console.log(`[Requests Page] Certificados pendientes (requested/draft): ${pendingCerts.length}`)
+          pendingCerts.forEach((cert, idx) => {
+            console.log(`[Requests Page] Certificado pendiente ${idx + 1}: id=${cert.id}, status="${cert.status}"`)
+          })
+        }
+      }
 
       setRequests(filtered)
     } catch (err) {
