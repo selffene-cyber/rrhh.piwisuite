@@ -58,3 +58,5 @@ COMMENT ON FUNCTION get_employee_id_from_user IS 'Obtiene el ID del empleado aso
 
 
 
+
+

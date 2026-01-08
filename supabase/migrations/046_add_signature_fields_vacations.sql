@@ -34,3 +34,5 @@ COMMENT ON COLUMN vacations.qr_code_data IS 'Datos del QR code (JSON con código
 
 
 
+
+

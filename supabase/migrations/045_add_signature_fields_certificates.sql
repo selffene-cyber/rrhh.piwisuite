@@ -34,3 +34,5 @@ COMMENT ON COLUMN certificates.qr_code_data IS 'Datos del QR code (JSON con cód
 
 
 
+
+

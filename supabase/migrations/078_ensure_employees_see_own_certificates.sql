@@ -39,3 +39,5 @@ WHERE tablename = 'certificates'
   AND policyname = 'Employees can view their own certificate requests';
 
 
+
+

@@ -62,19 +62,21 @@ export async function GET(request: NextRequest) {
         }
       }
     } else {
-      // Si no es super admin, obtener de company_users
-      const { data: companyUser } = await supabase
+      // Si no es super admin, obtener de company_users (puede tener múltiples empresas)
+      const { data: companyUsers } = await supabase
         .from('company_users')
         .select('company_id, role')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .maybeSingle()
+        .order('created_at', { ascending: true })
+        .limit(1)
 
-      if (!companyUser) {
+      if (!companyUsers || companyUsers.length === 0) {
         return NextResponse.json({ error: 'Usuario no asociado a una empresa' }, { status: 403 })
       }
 
-      companyId = companyUser.company_id
+      // Usar la primera empresa activa
+      companyId = companyUsers[0].company_id
     }
 
     if (!companyId) {
@@ -153,24 +155,23 @@ export async function POST(request: NextRequest) {
         companyId = firstCompany?.id || null
       }
     } else {
-      // Si no es super admin, obtener de company_users
-      const { data: companyUser } = await supabase
+      // Si no es super admin, obtener de company_users (puede tener múltiples empresas)
+      const { data: companyUsers } = await supabase
         .from('company_users')
         .select('company_id, role')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .maybeSingle()
+        .in('role', ['owner', 'admin'])
+        .order('created_at', { ascending: true })
+        .limit(1)
 
-      if (!companyUser) {
-        return NextResponse.json({ error: 'Usuario no asociado a una empresa' }, { status: 403 })
+      if (!companyUsers || companyUsers.length === 0) {
+        return NextResponse.json({ error: 'Usuario no asociado a una empresa o no tiene permisos de admin/owner' }, { status: 403 })
       }
 
-      companyId = companyUser.company_id
-      companyUserRole = companyUser.role
-
-      if (!companyUserRole || !['owner', 'admin'].includes(companyUserRole)) {
-        return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-      }
+      // Usar la primera empresa activa donde es owner/admin
+      companyId = companyUsers[0].company_id
+      companyUserRole = companyUsers[0].role
     }
 
     if (!companyId) {

@@ -252,3 +252,5 @@ COMMENT ON FUNCTION generate_compliance_notifications() IS 'Genera notificacione
 
 
 
+
+

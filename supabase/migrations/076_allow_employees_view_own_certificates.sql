@@ -21,3 +21,5 @@ COMMENT ON POLICY "Employees can view their own certificates" ON certificates IS
 'Permite a trabajadores ver solo sus propios certificados mediante la relación employee.user_id = auth.uid()';
 
 
+
+

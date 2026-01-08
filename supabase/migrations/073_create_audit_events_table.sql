@@ -77,3 +77,5 @@ COMMENT ON COLUMN audit_events.diff_data IS 'Diff entre before_data y after_data
 COMMENT ON COLUMN audit_events.metadata IS 'Datos adicionales flexibles: motivo, fechas, montos, vigencia, batch_id, error messages, etc.';
 
 
+
+

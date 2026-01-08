@@ -49,3 +49,5 @@ WHERE cu.user_id = '484c93c1-3844-4013-9a35-32501d869d9a'
   AND cu.company_id = 'ff6dc123-e5db-4ce3-9aea-45c16f6473b6';
 
 
+
+

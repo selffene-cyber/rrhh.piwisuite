@@ -195,3 +195,5 @@ Este plan cubre 3 iniciativas principales:
 - Considerar performance: índices adecuados, posible archivado histórico en futuro
 
 
+
+
