@@ -55,7 +55,29 @@ export async function middleware(request: NextRequest) {
       
       // Si es trabajador (tiene registro en employees)
       if (employee && !employeeError) {
-        // Es trabajador, verificar si debe cambiar contraseña
+        // Verificar si también es admin/owner en alguna empresa
+        const { data: companyUsers, error: companyUserError } = await supabase
+          .from('company_users')
+          .select('role, status')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .in('role', ['admin', 'owner'])
+
+        console.log('[Middleware /login] Usuario es empleado, verificando si es admin/owner:', {
+          userId: user.id,
+          companyUsers,
+          companyUserError,
+          isAdminOwner: companyUsers && companyUsers.length > 0
+        })
+
+        // Si es admin/owner, ir al dashboard
+        if (companyUsers && companyUsers.length > 0 && !companyUserError) {
+          console.log('[Middleware /login] Usuario es admin/owner, redirigiendo al dashboard')
+          url.pathname = '/'
+          return NextResponse.redirect(url)
+        }
+
+        // Si NO es admin/owner, es trabajador, verificar si debe cambiar contraseña
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('must_change_password')
@@ -104,22 +126,42 @@ export async function middleware(request: NextRequest) {
         .eq('user_id', user.id)
         .maybeSingle()
 
-      // Si es trabajador, redirigir al portal
+      // Si es trabajador, verificar si también es admin/owner
       if (employee && !employeeError) {
-        const url = request.nextUrl.clone()
-        // Verificar si debe cambiar contraseña
-        const { data: profileData, error: profileDataError } = await supabase
-          .from('user_profiles')
-          .select('must_change_password')
-          .eq('id', user.id)
-          .maybeSingle()
+        // Verificar si tiene rol de admin/owner en alguna empresa activa
+        const { data: companyUsers, error: companyUserError } = await supabase
+          .from('company_users')
+          .select('role, status')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .in('role', ['admin', 'owner'])
 
-        if (!profileDataError && profileData?.must_change_password === true) {
-          url.pathname = '/employee/change-password'
-        } else {
-          url.pathname = '/employee'
+        console.log('[Middleware /] Usuario es empleado, verificando si es admin/owner:', {
+          userId: user.id,
+          companyUsers,
+          companyUserError,
+          isAdminOwner: companyUsers && companyUsers.length > 0
+        })
+
+        // Solo redirigir al portal si NO es admin/owner
+        if (!companyUsers || companyUsers.length === 0 || companyUserError) {
+          console.log('[Middleware /] Usuario NO es admin/owner, redirigiendo al portal empleado')
+          const url = request.nextUrl.clone()
+          // Verificar si debe cambiar contraseña
+          const { data: profileData, error: profileDataError } = await supabase
+            .from('user_profiles')
+            .select('must_change_password')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (!profileDataError && profileData?.must_change_password === true) {
+            url.pathname = '/employee/change-password'
+          } else {
+            url.pathname = '/employee'
+          }
+          return NextResponse.redirect(url)
         }
-        return NextResponse.redirect(url)
+        // Si es admin/owner, permitir acceso al dashboard
       }
       // Si no es trabajador ni super_admin, permitir acceso al dashboard (puede ser admin/owner)
     } catch (error) {
@@ -150,10 +192,45 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role !== 'super_admin') {
+      // Rutas exclusivas de super_admin
+      const superAdminOnlyRoutes = ['/admin/companies', '/admin/users']
+      const isSuperAdminOnlyRoute = superAdminOnlyRoutes.some(route => pathname.startsWith(route))
+
+      // Si es ruta exclusiva de super_admin, verificar que lo sea
+      if (isSuperAdminOnlyRoute && profile?.role !== 'super_admin') {
         const url = request.nextUrl.clone()
         url.pathname = '/'
         return NextResponse.redirect(url)
+      }
+
+      // Para otras rutas /admin (como /admin/cost-centers, /admin/departments)
+      // Permitir acceso a super_admin o a admin/owner de alguna empresa
+      if (!isSuperAdminOnlyRoute && profile?.role !== 'super_admin') {
+        // Verificar si es admin/owner en alguna empresa
+        const { data: companyUsers, error: companyUserError } = await supabase
+          .from('company_users')
+          .select('role, status')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .in('role', ['admin', 'owner'])
+
+        console.log('[Middleware /admin] Verificando permisos para ruta /admin:', {
+          userId: user.id,
+          pathname,
+          isSuperAdminOnlyRoute,
+          companyUsers,
+          companyUserError,
+          isAdminOwner: companyUsers && companyUsers.length > 0
+        })
+
+        // Si no es admin/owner, redirigir al dashboard
+        if (!companyUsers || companyUsers.length === 0 || companyUserError) {
+          console.log('[Middleware /admin] Usuario NO es admin/owner, redirigiendo al dashboard')
+          const url = request.nextUrl.clone()
+          url.pathname = '/'
+          return NextResponse.redirect(url)
+        }
+        console.log('[Middleware /admin] Usuario ES admin/owner, permitiendo acceso')
       }
     } catch (profileError) {
       // Si hay error al obtener perfil, permitir acceso pero registrar error
@@ -182,6 +259,7 @@ export async function middleware(request: NextRequest) {
   // Solo verificar si NO es super_admin para evitar consultas innecesarias
   // EXCEPTO para rutas de PDF que los trabajadores pueden ver (ya manejadas arriba)
   if (user && !isPDFRoute && (pathname.startsWith('/employees') || pathname.startsWith('/contracts') || pathname.startsWith('/vacations') || pathname.startsWith('/permissions') || pathname.startsWith('/certificates') || pathname.startsWith('/payroll') || pathname.startsWith('/advances') || pathname.startsWith('/loans') || pathname.startsWith('/overtime') || pathname.startsWith('/settlements') || pathname.startsWith('/disciplinary-actions') || pathname.startsWith('/organigrama') || pathname.startsWith('/departments') || pathname.startsWith('/reports') || pathname.startsWith('/documents') || pathname.startsWith('/settings'))) {
+    console.log('[Middleware rutas admin] Verificando acceso a ruta administrativa:', pathname)
     try {
       // Primero verificar si es super_admin (puede acceder a todo)
       const { data: profile, error: profileError } = await supabase
@@ -190,8 +268,11 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .single()
 
+      console.log('[Middleware rutas admin] Perfil de usuario:', { userId: user.id, role: profile?.role, profileError })
+
       // Si es super_admin, permitir acceso inmediatamente sin más verificaciones
       if (profile?.role === 'super_admin') {
+        console.log('[Middleware rutas admin] Usuario es super_admin, permitiendo acceso')
         // Continuar normalmente - permitir acceso
         return response
       }
@@ -202,17 +283,46 @@ export async function middleware(request: NextRequest) {
         return response
       }
 
-      // Si no es super_admin, verificar si es trabajador
+      // Si no es super_admin, verificar primero si es admin/owner
       if (profile?.role !== 'super_admin') {
+        console.log('[Middleware rutas admin] Usuario NO es super_admin, verificando permisos...')
+        
+        // Primero verificar si es admin/owner en alguna empresa (esto permite el acceso)
+        const { data: companyUsers, error: companyUserError } = await supabase
+          .from('company_users')
+          .select('role, status')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .in('role', ['admin', 'owner'])
+
+        console.log('[Middleware rutas admin] Verificando si es admin/owner:', {
+          userId: user.id,
+          pathname,
+          companyUsers,
+          companyUserError,
+          isAdminOwner: companyUsers && companyUsers.length > 0
+        })
+
+        // Si ES admin/owner, permitir acceso inmediatamente
+        if (companyUsers && companyUsers.length > 0 && !companyUserError) {
+          console.log('[Middleware rutas admin] Usuario ES admin/owner, permitiendo acceso a ruta:', pathname)
+          return response
+        }
+
+        // Si NO es admin/owner, verificar si es trabajador (y redirigir al portal)
+        console.log('[Middleware rutas admin] Usuario NO es admin/owner, verificando si es empleado...')
         const { data: employee, error: employeeError } = await supabase
           .from('employees')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle()
+        
+        console.log('[Middleware rutas admin] Resultado consulta employees:', { employee, employeeError })
 
-        // Solo redirigir si es trabajador (tiene registro en employees) Y no es super_admin
+        // Si es trabajador pero NO es admin/owner, redirigir al portal del trabajador
         if (employee && !employeeError) {
-          // Es trabajador intentando acceder a ruta admin, redirigir al portal
+          console.log('[Middleware rutas admin] Usuario es empleado sin permisos admin, redirigiendo al portal empleado')
+          // Es trabajador sin permisos administrativos, redirigir al portal
           const url = request.nextUrl.clone()
           // Verificar si debe cambiar contraseña
           const { data: profileData } = await supabase
@@ -228,6 +338,12 @@ export async function middleware(request: NextRequest) {
           }
           return NextResponse.redirect(url)
         }
+        
+        // Si no es admin/owner ni empleado, bloquear acceso (redirigir al dashboard)
+        console.log('[Middleware rutas admin] Usuario NO tiene permisos, redirigiendo al dashboard')
+        const url = request.nextUrl.clone()
+        url.pathname = '/'
+        return NextResponse.redirect(url)
       }
       // Si no es trabajador, permitir acceso (fallback seguro)
     } catch (error) {

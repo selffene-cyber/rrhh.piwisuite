@@ -167,14 +167,20 @@ export async function isCompanyAdmin(
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from('company_users')
-    .select('role')
+    .select('role, status')
     .eq('user_id', userId)
     .eq('company_id', companyId)
+    .eq('status', 'active')
     .maybeSingle()
 
-  if (error || !data) return false
+  if (error || !data) {
+    console.error('Error verificando isCompanyAdmin:', error)
+    return false
+  }
 
-  const userData = data as { role: string }
-  return userData.role === 'admin' || userData.role === 'owner'
+  const userData = data as { role: string; status: string }
+  const isAdmin = (userData.role === 'admin' || userData.role === 'owner') && userData.status === 'active'
+  console.log('isCompanyAdmin check:', { userId, companyId, role: userData.role, status: userData.status, isAdmin })
+  return isAdmin
 }
 
