@@ -10,6 +10,7 @@ import { getCostCenters, isCompanyAdmin } from '@/lib/services/costCenterService
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
 import { getEmployeeStatusLabel } from '@/lib/utils/employeeStatus'
 import EmployeeDetailSlide from '@/components/EmployeeDetailSlide'
+import { getMultipleEmployeesContractStatus, type EmployeeContractStatus } from '@/lib/services/employeeContractStatus'
 
 const ITEMS_PER_PAGE = 50
 
@@ -25,11 +26,13 @@ export default function EmployeesPage() {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [selectedAFP, setSelectedAFP] = useState<string | null>(null)
   const [selectedHealthSystem, setSelectedHealthSystem] = useState<string | null>(null)
+  const [selectedRegime, setSelectedRegime] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState<string | null>(null)
   const [positions, setPositions] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
   const [isSlideOpen, setIsSlideOpen] = useState(false)
+  const [contractStatuses, setContractStatuses] = useState<Map<string, EmployeeContractStatus>>(new Map())
 
   const totalPages = useMemo(() => Math.ceil(totalCount / ITEMS_PER_PAGE), [totalCount])
 
@@ -45,7 +48,7 @@ export default function EmployeesPage() {
 
       let query = supabase
         .from('employees')
-        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name)', { count: 'exact' })
+        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name), previsional_regime, other_regime_type', { count: 'exact' })
         .eq('company_id', companyId)
 
       // Filtrar por CC si está seleccionado
@@ -58,14 +61,33 @@ export default function EmployeesPage() {
         query = query.eq('status', selectedStatus)
       }
 
-      // Filtrar por AFP si está seleccionado
+      // Filtrar por régimen si está seleccionado
+      if (selectedRegime) {
+        if (selectedRegime === 'AFP') {
+          query = query.eq('previsional_regime', 'AFP')
+        } else if (selectedRegime === 'DIPRECA') {
+          query = query.eq('other_regime_type', 'DIPRECA')
+        } else if (selectedRegime === 'CAPREDENA') {
+          query = query.eq('other_regime_type', 'CAPREDENA')
+        } else if (selectedRegime === 'SIN_PREVISION') {
+          query = query.eq('other_regime_type', 'SIN_PREVISION')
+        } else if (selectedRegime === 'OTRO') {
+          query = query.eq('other_regime_type', 'OTRO')
+        }
+      }
+      
+      // Filtrar por AFP si está seleccionado (solo para régimen AFP)
       if (selectedAFP) {
-        query = query.eq('afp', selectedAFP)
+        query = query.eq('afp', selectedAFP).eq('previsional_regime', 'AFP')
       }
 
       // Filtrar por sistema de salud si está seleccionado
       if (selectedHealthSystem) {
-        query = query.eq('health_system', selectedHealthSystem)
+        if (selectedHealthSystem === 'MANUAL') {
+          query = query.eq('previsional_regime', 'OTRO_REGIMEN')
+        } else {
+          query = query.eq('health_system', selectedHealthSystem).eq('previsional_regime', 'AFP')
+        }
       }
 
       // Filtrar por cargo si está seleccionado
@@ -85,13 +107,20 @@ export default function EmployeesPage() {
 
       setEmployees(data || [])
       setError(null)
+      
+      // Cargar estados de contratos para los empleados
+      if (data && data.length > 0) {
+        const employeeIds = data.map((emp: any) => emp.id)
+        const statuses = await getMultipleEmployeesContractStatus(employeeIds, supabase)
+        setContractStatuses(statuses)
+      }
     } catch (err: any) {
       console.error('Error inesperado:', err)
       setError(err.message || 'Error desconocido')
     } finally {
       setLoading(false)
     }
-  }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedAFP, selectedHealthSystem, selectedPosition])
+  }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedRegime, selectedAFP, selectedHealthSystem, selectedPosition])
 
   const loadPositions = useCallback(async () => {
     if (!companyId) return
@@ -153,7 +182,7 @@ export default function EmployeesPage() {
       setEmployees([])
       setLoading(false)
     }
-  }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedAFP, selectedHealthSystem, selectedPosition, loadEmployees])
+  }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedRegime, selectedAFP, selectedHealthSystem, selectedPosition, loadEmployees])
 
   const handleDelete = async (employee: any) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar a ${employee.full_name}? Esta acción no se puede deshacer.`)) {
@@ -201,6 +230,53 @@ export default function EmployeesPage() {
           <button onClick={loadEmployees} style={{ marginTop: '16px' }}>Reintentar</button>
         </div>
       </div>
+    )
+  }
+  
+  // Función helper para renderizar badge de contrato
+  const getContractBadge = (employeeId: string) => {
+    const contractStatus = contractStatuses.get(employeeId)
+    
+    if (!contractStatus || !contractStatus.hasActiveContract) {
+      return (
+        <span
+          className="badge"
+          style={{
+            background: '#fef3c7',
+            color: '#92400e',
+            border: '1px solid #fbbf24',
+            fontSize: '11px',
+            fontWeight: '600'
+          }}
+        >
+          ⚠️ Sin contrato
+        </span>
+      )
+    }
+    
+    const { expiration } = contractStatus
+    
+    // Si no hay expiration o está activo (>30 días), no mostrar badge
+    if (!expiration || expiration.status === 'active') {
+      return null
+    }
+    
+    return (
+      <span
+        className="badge"
+        style={{
+          background: expiration.color + '20',
+          color: expiration.color,
+          border: `1px solid ${expiration.color}`,
+          fontSize: '11px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+      >
+        {expiration.icon} {expiration.message}
+      </span>
     )
   }
 
@@ -290,7 +366,28 @@ export default function EmployeesPage() {
             </select>
           </div>
           <div className="form-group">
-            <label>AFP</label>
+            <label>Régimen Previsional</label>
+            <select
+              value={selectedRegime || ''}
+              onChange={(e) => {
+                setSelectedRegime(e.target.value || null)
+                setCurrentPage(1)
+              }}
+            >
+              <option value="">Todos</option>
+              <optgroup label="Sistema AFP">
+                <option value="AFP">AFP (Previred)</option>
+              </optgroup>
+              <optgroup label="Regímenes Especiales">
+                <option value="DIPRECA">DIPRECA</option>
+                <option value="CAPREDENA">CAPREDENA</option>
+                <option value="SIN_PREVISION">Sin Previsión</option>
+                <option value="OTRO">Otro Régimen</option>
+              </optgroup>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>AFP Específica</label>
             <select
               value={selectedAFP || ''}
               onChange={(e) => {
@@ -305,6 +402,9 @@ export default function EmployeesPage() {
                 </option>
               ))}
             </select>
+            <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+              Solo filtra trabajadores con régimen AFP
+            </small>
           </div>
           <div className="form-group">
             <label>Sistema de Salud</label>
@@ -321,6 +421,7 @@ export default function EmployeesPage() {
                   {system.label}
                 </option>
               ))}
+              <option value="MANUAL">Manual (Régimen Especial)</option>
             </select>
           </div>
           {positions.length > 0 && (
@@ -343,13 +444,14 @@ export default function EmployeesPage() {
             </div>
           )}
         </div>
-        {(selectedCostCenterId || selectedStatus || selectedAFP || selectedHealthSystem || selectedPosition) && (
+        {(selectedCostCenterId || selectedStatus || selectedRegime || selectedAFP || selectedHealthSystem || selectedPosition) && (
           <div style={{ marginTop: '12px' }}>
             <button
               className="secondary"
               onClick={() => {
                 setSelectedCostCenterId(null)
                 setSelectedStatus(null)
+                setSelectedRegime(null)
                 setSelectedAFP(null)
                 setSelectedHealthSystem(null)
                 setSelectedPosition(null)
@@ -367,17 +469,18 @@ export default function EmployeesPage() {
           <div style={{ textAlign: 'center', padding: '32px' }}>
             <p>
               No hay trabajadores registrados
-              {(selectedCostCenterId || selectedStatus || selectedAFP || selectedHealthSystem || selectedPosition) 
+              {(selectedCostCenterId || selectedStatus || selectedRegime || selectedAFP || selectedHealthSystem || selectedPosition) 
                 ? ' con los filtros seleccionados' 
                 : ''}.
             </p>
-            {(selectedCostCenterId || selectedStatus || selectedAFP || selectedHealthSystem || selectedPosition) ? (
+            {(selectedCostCenterId || selectedStatus || selectedRegime || selectedAFP || selectedHealthSystem || selectedPosition) ? (
               <button
                 className="secondary"
                 style={{ marginTop: '16px' }}
                 onClick={() => {
                   setSelectedCostCenterId(null)
                   setSelectedStatus(null)
+                  setSelectedRegime(null)
                   setSelectedAFP(null)
                   setSelectedHealthSystem(null)
                   setSelectedPosition(null)
@@ -430,10 +533,11 @@ export default function EmployeesPage() {
                     <th style={{ minWidth: '120px', whiteSpace: 'nowrap' }}>RUT</th>
                     <th>Cargo</th>
                     <th>Centro de Costo</th>
-                    <th>AFP</th>
-                    <th>Sistema de Salud</th>
+                    <th>Régimen Previsional</th>
+                    <th>Detalle Salud</th>
                     <th>Sueldo Base</th>
                     <th>Estado</th>
+                    <th>Contrato</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -452,8 +556,27 @@ export default function EmployeesPage() {
                           <span style={{ color: '#6b7280', fontSize: '12px' }}>-</span>
                         )}
                       </td>
-                      <td>{employee.afp}</td>
-                      <td>{employee.health_system}</td>
+                      <td>
+                        {employee.previsional_regime === 'AFP' ? (
+                          <span style={{ fontSize: '13px' }}>
+                            AFP: {employee.afp || '-'}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '13px', color: '#f59e0b', fontWeight: '500' }}>
+                            {employee.other_regime_type === 'DIPRECA' ? 'DIPRECA' :
+                             employee.other_regime_type === 'CAPREDENA' ? 'CAPREDENA' :
+                             employee.other_regime_type === 'SIN_PREVISION' ? 'Sin Previsión' :
+                             'Otro Régimen'}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {employee.previsional_regime === 'AFP' ? (
+                          employee.health_system || '-'
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#6b7280' }}>Manual</span>
+                        )}
+                      </td>
                       <td>${employee.base_salary.toLocaleString('es-CL')}</td>
                       <td>
                         <span 
@@ -487,6 +610,9 @@ export default function EmployeesPage() {
                            employee.status === 'renuncia' ? 'Renuncia' :
                            employee.status === 'despido' ? 'Despido' : employee.status}
                         </span>
+                      </td>
+                      <td>
+                        {getContractBadge(employee.id)}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

@@ -9,6 +9,13 @@ import { CostCenter } from '@/types'
 import { getCostCenters, createCostCenter, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { isSuperAdmin } from '@/lib/services/auth'
 import DepartmentSelector from '@/components/DepartmentSelector'
+import PrevisionSelector, { PrevisionFormData } from '@/components/PrevisionSelector'
+import BankSelector from '@/components/BankSelector'
+import RegionCommuneSelector from '@/components/RegionCommuneSelector'
+import RutInput from '@/components/RutInput'
+import { normalizeEmployeeBank } from '@/lib/utils/employeeBankHelper'
+import { normalizeEmployeeLocation } from '@/lib/utils/employeeLocationHelper'
+import { normalizeRutForStorage } from '@/lib/utils/rutHelper'
 import { FaPlus, FaTimes } from 'react-icons/fa'
 
 export default function EditEmployeePage({ params }: { params: { id: string } }) {
@@ -21,13 +28,19 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
   const [showCreateCCModal, setShowCreateCCModal] = useState(false)
   const [newCCData, setNewCCData] = useState({ code: '', name: '', description: '' })
   const [creatingCC, setCreatingCC] = useState(false)
+  const [originalRut, setOriginalRut] = useState('')  // Para validación retrocompatible
   const [formData, setFormData] = useState({
     full_name: '',
     rut: '',
     birth_date: '',
     address: '',
+    region_id: null as string | null,
+    commune_id: null as string | null,
+    region_name_legacy: '',
+    city_name_legacy: '',
     phone: '',
     email: '',
+    bank_id: null as string | null,
     bank_name: '',
     account_type: '',
     account_number: '',
@@ -35,10 +48,19 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     position: '',
     cost_center_id: '',
     department_id: '',
+    // Campos previsionales
+    previsional_regime: 'AFP' as 'AFP' | 'OTRO_REGIMEN',
     afp: 'PROVIDA',
     health_system: 'FONASA',
     health_plan: '',
     health_plan_percentage: '',
+    other_regime_type: '',
+    manual_regime_label: '',
+    manual_pension_rate: '',
+    manual_health_rate: '',
+    manual_base_type: 'imponible' as 'base' | 'imponible',
+    manual_employer_rate: '',
+    // Otros campos
     base_salary: '',
     transportation: '',
     meal_allowance: '',
@@ -152,13 +174,19 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
       if (error) throw error
 
       if (data) {
+        setOriginalRut(data.rut)  // Guardar RUT original para retrocompatibilidad
         setFormData({
           full_name: data.full_name,
           rut: data.rut,
           birth_date: data.birth_date || '',
           address: data.address || '',
+          region_id: data.region_id || null,
+          commune_id: data.commune_id || null,
+          region_name_legacy: data.region_name_legacy || '',
+          city_name_legacy: data.city_name_legacy || '',
           phone: data.phone || '',
           email: data.email || '',
+          bank_id: data.bank_id || null,
           bank_name: data.bank_name || '',
           account_type: data.account_type || '',
           account_number: data.account_number || '',
@@ -166,10 +194,19 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           position: data.position,
           cost_center_id: data.cost_center_id || '',
           department_id: data.department_id || '',
-          afp: data.afp,
-          health_system: data.health_system,
+          // Campos previsionales
+          previsional_regime: data.previsional_regime || 'AFP',
+          afp: data.afp || 'PROVIDA',
+          health_system: data.health_system || 'FONASA',
           health_plan: data.health_plan || '',
           health_plan_percentage: (data.health_plan_percentage || 0).toString(),
+          other_regime_type: data.other_regime_type || '',
+          manual_regime_label: data.manual_regime_label || '',
+          manual_pension_rate: (data.manual_pension_rate || '').toString(),
+          manual_health_rate: (data.manual_health_rate || '').toString(),
+          manual_base_type: data.manual_base_type || 'imponible',
+          manual_employer_rate: (data.manual_employer_rate || '').toString(),
+          // Otros campos
           base_salary: data.base_salary.toString(),
           transportation: (data.transportation || 0).toString(),
           meal_allowance: (data.meal_allowance || 0).toString(),
@@ -249,12 +286,21 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
 
       const updateData: any = {
         ...formData,
+        rut: normalizeRutForStorage(formData.rut),  // Normalizar RUT a formato XX.XXX.XXX-X
         base_salary: baseSalary,
         transportation: parseFloat(formData.transportation) || 0,
         meal_allowance: parseFloat(formData.meal_allowance) || 0,
         requests_advance: formData.requests_advance,
         advance_amount: formData.requests_advance ? advanceAmount : 0,
         contract_type: formData.contract_type,
+        // Régimen previsional
+        previsional_regime: formData.previsional_regime || 'AFP',
+        // Banco: priorizar bank_id (nuevo sistema), mantener bank_name como fallback
+        bank_id: formData.bank_id || null,
+        bank_name: formData.bank_name?.trim() || null,
+        // Ubicación geográfica (región/comuna)
+        region_id: formData.region_id || null,
+        commune_id: formData.commune_id || null,
         // Convertir cadenas vacías a null para campos de fecha y UUID
         birth_date: formData.birth_date?.trim() || null,
         department_id: formData.department_id?.trim() || null,
@@ -264,12 +310,38 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
         termination_date: (formData.status === 'renuncia' || formData.status === 'despido') ? (formData.termination_date?.trim() || null) : null,
         inactive_note: formData.status === 'inactive' ? (formData.inactive_note?.trim() || null) : null,
       }
-
-      // Porcentaje del plan ISAPRE
-      if (formData.health_system === 'ISAPRE') {
-        updateData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
+      
+      // Campos específicos según régimen
+      if (formData.previsional_regime === 'AFP') {
+        updateData.afp = formData.afp || 'PROVIDA'
+        updateData.health_system = formData.health_system || 'FONASA'
+        updateData.afc_applicable = true // AFP sí tiene AFC
+        if (formData.health_system === 'ISAPRE') {
+          updateData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
+        } else {
+          updateData.health_plan_percentage = 0
+        }
+        // Limpiar campos de otro régimen
+        updateData.other_regime_type = null
+        updateData.manual_regime_label = null
+        updateData.manual_pension_rate = null
+        updateData.manual_health_rate = null
+        updateData.manual_base_type = null
+        updateData.manual_employer_rate = null
       } else {
-        updateData.health_plan_percentage = 0
+        // Régimen especial
+        updateData.other_regime_type = formData.other_regime_type || 'OTRO'
+        updateData.afc_applicable = false // Regímenes especiales NO tienen AFC
+        updateData.manual_regime_label = formData.manual_regime_label?.trim() || null
+        updateData.manual_pension_rate = formData.manual_pension_rate ? parseFloat(formData.manual_pension_rate) : null
+        updateData.manual_health_rate = formData.manual_health_rate ? parseFloat(formData.manual_health_rate) : null
+        updateData.manual_base_type = formData.manual_base_type || 'imponible'
+        updateData.manual_employer_rate = formData.manual_employer_rate ? parseFloat(formData.manual_employer_rate) : null
+        // Limpiar campos AFP
+        updateData.afp = null
+        updateData.health_system = null
+        updateData.health_plan = null
+        updateData.health_plan_percentage = null
       }
 
       const { error } = await supabase
@@ -359,11 +431,13 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
             </div>
             <div className="form-group">
               <label>RUT *</label>
-              <input
-                type="text"
-                required
+              <RutInput
                 value={formData.rut}
-                onChange={(e) => setFormData({ ...formData, rut: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, rut: value })}
+                required
+                originalValue={originalRut}
+                skipValidationIfUnchanged={true}
+                placeholder="Ej: 18.968.229-8"
               />
             </div>
             <div className="form-group">
@@ -403,16 +477,58 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
             </div>
           </div>
 
+          {/* Fila: Región y Comuna */}
+          <div style={{ marginTop: '16px' }}>
+            <RegionCommuneSelector
+              regionValue={formData.region_id}
+              communeValue={formData.commune_id}
+              onChange={(regionId, communeId) => {
+                setFormData({
+                  ...formData,
+                  region_id: regionId,
+                  commune_id: communeId
+                })
+              }}
+              legacyRegionName={!formData.region_id ? formData.region_name_legacy : null}
+              legacyCityName={!formData.commune_id ? formData.city_name_legacy : null}
+              isAdmin={isAdmin}
+              onNormalize={async () => {
+                const success = await normalizeEmployeeLocation(params.id)
+                if (success) {
+                  alert('Ubicación normalizada exitosamente')
+                  window.location.reload()
+                } else {
+                  alert('Error al normalizar ubicación')
+                }
+              }}
+            />
+          </div>
+
           <h2 style={{ marginTop: '32px' }}>Datos Bancarios</h2>
           {/* Fila 3: Banco, Tipo de cuenta, Número de cuenta */}
           <div className="form-row">
             <div className="form-group">
               <label>Banco</label>
-              <input
-                type="text"
-                value={formData.bank_name}
-                onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                placeholder="Ej: Banco de Chile"
+              <BankSelector
+                value={formData.bank_id}
+                onChange={(bankId, bankName) => {
+                  setFormData({ 
+                    ...formData, 
+                    bank_id: bankId,
+                    bank_name: bankName || ''
+                  })
+                }}
+                legacyBankName={!formData.bank_id ? formData.bank_name : null}
+                isAdmin={isAdmin}
+                onNormalize={async () => {
+                  const success = await normalizeEmployeeBank(params.id)
+                  if (success) {
+                    alert('Banco normalizado exitosamente')
+                    window.location.reload()
+                  } else {
+                    alert('Error al normalizar banco')
+                  }
+                }}
               />
             </div>
             <div className="form-group">
@@ -635,64 +751,24 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
               </div>
             )}
           </div>
-          {/* Fila 7: AFP, Sistema de salud, Plan de salud */}
-          <div className="form-row">
-            <div className="form-group">
-              <label>AFP *</label>
-              <select
-                required
-                value={formData.afp}
-                onChange={(e) => setFormData({ ...formData, afp: e.target.value })}
-              >
-                {AVAILABLE_AFPS.map((afp) => (
-                  <option key={afp.value} value={afp.value}>
-                    {afp.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Sistema de Salud *</label>
-              <select
-                required
-                value={formData.health_system}
-                onChange={(e) => setFormData({ ...formData, health_system: e.target.value })}
-              >
-                {AVAILABLE_HEALTH_SYSTEMS.map((system) => (
-                  <option key={system.value} value={system.value}>
-                    {system.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Plan de Salud</label>
-              <input
-                type="text"
-                value={formData.health_plan}
-                onChange={(e) => setFormData({ ...formData, health_plan: e.target.value })}
-                placeholder="Nombre del plan (solo si es ISAPRE)"
-              />
-            </div>
-          </div>
-          {formData.health_system === 'ISAPRE' && (
-            <div className="form-group">
-              <label>Monto del Plan ISAPRE (UF) *</label>
-              <input
-                type="number"
-                required
-                min="0"
-                max="20"
-                step="0.01"
-                value={formData.health_plan_percentage}
-                onChange={(e) => setFormData({ ...formData, health_plan_percentage: e.target.value })}
-                placeholder="Ej: 2.4 (para 2.4 UF)"
-              />
-              <small style={{ color: '#6b7280', fontSize: '12px' }}>
-                Monto del plan ISAPRE en Unidades de Fomento (UF). Se calculará automáticamente al momento de la liquidación multiplicando este valor por el valor de UF del día. Ejemplo: si el plan es 2.4 UF, ingresa 2.4
-              </small>
-            </div>
-          )}
+          {/* Componente de Previsión */}
+          <PrevisionSelector
+            value={{
+              previsional_regime: formData.previsional_regime,
+              afp: formData.afp,
+              health_system: formData.health_system,
+              health_plan: formData.health_plan,
+              health_plan_percentage: formData.health_plan_percentage,
+              other_regime_type: formData.other_regime_type,
+              manual_regime_label: formData.manual_regime_label,
+              manual_pension_rate: formData.manual_pension_rate,
+              manual_health_rate: formData.manual_health_rate,
+              manual_base_type: formData.manual_base_type,
+              manual_employer_rate: formData.manual_employer_rate,
+            }}
+            onChange={(previsionData) => setFormData({ ...formData, ...previsionData })}
+            required
+          />
           {/* Fila 8: Tipo de contrato, Estado */}
           <div className="form-row">
             <div className="form-group">

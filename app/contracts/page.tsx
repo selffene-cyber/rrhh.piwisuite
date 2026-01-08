@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { FaFileContract, FaPlus, FaEdit, FaTrash, FaEye } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { calculateExpirationStatus } from '@/lib/services/contractNotifications'
 
 export default function ContractsPage() {
   const { companyId } = useCurrentCompany()
@@ -182,6 +183,39 @@ export default function ContractsPage() {
         }}
       >
         {badge.text}
+      </span>
+    )
+  }
+  
+  const getExpirationBadge = (endDate: string | null, contractType: string, contractStatus: string) => {
+    // Solo mostrar badge para contratos activos
+    if (contractStatus !== 'active') {
+      return null
+    }
+    
+    const expiration = calculateExpirationStatus(endDate, contractType)
+    
+    // No mostrar badge si está "activo" (más de 30 días)
+    if (expiration.status === 'active') {
+      return null
+    }
+    
+    return (
+      <span
+        className="badge"
+        style={{
+          background: expiration.color + '20',
+          color: expiration.color,
+          border: `1px solid ${expiration.color}`,
+          fontSize: '11px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          marginTop: '4px'
+        }}
+      >
+        {expiration.icon} {expiration.message}
       </span>
     )
   }
@@ -376,7 +410,14 @@ export default function ContractsPage() {
                       </td>
                     )}
                     <td>{formatDate(item.start_date)}</td>
-                    <td>{item.end_date ? formatDate(item.end_date) : '-'}</td>
+                    <td>
+                      {item.end_date ? (
+                        <div>
+                          <div>{formatDate(item.end_date)}</div>
+                          {isContract && getExpirationBadge(item.end_date, item.contract_type, item.status)}
+                        </div>
+                      ) : '-'}
+                    </td>
                     <td>{getStatusBadge(item.status)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>

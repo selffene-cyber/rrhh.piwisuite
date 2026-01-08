@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import { Document, Page, Text, View, StyleSheet, PDFViewer, pdf } from '@react-pdf/renderer'
 import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
+import { formatRut } from '@/lib/utils/rutHelper'
 
 // Función para dividir texto largo sin cortar palabras
 const splitLongText = (text: string, maxLength: number = 20): string[] => {
@@ -217,7 +218,7 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                 <>
                   <Text>{company.name || ''}</Text>
                   <Text>{company.employer_name || ''}</Text>
-                  <Text>{company.rut || ''}</Text>
+                  <Text>{company.rut ? formatRut(company.rut) : ''}</Text>
                   {company.address && <Text>{company.address}</Text>}
                   {company.city && <Text>{company.city}</Text>}
                 </>
@@ -235,7 +236,7 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                   </View>
                   <View style={styles.row}>
                     <Text style={styles.labelTwoCol}>RUT:</Text>
-                    <Text style={styles.valueTwoCol}>{slip.employees?.rut || ''}</Text>
+                    <Text style={styles.valueTwoCol}>{slip.employees?.rut ? formatRut(slip.employees.rut) : ''}</Text>
                   </View>
                   <View style={styles.row}>
                     <Text style={styles.labelTwoCol}>AFP:</Text>

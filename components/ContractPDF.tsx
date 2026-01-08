@@ -2,6 +2,7 @@
 
 import { Document, Page, Text, View, StyleSheet, PDFViewer, Image } from '@react-pdf/renderer'
 import { generateContractText, formatDateLegal } from '@/lib/utils/contractText'
+import { formatRut } from '@/lib/utils/rutHelper'
 
 // Función para renderizar texto con partes en negrita marcadas con asteriscos
 function renderBoldText(text: string, baseStyle: any) {
@@ -118,7 +119,7 @@ interface ContractPDFProps {
 export default function ContractPDF({ contract, employee, company }: ContractPDFProps) {
   // Generar nombre del archivo: CONTRATO-{RUT}-{DD-MM-AAAA}
   const generateFileName = () => {
-    const rut = employee?.rut || 'SIN-RUT'
+    const rut = employee?.rut ? formatRut(employee.rut) : 'SIN-RUT'
     const startDate = contract?.start_date ? new Date(contract.start_date) : new Date()
     const day = String(startDate.getDate()).padStart(2, '0')
     const month = String(startDate.getMonth() + 1).padStart(2, '0')
@@ -209,7 +210,7 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
               <View style={styles.signatureRow}>
                 <View style={styles.signatureBox}>
                   <Text>{employee?.full_name || 'TRABAJADOR'}</Text>
-                  <Text style={{ fontSize: 8, marginTop: 4 }}>RUT: {employee?.rut || 'N/A'}</Text>
+                  <Text style={{ fontSize: 8, marginTop: 4 }}>RUT: {employee?.rut ? formatRut(employee.rut) : 'N/A'}</Text>
                   <Text style={{ fontSize: 8, marginTop: 4 }}>FIRMA</Text>
                 </View>
                 <View style={styles.signatureBox}>

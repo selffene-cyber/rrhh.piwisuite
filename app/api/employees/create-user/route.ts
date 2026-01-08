@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verificar que el empleado existe y pertenece a la empresa del usuario
+    // Verificar que el empleado existe y obtener sus datos
     const { data: employee, error: empError } = await supabase
       .from('employees')
-      .select('id, company_id')
+      .select('id, company_id, full_name')
       .eq('id', employee_id)
       .single()
 
@@ -130,6 +130,8 @@ export async function POST(request: NextRequest) {
       email_confirm: true, // No requiere verificación de email
       user_metadata: {
         is_employee: true,
+        full_name: employee.full_name || '',
+        default_company_id: employee.company_id,
       },
     })
 
@@ -153,6 +155,8 @@ export async function POST(request: NextRequest) {
         id: authData.user.id,
         email: email,
         role: 'user', // Trabajadores tienen rol 'user' por defecto
+        full_name: employee.full_name || '',
+        default_company_id: employee.company_id,
         must_change_password: true, // Debe cambiar contraseña en primer login
         password_changed_at: null,
       }, {

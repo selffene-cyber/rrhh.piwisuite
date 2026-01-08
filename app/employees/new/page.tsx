@@ -10,6 +10,11 @@ import { CostCenter } from '@/types'
 import { getCostCenters, createCostCenter, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { isSuperAdmin } from '@/lib/services/auth'
 import DepartmentSelector from '@/components/DepartmentSelector'
+import PrevisionSelector, { PrevisionFormData } from '@/components/PrevisionSelector'
+import BankSelector from '@/components/BankSelector'
+import RegionCommuneSelector from '@/components/RegionCommuneSelector'
+import RutInput from '@/components/RutInput'
+import { normalizeRutForStorage } from '@/lib/utils/rutHelper'
 import { FaPlus, FaTimes } from 'react-icons/fa'
 
 export default function NewEmployeePage() {
@@ -26,8 +31,11 @@ export default function NewEmployeePage() {
     rut: '',
     birth_date: '',
     address: '',
+    region_id: null as string | null,
+    commune_id: null as string | null,
     phone: '',
     email: '',
+    bank_id: null as string | null,
     bank_name: '',
     account_type: '',
     account_number: '',
@@ -35,10 +43,19 @@ export default function NewEmployeePage() {
     position: '',
     cost_center_id: '',
     department_id: '',
+    // Campos previsionales (manejados por PrevisionSelector)
+    previsional_regime: 'AFP' as 'AFP' | 'OTRO_REGIMEN',
     afp: 'PROVIDA',
     health_system: 'FONASA',
     health_plan: '',
     health_plan_percentage: '',
+    other_regime_type: '',
+    manual_regime_label: '',
+    manual_pension_rate: '',
+    manual_health_rate: '',
+    manual_base_type: 'imponible' as 'base' | 'imponible',
+    manual_employer_rate: '',
+    // Otros campos
     base_salary: '',
     transportation: '',
     meal_allowance: '',
@@ -190,11 +207,9 @@ export default function NewEmployeePage() {
       const employeeData: any = {
         company_id: companyId, // Asignar la empresa actual
         full_name: formData.full_name.trim(),
-        rut: formData.rut.trim(),
+        rut: normalizeRutForStorage(formData.rut),  // Normalizar RUT a formato XX.XXX.XXX-X
         hire_date: formData.hire_date,
         position: formData.position.trim(),
-        afp: formData.afp,
-        health_system: formData.health_system,
         base_salary: baseSalary,
         transportation: parseFloat(formData.transportation) || 0,
         meal_allowance: parseFloat(formData.meal_allowance) || 0,
@@ -202,26 +217,60 @@ export default function NewEmployeePage() {
         contract_type: formData.contract_type,
         contract_end_date: formData.contract_type === 'plazo_fijo' ? (formData.contract_end_date?.trim() || null) : null,
         contract_other: formData.contract_type === 'otro' ? (formData.contract_other?.trim() || null) : null,
+        // Régimen previsional
+        previsional_regime: formData.previsional_regime || 'AFP',
+      }
+      
+      // Campos específicos según régimen
+      if (formData.previsional_regime === 'AFP') {
+        employeeData.afp = formData.afp || 'PROVIDA'
+        employeeData.health_system = formData.health_system || 'FONASA'
+        employeeData.afc_applicable = true // AFP sí tiene AFC
+        if (formData.health_system === 'ISAPRE') {
+          employeeData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
+        }
+      } else {
+        // Régimen especial
+        employeeData.other_regime_type = formData.other_regime_type || 'OTRO'
+        employeeData.afc_applicable = false // Regímenes especiales NO tienen AFC
+        if (formData.manual_regime_label?.trim()) {
+          employeeData.manual_regime_label = formData.manual_regime_label.trim()
+        }
+        if (formData.manual_pension_rate) {
+          employeeData.manual_pension_rate = parseFloat(formData.manual_pension_rate)
+        }
+        if (formData.manual_health_rate) {
+          employeeData.manual_health_rate = parseFloat(formData.manual_health_rate)
+        }
+        employeeData.manual_base_type = formData.manual_base_type || 'imponible'
+        if (formData.manual_employer_rate) {
+          employeeData.manual_employer_rate = parseFloat(formData.manual_employer_rate)
+        }
       }
 
       // Agregar campos opcionales solo si tienen valor
       if (formData.birth_date?.trim()) employeeData.birth_date = formData.birth_date.trim()
       if (formData.address?.trim()) employeeData.address = formData.address.trim()
+      
+      // Ubicación geográfica (región/comuna)
+      if (formData.region_id) employeeData.region_id = formData.region_id
+      if (formData.commune_id) employeeData.commune_id = formData.commune_id
+      
       if (formData.phone?.trim()) employeeData.phone = formData.phone.trim()
       if (formData.email?.trim()) employeeData.email = formData.email.trim()
-      if (formData.bank_name?.trim()) employeeData.bank_name = formData.bank_name.trim()
+      
+      // Banco: priorizar bank_id (nuevo sistema), fallback a bank_name (legacy)
+      if (formData.bank_id) {
+        employeeData.bank_id = formData.bank_id
+      } else if (formData.bank_name?.trim()) {
+        employeeData.bank_name = formData.bank_name.trim()
+      }
+      
       if (formData.account_type?.trim()) employeeData.account_type = formData.account_type.trim()
       if (formData.account_number?.trim()) employeeData.account_number = formData.account_number.trim()
       if (formData.cost_center_id?.trim()) employeeData.cost_center_id = formData.cost_center_id.trim()
       if (formData.department_id?.trim()) employeeData.department_id = formData.department_id.trim()
       if (formData.health_plan?.trim()) employeeData.health_plan = formData.health_plan.trim()
-      
-      // Porcentaje del plan ISAPRE
-      if (formData.health_system === 'ISAPRE') {
-        employeeData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
-      } else {
-        employeeData.health_plan_percentage = 0
-      }
 
       console.log('Enviando datos:', employeeData)
 
@@ -322,12 +371,11 @@ export default function NewEmployeePage() {
             </div>
             <div className="form-group">
               <label>RUT *</label>
-              <input
-                type="text"
-                required
+              <RutInput
                 value={formData.rut}
-                onChange={(e) => setFormData({ ...formData, rut: e.target.value })}
-                placeholder="12.345.678-9"
+                onChange={(value) => setFormData({ ...formData, rut: value })}
+                required
+                placeholder="Ej: 18.968.229-8"
               />
             </div>
             <div className="form-group">
@@ -372,16 +420,37 @@ export default function NewEmployeePage() {
             </div>
           </div>
 
+          {/* Fila: Región y Comuna */}
+          <div style={{ marginTop: '16px' }}>
+            <RegionCommuneSelector
+              regionValue={formData.region_id}
+              communeValue={formData.commune_id}
+              onChange={(regionId, communeId) => {
+                setFormData({
+                  ...formData,
+                  region_id: regionId,
+                  commune_id: communeId
+                })
+              }}
+              isAdmin={isAdmin}
+            />
+          </div>
+
           <h2 style={{ marginTop: '32px' }}>Datos Bancarios</h2>
           {/* Fila 3: Banco, Tipo de cuenta, Número de cuenta */}
           <div className="form-row">
             <div className="form-group">
               <label>Banco</label>
-              <input
-                type="text"
-                value={formData.bank_name}
-                onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                placeholder="Ej: Banco de Chile"
+              <BankSelector
+                value={formData.bank_id}
+                onChange={(bankId, bankName) => {
+                  setFormData({ 
+                    ...formData, 
+                    bank_id: bankId,
+                    bank_name: bankName || ''
+                  })
+                }}
+                isAdmin={isAdmin}
               />
             </div>
             <div className="form-group">
@@ -601,64 +670,25 @@ export default function NewEmployeePage() {
           <small style={{ color: '#6b7280', fontSize: '12px', display: 'block', marginTop: '-12px', marginBottom: '16px' }}>
             Movilización y Colación aparecerán precargados en las liquidaciones
           </small>
-          {/* Fila 6: AFP, Sistema de salud, Plan de salud */}
-          <div className="form-row">
-            <div className="form-group">
-              <label>AFP *</label>
-              <select
-                required
-                value={formData.afp}
-                onChange={(e) => setFormData({ ...formData, afp: e.target.value })}
-              >
-                {AVAILABLE_AFPS.map((afp) => (
-                  <option key={afp.value} value={afp.value}>
-                    {afp.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Sistema de Salud *</label>
-              <select
-                required
-                value={formData.health_system}
-                onChange={(e) => setFormData({ ...formData, health_system: e.target.value })}
-              >
-                {AVAILABLE_HEALTH_SYSTEMS.map((system) => (
-                  <option key={system.value} value={system.value}>
-                    {system.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Plan de Salud</label>
-              <input
-                type="text"
-                value={formData.health_plan}
-                onChange={(e) => setFormData({ ...formData, health_plan: e.target.value })}
-                placeholder="Nombre del plan (solo si es ISAPRE)"
-              />
-            </div>
-          </div>
-          {formData.health_system === 'ISAPRE' && (
-            <div className="form-group">
-              <label>Monto del Plan ISAPRE (UF) *</label>
-              <input
-                type="number"
-                required
-                min="0"
-                max="20"
-                step="0.01"
-                value={formData.health_plan_percentage}
-                onChange={(e) => setFormData({ ...formData, health_plan_percentage: e.target.value })}
-                placeholder="Ej: 2.4 (para 2.4 UF)"
-              />
-              <small style={{ color: '#6b7280', fontSize: '12px' }}>
-                Monto del plan ISAPRE en Unidades de Fomento (UF). Se calculará automáticamente al momento de la liquidación multiplicando este valor por el valor de UF del día. Ejemplo: si el plan es 2.4 UF, ingresa 2.4
-              </small>
-            </div>
-          )}
+          
+          {/* Componente de Previsión */}
+          <PrevisionSelector
+            value={{
+              previsional_regime: formData.previsional_regime,
+              afp: formData.afp,
+              health_system: formData.health_system,
+              health_plan: formData.health_plan,
+              health_plan_percentage: formData.health_plan_percentage,
+              other_regime_type: formData.other_regime_type,
+              manual_regime_label: formData.manual_regime_label,
+              manual_pension_rate: formData.manual_pension_rate,
+              manual_health_rate: formData.manual_health_rate,
+              manual_base_type: formData.manual_base_type,
+              manual_employer_rate: formData.manual_employer_rate,
+            }}
+            onChange={(previsionData) => setFormData({ ...formData, ...previsionData })}
+            required
+          />
           {/* Fila 8: Tipo de contrato, Estado */}
           <div className="form-row">
             <div className="form-group">
