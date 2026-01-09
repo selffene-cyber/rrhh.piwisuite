@@ -1725,10 +1725,49 @@ export default function NewAnnexPage() {
 
         {/* Cláusulas del Anexo */}
         <div className="card" style={{ marginBottom: '24px' }}>
-          <h2>4. Cláusulas del Anexo</h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
-            Las cláusulas se generan automáticamente basándose en los datos ingresados. Puedes editarlas individualmente y activar o desactivar las que necesites.
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h2>4. Cláusulas del Anexo</h2>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '8px', marginBottom: '0' }}>
+                Las cláusulas se generan automáticamente basándose en los datos ingresados.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const allClauses: any = {}
+                // Anexos tienen cláusulas 1, 2, 4, 5, 6 (sin TERCERO)
+                for (let i of [1, 2, 4, 5, 6]) {
+                  allClauses[`clause_${i}`] = generateClauseText(i)
+                }
+                setFormData({ ...formData, ...allClauses })
+                alert('✅ Todas las cláusulas han sido regeneradas')
+              }}
+              style={{ 
+                padding: '10px 20px', 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: '0 4px 6px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 6px rgba(102, 126, 234, 0.3)'
+              }}
+            >
+              🔄 Regenerar Todas las Cláusulas
+            </button>
+          </div>
           
           {[
             { num: 1, title: 'PRIMERO', label: 'Identificación y Contrato Base', key: 'clause_1' as const, enabledKey: 'clause_1_enabled' as const },

@@ -36,6 +36,7 @@ export interface Document {
   current_version_id?: string
   status: 'active' | 'archived'
   created_by?: string
+  employee_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -220,6 +221,30 @@ export async function createDocument(
     .single()
 
   if (error) throw error
+
+  // Si el documento está asociado a un empleado, registrar en el historial
+  if (data.employee_id && document.created_by) {
+    try {
+      await (supabase as any)
+        .from('employee_audit_events')
+        .insert({
+          employee_id: data.employee_id,
+          company_id: data.company_id,
+          event_type: 'document_uploaded',
+          description: `Documento cargado: ${data.name}`,
+          user_id: document.created_by,
+          metadata: {
+            document_id: data.id,
+            document_name: data.name,
+            category_id: data.category_id,
+          },
+        })
+    } catch (auditError) {
+      // No fallar la creación si falla el audit (log opcional)
+      console.error('Error al registrar en audit_events:', auditError)
+    }
+  }
+
   return data
 }
 

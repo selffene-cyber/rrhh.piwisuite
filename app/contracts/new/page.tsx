@@ -261,10 +261,34 @@ export default function NewContractPage() {
         return `El presente contrato se firma en dos ejemplares y se deja expresa constancia que el trabajador recibe una de ellas.`
       
       case 15: // DÉCIMO QUINTO: Previsional
-        const healthSystemText = selectedEmployee?.health_system === 'FONASA' ? 'FONASA' : 
-          selectedEmployee?.health_system === 'ISAPRE' ? `ISAPRE${selectedEmployee?.health_plan ? ` ${selectedEmployee.health_plan}` : ''}` : 
-          selectedEmployee?.health_system || 'FONASA'
-        return `Se deja expresa constancia que, para los efectos de la deducción de impuestos, cotizaciones de previsión o de seguridad social, como de otros legales que resulten procedentes por esta prestación de servicios, el trabajador declara pertenecer a la AFP ${selectedEmployee?.afp || 'N/A'} y a ${healthSystemText}.`
+        // Verificar si tiene régimen especial (DIPRECA, CAPREDENA, SIN_PREVISION)
+        if (selectedEmployee?.previsional_regime === 'OTRO_REGIMEN' && selectedEmployee?.other_regime_type) {
+          // Régimen especial
+          const regimeLabels: { [key: string]: string } = {
+            'DIPRECA': 'DIPRECA (Dirección de Previsión de Carabineros de Chile)',
+            'CAPREDENA': 'CAPREDENA (Caja de Previsión de la Defensa Nacional)',
+            'SIN_PREVISION': 'Sin Sistema Previsional (exento de cotizaciones previsionales)'
+          }
+          
+          const regimeLabel = regimeLabels[selectedEmployee.other_regime_type] || selectedEmployee.other_regime_type
+          
+          if (selectedEmployee.other_regime_type === 'SIN_PREVISION') {
+            return `Se deja expresa constancia que, para los efectos de la deducción de impuestos y cotizaciones que resulten procedentes por esta prestación de servicios, el trabajador declara estar exento de cotizaciones previsionales (${regimeLabel}), conforme a lo establecido en la legislación vigente.`
+          } else {
+            // DIPRECA o CAPREDENA
+            const healthText = selectedEmployee.manual_health_rate 
+              ? `sistema de salud administrado por ${regimeLabel.split('(')[0].trim()}`
+              : 'sistema de salud correspondiente'
+            
+            return `Se deja expresa constancia que, para los efectos de la deducción de impuestos y cotizaciones que resulten procedentes por esta prestación de servicios, el trabajador declara pertenecer al régimen previsional de ${regimeLabel}, y al ${healthText}, conforme a lo establecido en el DL N°3.500 de 1980 y normativa especial aplicable.`
+          }
+        } else {
+          // Régimen AFP normal
+          const healthSystemText = selectedEmployee?.health_system === 'FONASA' ? 'FONASA' : 
+            selectedEmployee?.health_system === 'ISAPRE' ? `ISAPRE${selectedEmployee?.health_plan ? ` ${selectedEmployee.health_plan}` : ''}` : 
+            selectedEmployee?.health_system || 'FONASA'
+          return `Se deja expresa constancia que, para los efectos de la deducción de impuestos, cotizaciones de previsión o de seguridad social, como de otros legales que resulten procedentes por esta prestación de servicios, el trabajador declara pertenecer a la AFP ${selectedEmployee?.afp || 'N/A'} y a ${healthSystemText}.`
+        }
       
       default:
         return ''
@@ -377,10 +401,10 @@ export default function NewContractPage() {
         setValidationSuggestion(null)
       }
       
-      // Cargar datos completos del empleado seleccionado (incluyendo datos bancarios y personales)
+      // Cargar datos completos del empleado seleccionado (incluyendo datos bancarios, personales y previsionales)
       const { data: employee, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, position, base_salary, hire_date, bank_name, account_type, account_number, address, phone, email, status, contract_type, contract_end_date, afp, health_system, health_plan')
+        .select('id, full_name, rut, position, base_salary, hire_date, bank_name, account_type, account_number, address, phone, email, status, contract_type, contract_end_date, afp, health_system, health_plan, previsional_regime, other_regime_type, manual_pension_rate, manual_health_rate, manual_employer_rate, manual_base_type, manual_regime_label')
         .eq('id', formData.employee_id)
         .single()
 
@@ -1071,10 +1095,48 @@ export default function NewContractPage() {
 
         {/* Cláusulas */}
         <div className="card" style={{ marginBottom: '24px' }}>
-          <h2>6. Cláusulas del Contrato</h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
-            Todas las cláusulas se generan automáticamente basándose en los datos ingresados arriba. Puedes editarlas individualmente si es necesario.
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h2>6. Cláusulas del Contrato</h2>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '8px', marginBottom: '0' }}>
+                Todas las cláusulas se generan automáticamente basándose en los datos ingresados arriba.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const allClauses: any = {}
+                for (let i = 1; i <= 15; i++) {
+                  allClauses[`clause_${i}`] = generateClauseText(i)
+                }
+                setFormData({ ...formData, ...allClauses })
+                alert('✅ Todas las cláusulas han sido regeneradas')
+              }}
+              style={{ 
+                padding: '10px 20px', 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: '0 4px 6px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 6px rgba(102, 126, 234, 0.3)'
+              }}
+            >
+              🔄 Regenerar Todas las Cláusulas
+            </button>
+          </div>
           
           {[
             { num: 1, title: 'PRIMERO', label: 'Cargo y Funciones', key: 'clause_1' },

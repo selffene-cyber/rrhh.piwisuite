@@ -568,6 +568,398 @@ Días restantes: 4 días (incluye sábado y domingo si fuera necesario)
 
 ---
 
+## 🏖️ Notificaciones de Vacaciones
+
+### ¿Qué Son?
+
+Además de las notificaciones de contratos, el sistema también monitorea las **vacaciones acumuladas** de los trabajadores para evitar pérdida de días por acumulación excesiva.
+
+**Base Legal**:
+- **Art. 70 Código del Trabajo**: Máximo 2 períodos acumulados (60 días)
+- **Ord. N°6287/2017 DT**: Empleador debe otorgar feriado antes de perder días
+- **Ord. N°307/2025 DT**: Empleador es responsable de gestionar acumulación
+
+---
+
+### Niveles de Alerta de Vacaciones
+
+Las notificaciones de vacaciones se generan automáticamente cuando un trabajador acumula días en exceso:
+
+#### 🔴 CRÍTICO - RIESGO DE PÉRDIDA
+
+**Condición**: Trabajador con ≥ 60 días acumulados (2 períodos completos)
+
+```
+Estado del Botón:
+[🔔 Rojo con Animación + Badge]
+
+Mensaje:
+¡CRÍTICO! Trabajador con 62.5 días acumulados (2 períodos). 
+Puede perder días si no toma vacaciones pronto.
+
+Referencia Legal: Art. 70 Código del Trabajo
+```
+
+**¿Qué significa?**:
+- El trabajador ha alcanzado el máximo legal de acumulación
+- Si acumula más días, los más antiguos se eliminarán automáticamente
+- **Acción inmediata requerida**: Obligar al trabajador a tomar vacaciones
+
+**¿Qué hacer?**:
+1. Notificar al trabajador inmediatamente
+2. Programar al menos 15 días de vacaciones
+3. Enviar notificación formal (carta o email)
+4. Registrar en ficha del trabajador
+
+---
+
+#### ⚠️ URGENTE - ALTA ACUMULACIÓN
+
+**Condición**: Trabajador con 45-59 días acumulados
+
+```
+Estado del Botón:
+[🔔 Naranja + Badge]
+
+Mensaje:
+Trabajador con 47.5 días acumulados. 
+Planificar vacaciones pronto para evitar pérdida.
+
+Referencia Legal: Ord. N°6287/2017 DT
+```
+
+**¿Qué significa?**:
+- El trabajador está cerca del límite legal
+- En 3-6 meses puede perder días si no toma vacaciones
+
+**¿Qué hacer?**:
+1. Coordinar con el trabajador para programar vacaciones
+2. Incluir en planificación mensual
+3. Ofrecer flexibilidad de fechas
+4. Hacer seguimiento cada 2 semanas
+
+---
+
+#### 🟡 MODERADO - PLANIFICAR
+
+**Condición**: Trabajador con 30-44 días acumulados
+
+```
+Estado del Botón:
+[🔔 Amarillo + Badge]
+
+Mensaje:
+Trabajador con 35.0 días acumulados. 
+Considerar programación de vacaciones.
+
+Referencia Legal: Ord. N°307/2025 DT
+```
+
+**¿Qué significa?**:
+- El trabajador tiene más de 2 períodos de vacaciones sin tomar
+- Buena práctica: planificar dentro del trimestre
+
+**¿Qué hacer?**:
+1. Incluir en planificación trimestral
+2. Revisar en reuniones 1:1
+3. Sugerir fechas al trabajador
+4. Monitorear mensualmente
+
+---
+
+### Integración: Contratos + Vacaciones
+
+El sistema combina ambos tipos de notificaciones en el mismo botón del header:
+
+```
+┌─────────────────────────────────────────────┐
+│  Notificaciones                          [X]│
+│  2 contratos críticos, 1 vacación crítica  │
+├─────────────────────────────────────────────┤
+│  📄 CONTRATOS                               │
+│  ⚠️ VENCIDOS / VENCEN HOY (2)              │
+│                                             │
+│  CT-045 - María González                   │
+│  🔴 Vencido hace 2 días                    │
+│                                             │
+│  CT-078 - Carlos Ramírez                   │
+│  ⚠️ Vence en 3 días                        │
+├─────────────────────────────────────────────┤
+│  🏖️ VACACIONES                             │
+│  🔴 CRÍTICO - RIESGO DE PÉRDIDA (1)        │
+│                                             │
+│  Juan Pérez González                        │
+│  12.345.678-9                              │
+│  🔴 62.5 días acumulados                   │
+│  ⚠️ Puede perder días pronto               │
+│  [Ver Ficha →]                             │
+├─────────────────────────────────────────────┤
+│  Ver todos los contratos →                  │
+│  Ver gestión de vacaciones →               │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+### Colores y Prioridades
+
+El botón de notificaciones toma el color de la alerta **más crítica** entre contratos y vacaciones:
+
+| Contratos | Vacaciones | Color del Botón | Animación |
+|-----------|------------|-----------------|-----------|
+| 🔴 Crítico | 🟡 Moderado | 🔴 Rojo | ✅ Sí |
+| ⚠️ Urgente | 🔴 Crítico | 🔴 Rojo | ✅ Sí |
+| 🟡 Próximo | 🟡 Moderado | 🟡 Amarillo | ❌ No |
+| ✅ Sin alertas | ✅ Sin alertas | 🔵 Azul | ❌ No |
+
+**Regla**: Siempre se prioriza el nivel más alto de urgencia, independientemente del tipo.
+
+---
+
+### Interacción con Notificaciones de Vacaciones
+
+#### Hacer Clic en una Notificación de Vacaciones
+
+```
+Acción: Click en "Juan Pérez - 62.5 días"
+Resultado: Redirige a /employees/{id}/vacations
+```
+
+En la ficha del trabajador verás:
+- Resumen de días acumulados y disponibles
+- Histórico de períodos (incluso archivados)
+- Botón para registrar nueva vacación
+- Historial de vacaciones tomadas
+
+#### Ver Todas las Notificaciones de Vacaciones
+
+```
+Acción: Click en "Ver gestión de vacaciones →"
+Resultado: Redirige a /vacations (dashboard general)
+```
+
+En el dashboard verás:
+- Tabla con todos los trabajadores
+- KPIs de acumulación
+- Ordenamiento por días acumulados
+- Filtros por períodos
+
+---
+
+### Frecuencia de Actualización
+
+Las notificaciones de vacaciones se actualizan automáticamente:
+
+- **Al abrir el dropdown**: Recalcula días acumulados en tiempo real
+- **Al cambiar de empresa**: Carga notificaciones de la nueva empresa
+- **Cada 5 minutos**: Actualización en segundo plano (igual que contratos)
+- **Al registrar vacaciones**: Actualiza inmediatamente al guardar
+
+---
+
+### Ejemplo Completo: Notificación Mixta
+
+**Escenario**: Empresa con 2 contratos críticos y 1 vacación crítica
+
+```
+Estado del Botón:
+┌─────────────┐
+│   🔔 Rojo   │  ← Color rojo por alertas críticas
+│  Badge: 3   │  ← Total: 2 contratos + 1 vacación
+│  Animación  │  ← Shake por criticidad
+└─────────────┘
+
+Al abrir:
+┌────────────────────────────────────────────────────┐
+│ Notificaciones de Contratos y Vacaciones       [X] │
+│ 2 contratos críticos, 1 vacación crítica           │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│ 📄 CONTRATOS                                       │
+│ ⚠️ VENCIDOS / VENCEN HOY (2)                      │
+│                                                    │
+│ 📄 CT-045                                          │
+│    María González (15.234.567-8)                  │
+│    🔴 ¡Vencido! Venció hace 2 días                │
+│    Fecha término: 05/01/2025                       │
+│                                                    │
+│ 📄 CT-078                                          │
+│    Carlos Ramírez (18.765.432-1)                  │
+│    ⚠️ Vence en 3 días                             │
+│    Fecha término: 11/01/2025                       │
+│                                                    │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│ 🏖️ VACACIONES                                      │
+│ 🔴 CRÍTICO - RIESGO DE PÉRDIDA (1)                │
+│                                                    │
+│ 👤 Juan Pérez González                            │
+│    12.345.678-9                                    │
+│    Ingreso: 01/01/2022                            │
+│    📊 62.5 días acumulados (2 períodos)           │
+│    ⚠️ ¡CRÍTICO! Puede perder días pronto          │
+│    Art. 70 Código del Trabajo                     │
+│    [Ver Ficha del Trabajador →]                   │
+│                                                    │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│   Ver todos los contratos →                        │
+│   Ver gestión de vacaciones →                      │
+│                                                    │
+└────────────────────────────────────────────────────┘
+```
+
+---
+
+### Preguntas Frecuentes (Vacaciones)
+
+#### ¿Por qué no aparecen todas las vacaciones?
+
+Solo se muestran las **críticas, urgentes o moderadas** (≥30 días acumulados).
+
+Si un trabajador tiene 20 días acumulados, no aparece porque está dentro de lo normal.
+
+---
+
+#### ¿Puedo desactivar las notificaciones de vacaciones?
+
+No, son parte del cumplimiento legal del **Art. 70 del Código del Trabajo**.
+
+El empleador tiene la obligación de gestionar la acumulación de vacaciones.
+
+---
+
+#### ¿Qué pasa si ignoro una notificación de vacación?
+
+**A corto plazo**:
+- La notificación permanece visible
+- El badge aumenta
+- El botón se mantiene rojo/naranja
+
+**Al llegar a 60+ días**:
+- El sistema archiva automáticamente los períodos más antiguos
+- El trabajador pierde esos días (sin compensación)
+- Riesgo legal para la empresa por incumplimiento
+
+**Solución**:
+- Obligar al trabajador a tomar vacaciones (derecho legal del empleador)
+- Programar al menos 15 días
+- Documentar la notificación formal
+
+---
+
+#### ¿Se puede obligar al trabajador a tomar vacaciones?
+
+**Sí**, según el **Art. 70 del Código del Trabajo**:
+
+```
+El empleador puede fijar el período de feriado de común acuerdo
+con el trabajador. A falta de acuerdo, el empleador podrá fijarlas
+determinando entre los meses de abril a septiembre.
+```
+
+**Requisitos**:
+- Notificar por escrito con al menos 30 días de anticipación
+- Dar preferencia a períodos solicitados por el trabajador
+- Documentar en ficha del trabajador
+
+---
+
+#### ¿Cómo se calculan los 1.25 días por mes?
+
+```
+Fórmula: Meses completos trabajados × 1.25 días/mes
+
+Ejemplo:
+  Ingreso: 1 de enero de 2022
+  Hoy: 8 de enero de 2025
+  Meses completos: 36 meses
+  
+  Cálculo: 36 × 1.25 = 45.00 días acumulados
+  
+  Distribución:
+    2022: 12 meses × 1.25 = 15 días
+    2023: 12 meses × 1.25 = 15 días
+    2024: 12 meses × 1.25 = 15 días
+    Total: 45 días
+  
+  Disponible (máx legal): 30 días (últimos 2 períodos)
+  Perdidos (archivados): 15 días (período 2022)
+```
+
+---
+
+#### ¿Puedo ver el historial completo de períodos?
+
+**Sí**, en la ficha del trabajador (`/employees/{id}/vacations`).
+
+El sistema ahora muestra **todos** los períodos, incluso los archivados:
+
+```
+Tabla de Períodos:
+┌──────┬─────────────┬────────┬──────────────┬──────────┐
+│ Año  │ Acumulados  │ Usados │ Disponibles  │ Estado   │
+├──────┼─────────────┼────────┼──────────────┼──────────┤
+│ 2022 │ 15.00 días  │ 0 días │ 0 días       │ ARCHIVED │
+│      │             │        │              │ (máx 2)  │
+├──────┼─────────────┼────────┼──────────────┼──────────┤
+│ 2023 │ 15.00 días  │ 15 días│ 0 días       │ COMPLETED│
+├──────┼─────────────┼────────┼──────────────┼──────────┤
+│ 2024 │ 15.00 días  │ 0 días │ 15.00 días   │ ACTIVE   │
+└──────┴─────────────┴────────┴──────────────┴──────────┘
+```
+
+Útil para:
+- Auditorías laborales
+- Resolver conflictos
+- Demostrar cumplimiento legal
+
+---
+
+### Mejores Prácticas Combinadas
+
+#### Para Administradores
+
+1. **Revisar notificaciones al iniciar sesión**:
+   - Priorizar ROJAS (contratos y vacaciones críticas)
+   - Gestionar NARANJAS dentro del día
+   - Planificar AMARILLAS semanalmente
+
+2. **Documentar todas las acciones**:
+   - Contratos renovados/terminados
+   - Vacaciones programadas
+   - Notificaciones enviadas a trabajadores
+
+3. **Usar el dashboard específico según el tipo**:
+   - `/contracts` para contratos
+   - `/vacations` para vacaciones
+   - Exportar reportes mensualmente
+
+4. **Coordinación entre módulos**:
+   - Si un contrato vence, revisar vacaciones pendientes del trabajador
+   - Al programar vacaciones, verificar que el contrato esté vigente
+   - Anticipar finiquitos si hay acumulación + término de contrato
+
+---
+
+#### Para Trabajadores
+
+1. **Revisar el botón de notificaciones regularmente**:
+   - Si es rojo → Acción inmediata necesaria
+   - Si es naranja → Revisar en las próximas horas
+   - Si es azul → Todo está en orden
+
+2. **Planificar con anticipación**:
+   - Vacaciones: solicitar con 30 días de aviso
+   - Contratos: renovar al menos 15 días antes del vencimiento
+
+3. **Consultar con RR.HH.** si:
+   - El botón se mantiene rojo por mucho tiempo
+   - Hay notificaciones que no entienden
+   - Necesitan orientación sobre qué hacer
+
+---
+
 ## 🔧 Información Técnica
 
 ### Para Desarrolladores y Administradores de Sistema

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/utils/date'
@@ -32,13 +32,23 @@ export default function DocumentsDashboardPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('active')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('')
+
+  // Debounce para el searchQuery
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500) // Espera 500ms después de que el usuario deja de escribir
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   useEffect(() => {
     if (currentCompany) {
       loadCategories()
       loadData()
     }
-  }, [currentCompany, filterCategory, filterStatus, searchQuery])
+  }, [currentCompany, filterCategory, filterStatus, debouncedSearchQuery])
 
   const loadCategories = async () => {
     if (!currentCompany) return
@@ -72,8 +82,8 @@ export default function DocumentsDashboardPage() {
         params.append('status', filterStatus)
       }
 
-      if (searchQuery) {
-        params.append('search', searchQuery)
+      if (debouncedSearchQuery) {
+        params.append('search', debouncedSearchQuery)
       }
 
       const response = await fetch(`/api/documents?${params.toString()}`)
@@ -237,6 +247,11 @@ export default function DocumentsDashboardPage() {
                 placeholder="Buscar por nombre o descripción..."
                 style={{ padding: '6px 12px 6px 36px', borderRadius: '6px', border: '1px solid #d1d5db', width: '100%' }}
               />
+              {searchQuery !== debouncedSearchQuery && (
+                <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#6b7280' }}>
+                  Buscando...
+                </div>
+              )}
             </div>
           </div>
           <div>

@@ -16,6 +16,9 @@ export interface VacationPeriod {
   accumulated_days: number
   used_days: number
   available_days: number
+  status?: string // 'active' | 'completed' | 'archived'
+  archived_reason?: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -147,19 +150,29 @@ export function calculateAccumulatedDaysForYear(
 }
 
 /**
- * Obtiene o crea los períodos de vacaciones de un trabajador
+ * Obtiene los períodos de vacaciones de un trabajador
  * Aplica la regla de máximo 2 períodos (60 días)
  * @param employeeId ID del trabajador
+ * @param includeArchived Si es true, incluye períodos archivados (histórico completo)
  * @returns Array de períodos ordenados por año (más antiguo primero)
  */
-export async function getVacationPeriods(employeeId: string): Promise<VacationPeriod[]> {
+export async function getVacationPeriods(
+  employeeId: string,
+  includeArchived: boolean = false
+): Promise<VacationPeriod[]> {
   try {
-    // Obtener períodos existentes
-    const { data: periods, error } = await supabase
+    // Construir query base
+    let query = supabase
       .from('vacation_periods')
       .select('*')
       .eq('employee_id', employeeId)
-      .order('period_year', { ascending: true })
+    
+    // Si no se incluyen archivados, filtrar solo activos y completados
+    if (!includeArchived) {
+      query = query.in('status', ['active', 'completed'])
+    }
+    
+    const { data: periods, error } = await query.order('period_year', { ascending: true })
     
     if (error) throw error
     
@@ -223,20 +236,26 @@ export async function syncVacationPeriods(
       if (error) throw error
     }
     
-    // Obtener todos los períodos y aplicar regla de máximo 2 períodos
-    const allPeriods = await getVacationPeriods(employeeId)
+    // Obtener todos los períodos activos (no archivados)
+    const { data: activePeriods } = await supabase
+      .from('vacation_periods')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .in('status', ['active', 'completed'])
+      .order('period_year', { ascending: false })
     
-    // Ordenar por año descendente (más reciente primero)
-    const sortedPeriods = [...allPeriods].sort((a, b) => b.period_year - a.period_year)
-    
-    // Si hay más de 2 períodos, eliminar los más antiguos (mantener solo los 2 más recientes)
-    if (sortedPeriods.length > 2) {
-      const periodsToDelete = sortedPeriods.slice(2) // Todos excepto los 2 primeros
+    // Si hay más de 2 períodos activos, archivar los más antiguos (Art. 70 Código del Trabajo)
+    if (activePeriods && activePeriods.length > 2) {
+      const periodsToArchive = activePeriods.slice(2) // Todos excepto los 2 primeros (más recientes)
       
-      for (const period of periodsToDelete) {
+      for (const period of periodsToArchive) {
         const { error } = await supabase
           .from('vacation_periods')
-          .delete()
+          .update({
+            status: 'archived',
+            archived_reason: 'Límite máximo de 2 períodos según Art. 70 Código del Trabajo',
+            archived_at: new Date().toISOString(),
+          })
           .eq('id', period.id)
         
         if (error) throw error
@@ -249,54 +268,146 @@ export async function syncVacationPeriods(
 }
 
 /**
- * Asigna días de vacaciones a un período
- * Siempre asigna al período más antiguo primero (FIFO)
+ * Asigna días de vacaciones a uno o más períodos usando FIFO (First In, First Out)
+ * FIFO significa que siempre se descuentan primero los días del período más antiguo
  * @param employeeId ID del trabajador
- * @param days Días a asignar (puede ser negativo para períodos futuros)
- * @param periodYear Año del período (opcional, si no se especifica se usa el más antiguo disponible)
- * @returns Período al que se asignaron los días
+ * @param days Días a asignar (positivo para usar, negativo para devolver)
+ * @param periodYear Año del período (opcional, para asignación manual con autorización)
+ * @param allowArchived Si permite tomar días de períodos archivados (requiere autorización admin)
+ * @returns Array de períodos actualizados
  */
 export async function assignVacationDays(
   employeeId: string,
   days: number,
-  periodYear?: number
-): Promise<VacationPeriod | null> {
+  periodYear?: number,
+  allowArchived: boolean = false
+): Promise<VacationPeriod[]> {
   try {
-    const periods = await getVacationPeriods(employeeId)
+    // Si se especifica año específico, buscar en TODOS los períodos (incluyendo archivados)
+    // Si no, solo períodos activos/completados
+    const includeArchivedForSearch = periodYear ? true : allowArchived
+    const periods = await getVacationPeriods(employeeId, includeArchivedForSearch)
     
     if (periods.length === 0) {
       throw new Error('No hay períodos de vacaciones para este trabajador')
     }
     
-    // Si se especifica el año, usar ese período
-    // Si no, usar el más antiguo disponible
-    let targetPeriod: VacationPeriod | null = null
-    
+    // Modo Manual: Si se especifica el año (con autorización de admin)
     if (periodYear) {
-      targetPeriod = periods.find(p => p.period_year === periodYear) || null
-    } else {
-      // Ordenar por año ascendente (más antiguo primero)
-      const sortedPeriods = [...periods].sort((a, b) => a.period_year - b.period_year)
-      targetPeriod = sortedPeriods[0] || null
+      const targetPeriod = periods.find(p => p.period_year === periodYear)
+      if (!targetPeriod) {
+        throw new Error(`No se encontró el período ${periodYear}`)
+      }
+      
+      const availableInPeriod = targetPeriod.accumulated_days - targetPeriod.used_days
+      
+      // Verificar si el período está archivado
+      if (targetPeriod.status === 'archived') {
+        // Si está archivado y no tiene días disponibles, rechazar
+        if (availableInPeriod <= 0 && days > 0) {
+          throw new Error(
+            `❌ El período ${periodYear} está archivado y no tiene días disponibles (saldo: ${availableInPeriod.toFixed(2)} días). ` +
+            `Solo se pueden tomar días de períodos archivados si aún tienen saldo positivo.`
+          )
+        }
+        
+        // Si tiene días disponibles, permitir con advertencia
+        if (days > 0 && availableInPeriod > 0) {
+          console.warn(
+            `⚠️ AUTORIZACIÓN ESPECIAL: Se están tomando ${days} días del período ARCHIVADO ${periodYear}. ` +
+            `Disponible: ${availableInPeriod.toFixed(2)} días. Esta operación requiere autorización explícita de administrador.`
+          )
+        }
+      }
+      
+      // Validar que no se excedan los días acumulados
+      const newUsedDays = targetPeriod.used_days + days
+      if (newUsedDays > targetPeriod.accumulated_days && days > 0) {
+        throw new Error(
+          `No se pueden tomar ${days} días del período ${periodYear}. ` +
+          `Solo hay ${availableInPeriod.toFixed(2)} días disponibles.`
+        )
+      }
+      
+      // Actualizar estado si se completa el período
+      const newStatus = (newUsedDays >= targetPeriod.accumulated_days) ? 'completed' : targetPeriod.status
+      
+      const { data: updated, error } = await supabase
+        .from('vacation_periods')
+        .update({ 
+          used_days: Math.max(0, newUsedDays),
+          status: newStatus
+        })
+        .eq('id', targetPeriod.id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      return [updated]
     }
     
-    if (!targetPeriod) {
-      throw new Error('No se encontró el período de vacaciones')
+    // Modo FIFO Automático: Solo períodos ACTIVOS (no archivados)
+    const activePeriods = periods.filter(p => p.status !== 'archived')
+    
+    if (activePeriods.length === 0) {
+      throw new Error(
+        'No hay períodos activos disponibles. ' +
+        'Si desea tomar días de un período archivado, debe especificar el año manualmente y contar con autorización de administrador.'
+      )
     }
     
-    // Actualizar días usados
-    const newUsedDays = targetPeriod.used_days + days
+    // Ordenar por año ascendente (más antiguo primero) para FIFO
+    const sortedPeriods = [...activePeriods].sort((a, b) => a.period_year - b.period_year)
     
-    const { data: updated, error } = await supabase
-      .from('vacation_periods')
-      .update({ used_days: Math.max(0, newUsedDays) })
-      .eq('id', targetPeriod.id)
-      .select()
-      .single()
+    let remainingDays = days
+    const updatedPeriods: VacationPeriod[] = []
     
-    if (error) throw error
+    for (const period of sortedPeriods) {
+      if (remainingDays <= 0) break
+      
+      // Calcular días disponibles en este período
+      const availableInPeriod = period.accumulated_days - period.used_days
+      
+      // Calcular cuántos días asignar a este período
+      const daysToAssign = Math.min(remainingDays, availableInPeriod)
+      
+      if (daysToAssign > 0) {
+        const newUsedDays = period.used_days + daysToAssign
+        
+        // Actualizar estado si el período se completa
+        const newStatus = (newUsedDays >= period.accumulated_days) ? 'completed' : period.status
+        
+        const { data: updated, error } = await supabase
+          .from('vacation_periods')
+          .update({ 
+            used_days: newUsedDays,
+            status: newStatus
+          })
+          .eq('id', period.id)
+          .select()
+          .single()
+        
+        if (error) throw error
+        
+        updatedPeriods.push(updated)
+        remainingDays -= daysToAssign
+      }
+    }
     
-    return updated
+    // Si quedan días sin asignar, significa que no hay suficientes días disponibles
+    if (remainingDays > 0) {
+      const totalAvailable = activePeriods.reduce((sum, p) => 
+        sum + (p.accumulated_days - p.used_days), 0
+      )
+      throw new Error(
+        `No hay suficientes días activos disponibles. ` +
+        `Solicitados: ${days} días, Disponibles: ${totalAvailable.toFixed(2)} días, ` +
+        `Faltan: ${remainingDays.toFixed(2)} días.`
+      )
+    }
+    
+    return updatedPeriods
   } catch (error) {
     console.error('Error al asignar días de vacaciones:', error)
     throw error

@@ -150,8 +150,10 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
           return
         }
         
-        // Asignar días al período (siempre al más antiguo primero)
-        assignedPeriod = await assignVacationDays(params.id, formData.days_count, periodYear)
+        // Asignar días al período (FIFO: siempre al más antiguo primero)
+        const assignedPeriods = await assignVacationDays(params.id, formData.days_count, periodYear)
+        // Tomar el primer período asignado para registrar en la vacación
+        assignedPeriod = assignedPeriods.length > 0 ? assignedPeriods[0] : null
       }
 
       // Validar que el empleado pueda recibir una vacación (requiere contrato activo)
@@ -576,7 +578,8 @@ function VacationPeriodsDisplay({ employeeId }: { employeeId: string }) {
 
   const loadPeriods = async () => {
     try {
-      const periodsData = await getVacationPeriods(employeeId)
+      // Cargar TODOS los períodos, incluyendo archivados (historial completo)
+      const periodsData = await getVacationPeriods(employeeId, true)
       setPeriods(periodsData)
     } catch (error: any) {
       console.error('Error al cargar períodos:', error)
@@ -593,38 +596,160 @@ function VacationPeriodsDisplay({ employeeId }: { employeeId: string }) {
     return <p style={{ color: '#6b7280' }}>No hay períodos de vacaciones registrados.</p>
   }
 
+  // Función para obtener el badge de estado
+  const getStatusBadge = (period: any) => {
+    const status = period.status || 'active'
+    
+    const badges: { [key: string]: { label: string; bg: string; color: string; icon: string } } = {
+      'active': { 
+        label: 'Activo', 
+        bg: '#dcfce7', 
+        color: '#166534',
+        icon: '✓'
+      },
+      'completed': { 
+        label: 'Agotado', 
+        bg: '#fef3c7', 
+        color: '#92400e',
+        icon: '✓'
+      },
+      'archived': { 
+        label: 'Archivado', 
+        bg: '#fee2e2', 
+        color: '#991b1b',
+        icon: '⚠'
+      }
+    }
+    
+    const badge = badges[status] || badges['active']
+    
+    return (
+      <span style={{
+        display: 'inline-block',
+        padding: '4px 10px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: '600',
+        backgroundColor: badge.bg,
+        color: badge.color,
+        border: `1px solid ${badge.color}40`
+      }}>
+        {badge.icon} {badge.label}
+      </span>
+    )
+  }
+
   return (
-    <table style={{ width: '100%' }}>
-      <thead>
-        <tr>
-          <th style={{ textAlign: 'left', padding: '12px' }}>Año</th>
-          <th style={{ textAlign: 'right', padding: '12px' }}>Acumulado</th>
-          <th style={{ textAlign: 'right', padding: '12px' }}>Usado</th>
-          <th style={{ textAlign: 'right', padding: '12px' }}>Disponible</th>
-        </tr>
-      </thead>
-      <tbody>
-        {periods.map((period: any) => (
-          <tr key={period.id}>
-            <td style={{ padding: '12px', fontWeight: '500' }}>{period.period_year}</td>
-            <td style={{ padding: '12px', textAlign: 'right', color: '#0369a1' }}>
-              {period.accumulated_days.toFixed(2)} días
-            </td>
-            <td style={{ padding: '12px', textAlign: 'right', color: '#dc2626' }}>
-              {period.used_days} días
-            </td>
-            <td style={{ 
-              padding: '12px', 
-              textAlign: 'right', 
-              fontWeight: 'bold',
-              color: period.available_days >= 0 ? '#059669' : '#dc2626' 
-            }}>
-              {period.available_days.toFixed(2)} días
-            </td>
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+            <th style={{ textAlign: 'left', padding: '12px', fontWeight: '600', color: '#374151' }}>Año</th>
+            <th style={{ textAlign: 'right', padding: '12px', fontWeight: '600', color: '#374151' }}>Acumulado</th>
+            <th style={{ textAlign: 'right', padding: '12px', fontWeight: '600', color: '#374151' }}>Usado</th>
+            <th style={{ textAlign: 'right', padding: '12px', fontWeight: '600', color: '#374151' }}>Disponible</th>
+            <th style={{ textAlign: 'center', padding: '12px', fontWeight: '600', color: '#374151' }}>Estado</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {periods
+            .sort((a: any, b: any) => b.period_year - a.period_year) // Más reciente primero
+            .map((period: any) => {
+              const isArchived = period.status === 'archived'
+              const isCompleted = period.status === 'completed'
+              
+              return (
+                <tr 
+                  key={period.id}
+                  style={{
+                    borderBottom: '1px solid #e5e7eb',
+                    backgroundColor: isArchived ? '#fef2f2' : isCompleted ? '#fffbeb' : 'transparent',
+                    opacity: isArchived ? 0.7 : 1
+                  }}
+                >
+                  <td style={{ 
+                    padding: '12px', 
+                    fontWeight: '500',
+                    color: isArchived ? '#991b1b' : '#111827'
+                  }}>
+                    {period.period_year}
+                    {isArchived && (
+                      <div style={{ fontSize: '11px', color: '#991b1b', marginTop: '4px' }}>
+                        {period.archived_reason || 'Archivado por regla de máximo 2 períodos'}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'right', color: '#0369a1', fontWeight: '500' }}>
+                    {period.accumulated_days.toFixed(2)} días
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'right', color: '#dc2626', fontWeight: '500' }}>
+                    {period.used_days} días
+                  </td>
+                  <td style={{ 
+                    padding: '12px', 
+                    textAlign: 'right', 
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    color: period.available_days > 0 ? '#059669' : period.available_days === 0 ? '#d97706' : '#dc2626'
+                  }}>
+                    {period.available_days.toFixed(2)} días
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    {getStatusBadge(period)}
+                  </td>
+                </tr>
+              )
+            })}
+        </tbody>
+      </table>
+      
+      {/* Leyenda */}
+      <div style={{ 
+        marginTop: '20px', 
+        padding: '16px', 
+        backgroundColor: '#f9fafb', 
+        borderRadius: '8px',
+        border: '1px solid #e5e7eb'
+      }}>
+        <p style={{ fontWeight: '600', marginBottom: '12px', color: '#374151' }}>📊 Leyenda de Estados:</p>
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              display: 'inline-block',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: '#22c55e'
+            }}></span>
+            <span><strong>Activo:</strong> Período disponible para uso</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              display: 'inline-block',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: '#f59e0b'
+            }}></span>
+            <span><strong>Agotado:</strong> Días completamente utilizados</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              display: 'inline-block',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: '#ef4444'
+            }}></span>
+            <span><strong>Archivado:</strong> Eliminado por regla de máximo 2 períodos (Art. 70)</span>
+          </div>
+        </div>
+        <p style={{ marginTop: '12px', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+          ℹ️ Según el Art. 70 del Código del Trabajo, solo se pueden mantener máximo 2 períodos activos. 
+          Los períodos más antiguos se archivan automáticamente, pero se mantienen en el historial para auditoría.
+        </p>
+      </div>
+    </div>
   )
 }
 

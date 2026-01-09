@@ -244,10 +244,39 @@ export function generateContractText(contract: any, employee: any, company: any)
   text += `DÉCIMO CUARTO: El presente contrato se firma en dos ejemplares y se deja expresa constancia que el trabajador recibe una de ellas.\n\n`
 
   // DÉCIMO QUINTO: Previsional
-  const healthSystemText = employee.health_system === 'FONASA' ? 'FONASA' : 
-    employee.health_system === 'ISAPRE' ? `ISAPRE${employee.health_plan ? ` ${employee.health_plan}` : ''}` : 
-    employee.health_system || 'FONASA'
-  text += `DÉCIMO QUINTO: Se deja expresa constancia que, para los efectos de la deducción de impuestos, cotizaciones de previsión o de seguridad social, como de otros legales que resulten procedentes por esta prestación de servicios, el trabajador declara pertenecer a la *AFP ${employee.afp || 'N/A'}* y a *${healthSystemText}*.\n\n`
+  let previsionalText = ''
+  
+  // Verificar si tiene régimen especial (DIPRECA, CAPREDENA, SIN_PREVISION)
+  if (employee.previsional_regime === 'OTRO_REGIMEN' && employee.other_regime_type) {
+    // Régimen especial
+    const regimeLabels: { [key: string]: string } = {
+      'DIPRECA': 'DIPRECA (Dirección de Previsión de Carabineros de Chile)',
+      'CAPREDENA': 'CAPREDENA (Caja de Previsión de la Defensa Nacional)',
+      'SIN_PREVISION': 'Sin Sistema Previsional (exento de cotizaciones previsionales)'
+    }
+    
+    const regimeLabel = regimeLabels[employee.other_regime_type] || employee.other_regime_type
+    
+    if (employee.other_regime_type === 'SIN_PREVISION') {
+      previsionalText = `DÉCIMO QUINTO: Se deja expresa constancia que, para los efectos de la deducción de impuestos y cotizaciones que resulten procedentes por esta prestación de servicios, el trabajador declara estar exento de cotizaciones previsionales (*${regimeLabel}*), conforme a lo establecido en la legislación vigente.\n\n`
+    } else {
+      // DIPRECA o CAPREDENA
+      const healthText = employee.manual_health_rate 
+        ? `sistema de salud administrado por ${regimeLabel.split('(')[0].trim()}`
+        : 'sistema de salud correspondiente'
+      
+      previsionalText = `DÉCIMO QUINTO: Se deja expresa constancia que, para los efectos de la deducción de impuestos y cotizaciones que resulten procedentes por esta prestación de servicios, el trabajador declara pertenecer al régimen previsional de *${regimeLabel}*, y al ${healthText}, conforme a lo establecido en el DL N°3.500 de 1980 y normativa especial aplicable.\n\n`
+    }
+  } else {
+    // Régimen AFP normal
+    const healthSystemText = employee.health_system === 'FONASA' ? 'FONASA' : 
+      employee.health_system === 'ISAPRE' ? `ISAPRE${employee.health_plan ? ` ${employee.health_plan}` : ''}` : 
+      employee.health_system || 'FONASA'
+    
+    previsionalText = `DÉCIMO QUINTO: Se deja expresa constancia que, para los efectos de la deducción de impuestos, cotizaciones de previsión o de seguridad social, como de otros legales que resulten procedentes por esta prestación de servicios, el trabajador declara pertenecer a la *AFP ${employee.afp || 'N/A'}* y a *${healthSystemText}*.\n\n`
+  }
+  
+  text += previsionalText
 
   // Cierre
   text += `Para constancia, se firma el presente contrato en dos ejemplares del mismo tenor y fecha, quedando uno en poder de cada parte.`

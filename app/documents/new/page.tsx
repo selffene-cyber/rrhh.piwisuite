@@ -10,17 +10,21 @@ export default function NewDocumentPage() {
   const { company: currentCompany } = useCurrentCompany()
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
+  const [employees, setEmployees] = useState<any[]>([])
+  const [isEmployeeDocument, setIsEmployeeDocument] = useState(false)
   const [formData, setFormData] = useState({
     category_id: '',
     name: '',
     description: '',
     tags: '',
     file: null as File | null,
+    employee_id: null as string | null,
   })
 
   useEffect(() => {
     if (currentCompany) {
       loadCategories()
+      loadEmployees()
     }
   }, [currentCompany])
 
@@ -35,6 +39,20 @@ export default function NewDocumentPage() {
       setCategories(cats)
     } catch (error) {
       console.error('Error al cargar categorías:', error)
+    }
+  }
+
+  const loadEmployees = async () => {
+    if (!currentCompany) return
+
+    try {
+      const response = await fetch(
+        `/api/employees?company_id=${currentCompany.id}&status=active`
+      )
+      const emps = await response.json()
+      setEmployees(emps)
+    } catch (error) {
+      console.error('Error al cargar empleados:', error)
     }
   }
 
@@ -92,6 +110,7 @@ export default function NewDocumentPage() {
             ? formData.tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0)
             : [],
           status: 'active',
+          employee_id: isEmployeeDocument ? formData.employee_id : null,
         }),
       })
 
@@ -207,6 +226,48 @@ export default function NewDocumentPage() {
             <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
               Los tags ayudan a buscar y clasificar documentos
             </p>
+          </div>
+
+          {/* Toggle para documento de empleado específico */}
+          <div className="form-group" style={{ border: '1px solid #e5e7eb', padding: '16px', borderRadius: '8px', background: '#f9fafb' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isEmployeeDocument ? '16px' : '0' }}>
+              <label style={{ margin: 0, flex: 1, fontWeight: '500' }}>
+                📄 Documento de Empleado Específico
+              </label>
+              <label className="toggle-switch" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={isEmployeeDocument}
+                  onChange={(e) => {
+                    setIsEmployeeDocument(e.target.checked)
+                    if (!e.target.checked) {
+                      setFormData({ ...formData, employee_id: null })
+                    }
+                  }}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            </div>
+            {isEmployeeDocument && (
+              <>
+                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
+                  Este documento se asociará al historial del empleado seleccionado
+                </p>
+                <select
+                  required={isEmployeeDocument}
+                  value={formData.employee_id || ''}
+                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value || null })}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Seleccione un empleado</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} - {emp.rut}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
 
           <div className="form-group">

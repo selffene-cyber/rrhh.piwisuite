@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { FaBell, FaTimes, FaFileContract, FaExclamationCircle } from 'react-icons/fa'
+import { FaBell, FaTimes, FaFileContract, FaExclamationCircle, FaUmbrellaBeach, FaShieldAlt, FaClock } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
@@ -11,12 +11,31 @@ import {
   groupNotificationsByStatus,
   type ContractNotification
 } from '@/lib/services/contractNotifications'
+import {
+  getVacationNotifications,
+  type VacationNotification
+} from '@/lib/services/vacationNotifications'
+import {
+  getComplianceNotifications,
+  type ComplianceNotification
+} from '@/lib/services/complianceNotifications'
+import {
+  getOvertimeNotifications,
+  type OvertimeNotification
+} from '@/lib/services/overtimeNotifications'
+
+// Tipo unificado de notificaciones
+type UnifiedNotification = 
+  | ({ type: 'contract' } & ContractNotification)
+  | ({ type: 'vacation' } & VacationNotification)
+  | ({ type: 'compliance' } & ComplianceNotification)
+  | ({ type: 'overtime' } & OvertimeNotification)
 
 export default function NotificationsDropdown() {
   const router = useRouter()
   const { companyId } = useCurrentCompany()
   const [isOpen, setIsOpen] = useState(false)
-  const [notifications, setNotifications] = useState<ContractNotification[]>([])
+  const [notifications, setNotifications] = useState<UnifiedNotification[]>([])
   const [loading, setLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   
@@ -57,8 +76,40 @@ export default function NotificationsDropdown() {
     
     setLoading(true)
     try {
-      const notifs = await getContractNotifications(companyId, supabase)
-      setNotifications(notifs)
+      // Cargar notificaciones de contratos, vacaciones, compliance y horas extras en paralelo
+      const [contractNotifs, vacationNotifs, complianceNotifs, overtimeNotifs] = await Promise.all([
+        getContractNotifications(companyId, supabase),
+        getVacationNotifications(companyId, supabase),
+        getComplianceNotifications(companyId, supabase),
+        getOvertimeNotifications(companyId, supabase)
+      ])
+      
+      // Combinar y marcar el tipo
+      const allNotifications: UnifiedNotification[] = [
+        ...contractNotifs.map(n => ({ ...n, type: 'contract' as const })),
+        ...vacationNotifs.map(n => ({ ...n, type: 'vacation' as const })),
+        ...complianceNotifs.map(n => ({ ...n, type: 'compliance' as const })),
+        ...overtimeNotifs.map(n => ({ ...n, type: 'overtime' as const }))
+      ]
+      
+      // Ordenar por prioridad (1 = crítico primero)
+      allNotifications.sort((a, b) => {
+        const priorityA = a.type === 'contract' 
+          ? (a.status === 'expired' || a.status === 'expires_today' ? 1 
+            : a.status === 'expiring_critical' ? 2 
+            : a.status === 'expiring_urgent' ? 3 
+            : 4)
+          : a.priority
+        const priorityB = b.type === 'contract' 
+          ? (b.status === 'expired' || b.status === 'expires_today' ? 1 
+            : b.status === 'expiring_critical' ? 2 
+            : b.status === 'expiring_urgent' ? 3 
+            : 4)
+          : b.priority
+        return priorityA - priorityB
+      })
+      
+      setNotifications(allNotifications)
     } catch (error) {
       console.error('Error cargando notificaciones:', error)
     } finally {
@@ -66,8 +117,32 @@ export default function NotificationsDropdown() {
     }
   }
   
-  const counts = getNotificationCounts(notifications)
-  const grouped = groupNotificationsByStatus(notifications)
+  // Calcular contadores para los cuatro tipos de notificaciones
+  const contractNotifs = notifications.filter(n => n.type === 'contract') as (ContractNotification & { type: 'contract' })[]
+  const vacationNotifs = notifications.filter(n => n.type === 'vacation') as (VacationNotification & { type: 'vacation' })[]
+  const complianceNotifs = notifications.filter(n => n.type === 'compliance') as (ComplianceNotification & { type: 'compliance' })[]
+  const overtimeNotifs = notifications.filter(n => n.type === 'overtime') as (OvertimeNotification & { type: 'overtime' })[]
+  
+  const contractCounts = getNotificationCounts(contractNotifs)
+  const vacationCritical = vacationNotifs.filter(n => n.priority === 1).length
+  const vacationHigh = vacationNotifs.filter(n => n.priority === 2).length
+  const vacationMedium = vacationNotifs.filter(n => n.priority === 3).length
+  const complianceCritical = complianceNotifs.filter(n => n.priority === 1).length
+  const complianceHigh = complianceNotifs.filter(n => n.priority === 2).length
+  const complianceMedium = complianceNotifs.filter(n => n.priority === 3).length
+  const overtimeCritical = overtimeNotifs.filter(n => n.priority === 1).length
+  const overtimeHigh = overtimeNotifs.filter(n => n.priority === 2).length
+  const overtimeMedium = overtimeNotifs.filter(n => n.priority === 3).length
+  
+  const counts = {
+    total: contractCounts.total + vacationNotifs.length + complianceNotifs.length + overtimeNotifs.length,
+    critical: contractCounts.critical + vacationCritical + complianceCritical + overtimeCritical,
+    high: contractCounts.high + vacationHigh + complianceHigh + overtimeHigh,
+    medium: contractCounts.medium + vacationMedium + complianceMedium + overtimeMedium,
+    low: contractCounts.low
+  }
+  
+  const grouped = groupNotificationsByStatus(contractNotifs)
   
   const handleNotificationClick = (contractId: string) => {
     setIsOpen(false)
@@ -129,8 +204,8 @@ export default function NotificationsDropdown() {
             : '0 2px 8px rgba(99, 102, 241, 0.3)'
         }}
         title={counts.total > 0 
-          ? `${counts.total} notificación${counts.total > 1 ? 'es' : ''} de contratos`
-          : 'Notificaciones de contratos'}
+          ? `${counts.total} notificación${counts.total > 1 ? 'es' : ''} (${contractNotifs.length} contratos, ${vacationNotifs.length} vacaciones, ${complianceNotifs.length} compliance, ${overtimeNotifs.length} horas extras)`
+          : 'Notificaciones de contratos, vacaciones, compliance y horas extras'}
       >
         <FaBell style={{ 
           color: '#ffffff',
@@ -263,7 +338,7 @@ export default function NotificationsDropdown() {
                   No hay notificaciones
                 </p>
                 <p style={{ color: '#9ca3af', fontSize: '14px', marginTop: '8px' }}>
-                  Todos los contratos están vigentes
+                  Todos los contratos están vigentes y las vacaciones están controladas
                 </p>
               </div>
             ) : (
@@ -381,6 +456,108 @@ export default function NotificationsDropdown() {
                         onClick={handleNotificationClick}
                       />
                     ))}
+                  </div>
+                )}
+                
+                {/* Notificaciones de Vacaciones */}
+                {vacationNotifs.length > 0 && (
+                  <div>
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        background: '#dbeafe',
+                        borderBottom: '1px solid #bfdbfe',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#1e3a8a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <FaUmbrellaBeach />
+                      VACACIONES ({vacationNotifs.length})
+                    </div>
+                    {vacationNotifs
+                      .sort((a, b) => a.priority - b.priority)
+                      .map((notif) => (
+                        <VacationNotificationItem
+                          key={notif.id}
+                          notification={notif}
+                          onClick={(employeeId) => {
+                            setIsOpen(false)
+                            router.push(`/employees/${employeeId}/vacations`)
+                          }}
+                        />
+                      ))}
+                  </div>
+                )}
+                
+                {/* Notificaciones de Compliance */}
+                {complianceNotifs.length > 0 && (
+                  <div>
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        background: '#fef3c7',
+                        borderBottom: '1px solid #fde68a',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#78350f',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <FaShieldAlt />
+                      COMPLIANCE ({complianceNotifs.length})
+                    </div>
+                    {complianceNotifs
+                      .sort((a, b) => a.priority - b.priority)
+                      .map((notif) => (
+                        <ComplianceNotificationItem
+                          key={notif.id}
+                          notification={notif}
+                          onClick={(employeeId) => {
+                            setIsOpen(false)
+                            router.push(`/employees/${employeeId}/compliance`)
+                          }}
+                        />
+                      ))}
+                  </div>
+                )}
+                
+                {/* Notificaciones de Horas Extras */}
+                {overtimeNotifs.length > 0 && (
+                  <div>
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        background: '#e0e7ff',
+                        borderBottom: '1px solid #c7d2fe',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#3730a3',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <FaClock />
+                      PACTOS HORAS EXTRAS ({overtimeNotifs.length})
+                    </div>
+                    {overtimeNotifs
+                      .sort((a, b) => a.priority - b.priority)
+                      .map((notif) => (
+                        <OvertimeNotificationItem
+                          key={notif.id}
+                          notification={notif}
+                          onClick={(pactId) => {
+                            setIsOpen(false)
+                            router.push(`/overtime/${pactId}`)
+                          }}
+                        />
+                      ))}
                   </div>
                 )}
               </>
@@ -505,6 +682,434 @@ function NotificationItem({
         <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#9ca3af' }}>
           Fecha término: {new Date(notification.end_date).toLocaleDateString('es-CL')}
         </p>
+      </div>
+    </div>
+  )
+}
+
+// Componente individual de notificación de vacaciones
+function VacationNotificationItem({
+  notification,
+  onClick
+}: {
+  notification: VacationNotification
+  onClick: (employeeId: string) => void
+}) {
+  // Determinar colores según prioridad
+  const getPriorityColors = () => {
+    switch (notification.priority) {
+      case 1: // Crítico
+        return {
+          bg: '#fef2f2',
+          border: '#fecaca',
+          iconColor: '#dc2626',
+          textColor: '#991b1b'
+        }
+      case 2: // Urgente
+        return {
+          bg: '#fffbeb',
+          border: '#fef3c7',
+          iconColor: '#f59e0b',
+          textColor: '#92400e'
+        }
+      case 3: // Moderado
+        return {
+          bg: '#f0f9ff',
+          border: '#dbeafe',
+          iconColor: '#3b82f6',
+          textColor: '#1e40af'
+        }
+      default:
+        return {
+          bg: '#f9fafb',
+          border: '#e5e7eb',
+          iconColor: '#6b7280',
+          textColor: '#374151'
+        }
+    }
+  }
+  
+  const colors = getPriorityColors()
+  
+  return (
+    <div
+      onClick={() => onClick(notification.employee.id)}
+      style={{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${colors.border}`,
+        cursor: 'pointer',
+        transition: 'background 0.2s',
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'flex-start',
+        background: colors.bg
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+    >
+      {/* Icono */}
+      <div
+        style={{
+          fontSize: '24px',
+          flexShrink: 0,
+          color: colors.iconColor
+        }}
+      >
+        <FaUmbrellaBeach />
+      </div>
+      
+      {/* Contenido */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ 
+          fontWeight: '600', 
+          fontSize: '14px', 
+          color: colors.textColor,
+          marginBottom: '4px' 
+        }}>
+          {notification.employee.full_name}
+        </div>
+        <div style={{ 
+          fontSize: '13px', 
+          color: '#6b7280',
+          marginBottom: '4px',
+          lineHeight: '1.4'
+        }}>
+          {notification.message}
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#9ca3af',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginTop: '6px'
+        }}>
+          <span>👤 {notification.employee.rut}</span>
+          <span>•</span>
+          <span>📊 {notification.totalAvailable.toFixed(2)} días disponibles</span>
+        </div>
+        <div style={{ 
+          fontSize: '10px', 
+          color: '#9ca3af',
+          fontStyle: 'italic',
+          marginTop: '4px'
+        }}>
+          {notification.legalReference}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Componente individual de notificación de compliance
+function ComplianceNotificationItem({
+  notification,
+  onClick
+}: {
+  notification: ComplianceNotification
+  onClick: (employeeId: string) => void
+}) {
+  // Determinar colores según prioridad y tipo de alerta
+  const getPriorityColors = () => {
+    switch (notification.alertType) {
+      case 'expired':
+        return {
+          bg: '#fef2f2',
+          border: '#fecaca',
+          iconColor: '#dc2626',
+          textColor: '#991b1b'
+        }
+      case 'expires_today':
+        return {
+          bg: '#fef2f2',
+          border: '#fecaca',
+          iconColor: '#ef4444',
+          textColor: '#991b1b'
+        }
+      case 'expiring_critical':
+        return {
+          bg: '#fffbeb',
+          border: '#fef3c7',
+          iconColor: '#f59e0b',
+          textColor: '#92400e'
+        }
+      case 'expiring_urgent':
+        return {
+          bg: '#fffbeb',
+          border: '#fef3c7',
+          iconColor: '#f59e0b',
+          textColor: '#92400e'
+        }
+      default:
+        return {
+          bg: '#fefce8',
+          border: '#fef9c3',
+          iconColor: '#ca8a04',
+          textColor: '#713f12'
+        }
+    }
+  }
+  
+  const colors = getPriorityColors()
+  
+  // Badge de criticidad
+  const getCriticalityBadge = () => {
+    const badges = {
+      'ALTA': { bg: '#fee2e2', color: '#991b1b', text: 'ALTA' },
+      'MEDIA': { bg: '#fef3c7', color: '#92400e', text: 'MEDIA' },
+      'BAJA': { bg: '#dcfce7', color: '#166534', text: 'BAJA' }
+    }
+    const badge = badges[notification.item.criticidad]
+    return (
+      <span style={{
+        display: 'inline-block',
+        padding: '2px 8px',
+        borderRadius: '6px',
+        fontSize: '10px',
+        fontWeight: '700',
+        backgroundColor: badge.bg,
+        color: badge.color
+      }}>
+        {badge.text}
+      </span>
+    )
+  }
+  
+  return (
+    <div
+      onClick={() => onClick(notification.employee.id)}
+      style={{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${colors.border}`,
+        cursor: 'pointer',
+        transition: 'background 0.2s',
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'flex-start',
+        background: colors.bg
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+    >
+      {/* Icono del tipo de ítem */}
+      <div
+        style={{
+          fontSize: '24px',
+          flexShrink: 0,
+          color: colors.iconColor
+        }}
+      >
+        {notification.icon}
+      </div>
+      
+      {/* Contenido */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ 
+          fontWeight: '600', 
+          fontSize: '14px', 
+          color: colors.textColor,
+          marginBottom: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          {notification.item.nombre}
+          {getCriticalityBadge()}
+        </div>
+        <div style={{ 
+          fontSize: '13px', 
+          color: '#374151',
+          marginBottom: '4px'
+        }}>
+          {notification.employee.full_name}
+        </div>
+        <div style={{ 
+          fontSize: '12px', 
+          color: '#6b7280',
+          marginBottom: '4px',
+          lineHeight: '1.4'
+        }}>
+          {notification.message}
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#9ca3af',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginTop: '6px'
+        }}>
+          <span>👤 {notification.employee.rut}</span>
+          <span>•</span>
+          <span>📅 Vence: {new Date(notification.fecha_vencimiento).toLocaleDateString('es-CL')}</span>
+          <span>•</span>
+          <span style={{ 
+            fontWeight: '600',
+            color: notification.dias_restantes < 0 ? '#dc2626' : notification.dias_restantes <= 7 ? '#f59e0b' : '#059669'
+          }}>
+            {notification.dias_restantes < 0 
+              ? `Vencido hace ${Math.abs(notification.dias_restantes)} días` 
+              : `${notification.dias_restantes} días restantes`}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Componente individual de notificación de pactos de horas extras
+function OvertimeNotificationItem({
+  notification,
+  onClick
+}: {
+  notification: OvertimeNotification
+  onClick: (pactId: string) => void
+}) {
+  // Determinar colores según prioridad y tipo de alerta
+  const getPriorityColors = () => {
+    switch (notification.alertType) {
+      case 'expired':
+        return {
+          bg: '#fef2f2',
+          border: '#fecaca',
+          iconColor: '#dc2626',
+          textColor: '#991b1b'
+        }
+      case 'expires_today':
+        return {
+          bg: '#fef2f2',
+          border: '#fecaca',
+          iconColor: '#ef4444',
+          textColor: '#991b1b'
+        }
+      case 'expiring_critical':
+        return {
+          bg: '#fffbeb',
+          border: '#fef3c7',
+          iconColor: '#f59e0b',
+          textColor: '#92400e'
+        }
+      case 'expiring_urgent':
+        return {
+          bg: '#fff7ed',
+          border: '#fed7aa',
+          iconColor: '#f97316',
+          textColor: '#9a3412'
+        }
+      default:
+        return {
+          bg: '#f0f9ff',
+          border: '#e0f2fe',
+          iconColor: '#0284c7',
+          textColor: '#075985'
+        }
+    }
+  }
+  
+  const colors = getPriorityColors()
+  
+  return (
+    <div
+      onClick={() => onClick(notification.pact.id)}
+      style={{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${colors.border}`,
+        cursor: 'pointer',
+        transition: 'background 0.2s',
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'flex-start',
+        background: colors.bg
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+    >
+      {/* Icono */}
+      <div
+        style={{
+          fontSize: '24px',
+          flexShrink: 0,
+          color: colors.iconColor
+        }}
+      >
+        ⏰
+      </div>
+      
+      {/* Contenido */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ 
+          fontWeight: '600', 
+          fontSize: '14px', 
+          color: colors.textColor,
+          marginBottom: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          Pacto Horas Extras
+          {notification.pact.pact_number && (
+            <span style={{
+              display: 'inline-block',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: '700',
+              backgroundColor: '#e0e7ff',
+              color: '#3730a3'
+            }}>
+              {notification.pact.pact_number}
+            </span>
+          )}
+        </div>
+        <div style={{ 
+          fontSize: '13px', 
+          color: '#374151',
+          marginBottom: '4px'
+        }}>
+          {notification.employee.full_name}
+        </div>
+        <div style={{ 
+          fontSize: '12px', 
+          color: '#6b7280',
+          marginBottom: '4px',
+          lineHeight: '1.4'
+        }}>
+          {notification.message}
+        </div>
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#9ca3af',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginTop: '6px'
+        }}>
+          <span>👤 {notification.employee.rut}</span>
+          <span>•</span>
+          <span>📅 Vence: {new Date(notification.pact.end_date).toLocaleDateString('es-CL')}</span>
+          <span>•</span>
+          <span>⏱️ Máx: {notification.pact.max_daily_hours}h/día</span>
+          <span>•</span>
+          <span style={{ 
+            fontWeight: '600',
+            color: notification.dias_restantes < 0 ? '#dc2626' : notification.dias_restantes <= 7 ? '#f59e0b' : '#059669'
+          }}>
+            {notification.dias_restantes < 0 
+              ? `Vencido hace ${Math.abs(notification.dias_restantes)} días` 
+              : `${notification.dias_restantes} días restantes`}
+          </span>
+        </div>
+        <div style={{ 
+          fontSize: '10px', 
+          color: '#9ca3af',
+          fontStyle: 'italic',
+          marginTop: '4px'
+        }}>
+          {notification.legalReference}
+        </div>
       </div>
     </div>
   )

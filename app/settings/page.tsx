@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { useCompany } from '@/lib/contexts/CompanyContext'
 import { isCompanyAdmin } from '@/lib/services/costCenterService'
 import { isSuperAdmin } from '@/lib/services/auth'
 
 export default function SettingsPage() {
   const { companyId, loading: companyLoading } = useCurrentCompany()
+  const { refreshCompanies } = useCompany()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -157,6 +159,9 @@ export default function SettingsPage() {
 
       if (updateError) throw updateError
 
+      // Refrescar el contexto de empresas
+      await refreshCompanies()
+
       setFormData((prev) => ({ ...prev, logo_url: publicUrl }))
       setLogoPreview(publicUrl)
       setLogoFile(null)
@@ -211,6 +216,9 @@ export default function SettingsPage() {
 
       if (error) throw error
 
+      // Refrescar el contexto de empresas
+      await refreshCompanies()
+
       setFormData((prev) => ({ ...prev, logo_url: '' }))
       setLogoPreview(null)
       setLogoFile(null)
@@ -248,6 +256,9 @@ export default function SettingsPage() {
         .eq('id', companyId)
 
       if (error) throw error
+
+      // Refrescar el contexto de empresas para actualizar el selector del header
+      await refreshCompanies()
 
       alert('Configuración guardada correctamente')
       setLogoFile(null)

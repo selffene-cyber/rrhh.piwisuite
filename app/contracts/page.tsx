@@ -122,34 +122,36 @@ export default function ContractsPage() {
   }
 
   const handleDelete = async (id: string, type: 'contract' | 'annex') => {
-    if (!confirm('¿Estás seguro de eliminar este ' + (type === 'contract' ? 'contrato' : 'anexo') + '?')) {
+    const itemName = type === 'contract' ? 'contrato' : 'anexo'
+    
+    if (!confirm(`⚠️ ¿Estás seguro de ELIMINAR PERMANENTEMENTE este ${itemName}?\n\nEsta acción NO se puede deshacer.\n\nSi solo quieres desactivarlo, usa la opción "Cancelar" en lugar de "Eliminar".`)) {
       return
     }
 
     try {
       const table = type === 'contract' ? 'contracts' : 'contract_annexes'
-      console.log(`[Delete] Marcando como cancelled ${type} con id: ${id} de tabla: ${table}`)
+      console.log(`[Delete] Eliminando físicamente ${type} con id: ${id} de tabla: ${table}`)
       
-      // En lugar de eliminar físicamente, marcar como 'cancelled' para mantener el historial
+      // Eliminar físicamente el registro
       const { error, data } = await supabase
         .from(table)
-        .update({ status: 'cancelled' })
+        .delete()
         .eq('id', id)
         .select()
       
-      console.log(`[Delete] Resultado de actualización:`, { error, data })
+      console.log(`[Delete] Resultado de eliminación:`, { error, data })
 
       if (error) {
-        console.error(`[Delete] Error al cancelar ${type}:`, error)
+        console.error(`[Delete] Error al eliminar ${type}:`, error)
         throw error
       }
 
-      console.log(`[Delete] ${type} cancelado correctamente`)
-      alert((type === 'contract' ? 'Contrato' : 'Anexo') + ' cancelado correctamente')
+      console.log(`[Delete] ${type} eliminado correctamente`)
+      alert(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} eliminado correctamente`)
       loadData()
     } catch (error: any) {
-      console.error(`[Delete] Error al cancelar ${type}:`, error)
-      alert('Error al cancelar: ' + error.message)
+      console.error(`[Delete] Error al eliminar ${type}:`, error)
+      alert('Error al eliminar: ' + error.message)
     }
   }
 

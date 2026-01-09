@@ -34,10 +34,13 @@ export function generateAnnexText(annex: any, contract: any, employee: any, comp
       modificacion_sueldo: 'MODIFICACIÓN DE SUELDO',
       cambio_cargo: 'CAMBIO DE CARGO',
       cambio_jornada: 'CAMBIO DE JORNADA',
+      cambio_tipo_contrato: 'CAMBIO DE TIPO DE CONTRATO',
+      cambio_lugar_trabajo: 'CAMBIO DE LUGAR DE TRABAJO',
+      cambio_metodo_pago: 'CAMBIO DE MÉTODO DE PAGO',
       prorroga: 'PRÓRROGA',
       otro: 'OTRO',
     }
-    return types[type] || type.toUpperCase()
+    return types[type] || 'MODIFICACIÓN DE CONTRATO'
   }
 
   // Párrafo inicial
