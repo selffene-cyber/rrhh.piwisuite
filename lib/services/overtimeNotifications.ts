@@ -117,8 +117,13 @@ async function detectEmployeesWithoutValidPact(
   supabase: SupabaseClient<any>
 ): Promise<OvertimeNotification[]> {
   try {
+    console.log('🔍 [OVERTIME NOTIF] Detectando trabajadores sin pacto...')
+    console.log('🔍 [OVERTIME NOTIF] Company ID:', companyId)
+    console.log('🔍 [OVERTIME NOTIF] Employee IDs count:', employeeIds.length)
+    
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
     
     const notifications: OvertimeNotification[] = []
     
@@ -129,21 +134,44 @@ async function detectEmployeesWithoutValidPact(
       .in('id', employeeIds)
       .eq('status', 'active')
     
-    if (empError) throw empError
-    if (!employees || employees.length === 0) return []
+    if (empError) {
+      console.error('❌ [OVERTIME NOTIF] Error obteniendo empleados:', empError)
+      throw empError
+    }
     
-    // Para cada trabajador activo, verificar si tiene un pacto VIGENTE
+    if (!employees || employees.length === 0) {
+      console.log('⚠️ [OVERTIME NOTIF] No se encontraron empleados activos')
+      return []
+    }
+    
+    console.log('✅ [OVERTIME NOTIF] Empleados activos encontrados:', employees.length)
+    
+    // Obtener TODOS los pactos activos de una vez (más eficiente)
+    const { data: allActivePacts, error: pactsError } = await supabase
+      .from('overtime_pacts')
+      .select('id, employee_id, start_date, end_date, status')
+      .in('employee_id', employeeIds)
+      .eq('status', 'active')
+      .gte('end_date', todayStr)
+      .lte('start_date', todayStr)
+    
+    if (pactsError) {
+      console.error('❌ [OVERTIME NOTIF] Error obteniendo pactos:', pactsError)
+      throw pactsError
+    }
+    
+    console.log('📋 [OVERTIME NOTIF] Pactos vigentes encontrados:', allActivePacts?.length || 0)
+    
+    // Crear un Set de employee_ids que SÍ tienen pacto vigente
+    const employeesWithPact = new Set(allActivePacts?.map(p => p.employee_id) || [])
+    
+    console.log('👥 [OVERTIME NOTIF] Empleados con pacto vigente:', employeesWithPact.size)
+    
+    // Para cada trabajador activo, verificar si NO está en el Set
     for (const employee of employees) {
-      const { data: activePacts } = await supabase
-        .from('overtime_pacts')
-        .select('id, start_date, end_date, status')
-        .eq('employee_id', employee.id)
-        .eq('status', 'active')
-        .gte('end_date', today.toISOString().split('T')[0])
-        .lte('start_date', today.toISOString().split('T')[0])
-      
-      // Si NO tiene pacto vigente, generar alerta
-      if (!activePacts || activePacts.length === 0) {
+      if (!employeesWithPact.has(employee.id)) {
+        console.log('⚠️ [OVERTIME NOTIF] Trabajador SIN pacto:', employee.full_name, employee.rut)
+        
         notifications.push({
           id: `no_pact_${employee.id}`,
           employee: {
@@ -162,7 +190,7 @@ async function detectEmployeesWithoutValidPact(
           dias_restantes: null,
           status: 'no_pact',
           alertType: 'no_pact',
-          priority: 2, // ALTA (no crítico porque puede que no necesite hacer HH.EE.)
+          priority: 2,
           message: `Trabajador sin pacto de horas extras vigente. Debe generar pacto si requiere trabajar horas extras.`,
           legalReference: 'Art. 32 CT - Pacto previo obligatorio para trabajar horas extraordinarias.',
           recentOvertimeHours: undefined,
@@ -171,9 +199,11 @@ async function detectEmployeesWithoutValidPact(
       }
     }
     
+    console.log('🔔 [OVERTIME NOTIF] Total notificaciones "sin pacto" generadas:', notifications.length)
+    
     return notifications
   } catch (error) {
-    console.error('Error detectando trabajadores sin pacto:', error)
+    console.error('❌ [OVERTIME NOTIF] Error detectando trabajadores sin pacto:', error)
     return []
   }
 }
@@ -189,6 +219,8 @@ export async function getOvertimeNotifications(
   supabase: SupabaseClient<any>
 ): Promise<OvertimeNotification[]> {
   try {
+    console.log('🚀 [OVERTIME NOTIF] Iniciando getOvertimeNotifications para company:', companyId)
+    
     // Primero obtener los empleados de la empresa
     const { data: employeesData, error: empError } = await supabase
       .from('employees')
@@ -198,12 +230,15 @@ export async function getOvertimeNotifications(
     if (empError) throw empError
     
     if (!employeesData || employeesData.length === 0) {
+      console.log('⚠️ [OVERTIME NOTIF] No hay empleados en esta empresa')
       return []
     }
     
+    console.log('👥 [OVERTIME NOTIF] Total empleados en empresa:', employeesData.length)
+    
     const employeeIds = employeesData.map((emp: any) => emp.id)
     
-    // 1. Detectar trabajadores SIN PACTO pero con horas extras recientes (CRÍTICO)
+    // 1. Detectar trabajadores SIN PACTO
     const noPactNotifications = await detectEmployeesWithoutValidPact(companyId, employeeIds, supabase)
     
     // 2. Obtener pactos activos que requieren atención (próximos 30 días o vencidos)
@@ -230,11 +265,13 @@ export async function getOvertimeNotifications(
     
     if (error) throw error
     
-    if (!pactsData || pactsData.length === 0) {
-      return []
-    }
-    
     const notifications: OvertimeNotification[] = []
+    
+    // Si no hay pactos, solo retornar las notificaciones de "sin pacto"
+    if (!pactsData || pactsData.length === 0) {
+      console.log('📋 [OVERTIME NOTIF] No hay pactos activos/expired. Retornando solo notificaciones "sin pacto"')
+      return noPactNotifications
+    }
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
@@ -289,6 +326,10 @@ export async function getOvertimeNotifications(
     // Combinar notificaciones de trabajadores sin pacto + pactos por vencer
     const allNotifications = [...noPactNotifications, ...notifications]
     
+    console.log('🔔 [OVERTIME NOTIF] Total notificaciones combinadas:', allNotifications.length)
+    console.log('   - Sin pacto:', noPactNotifications.length)
+    console.log('   - Pactos por vencer/vencidos:', notifications.length)
+    
     // Ordenar por prioridad (1 primero) y luego por días restantes
     allNotifications.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority
@@ -301,6 +342,8 @@ export async function getOvertimeNotifications(
       }
       return 0
     })
+    
+    console.log('✅ [OVERTIME NOTIF] Retornando', allNotifications.length, 'notificaciones')
     
     return allNotifications
   } catch (error) {
