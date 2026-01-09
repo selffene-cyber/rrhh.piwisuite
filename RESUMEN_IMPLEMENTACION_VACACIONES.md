@@ -510,3 +510,4 @@ Se ha implementado un sistema robusto y completo de gestión de vacaciones confo
 **Basado en**: Código del Trabajo de Chile, Ord. N°6287/2017 y N°307/2025
 
 
+

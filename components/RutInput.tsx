@@ -203,3 +203,4 @@ export function RutDisplay({ rut, fallback = '-' }: RutDisplayProps) {
   return <span style={{ fontFamily: 'monospace' }}>{formatted || fallback}</span>
 }
 
+

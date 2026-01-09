@@ -310,3 +310,4 @@ de máximo 2 períodos (Art. 70). La empresa te notificó oportunamente.
 **Basado en**: Art. 70 CT, Ord. N°6287/2017 DT
 
 
+

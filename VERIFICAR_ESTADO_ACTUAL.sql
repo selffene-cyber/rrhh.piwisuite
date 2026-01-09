@@ -60,3 +60,4 @@ SELECT
     ELSE 'Todo está correcto, no necesita cambios'
   END as accion_recomendada;
 
+

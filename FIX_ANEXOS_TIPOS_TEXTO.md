@@ -381,3 +381,4 @@ return 'MODIFICACIÓN DE CONTRATO'  // Texto genérico pero profesional
 **Build**: ✅ Exitoso  
 **Estado**: ✅ Resuelto
 
+

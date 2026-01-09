@@ -362,3 +362,4 @@ UPDATE user_profiles SET default_company_id = 'company_uuid' WHERE id = 'user_id
 **Versión:** 1.0  
 **Estado:** ✅ Listo para aplicar
 
+

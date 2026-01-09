@@ -6,7 +6,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js'
 
-export type OvertimeAlertType = 'expired' | 'expires_today' | 'expiring_critical' | 'expiring_urgent' | 'expiring_soon'
+export type OvertimeAlertType = 'no_pact' | 'expired' | 'expires_today' | 'expiring_critical' | 'expiring_urgent' | 'expiring_soon'
 
 export interface OvertimeNotification {
   id: string
@@ -16,19 +16,21 @@ export interface OvertimeNotification {
     rut: string
   }
   pact: {
-    id: string
+    id: string | null
     pact_number: string | null
-    start_date: string
-    end_date: string
-    max_daily_hours: number
-    reason: string
+    start_date: string | null
+    end_date: string | null
+    max_daily_hours: number | null
+    reason: string | null
   }
-  dias_restantes: number
-  status: 'draft' | 'active' | 'expired' | 'renewed' | 'void'
+  dias_restantes: number | null
+  status: 'draft' | 'active' | 'expired' | 'renewed' | 'void' | 'no_pact'
   alertType: OvertimeAlertType
   priority: number // 1 = crítico, 2 = alto, 3 = medio
   message: string
   legalReference: string
+  recentOvertimeHours?: number // Horas extras trabajadas recientemente
+  lastOvertimeDate?: string // Última fecha con horas extras
 }
 
 export interface OvertimeNotificationCounts {
@@ -106,6 +108,77 @@ function calculateOvertimeAlertType(
 }
 
 /**
+ * Detecta trabajadores activos que NO tienen ningún pacto vigente
+ * (todos los trabajadores deberían tener pacto para poder hacer HH.EE.)
+ */
+async function detectEmployeesWithoutValidPact(
+  companyId: string,
+  employeeIds: string[],
+  supabase: SupabaseClient<any>
+): Promise<OvertimeNotification[]> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const notifications: OvertimeNotification[] = []
+    
+    // Obtener información completa de todos los empleados activos
+    const { data: employees, error: empError } = await supabase
+      .from('employees')
+      .select('id, full_name, rut')
+      .in('id', employeeIds)
+      .eq('status', 'active')
+    
+    if (empError) throw empError
+    if (!employees || employees.length === 0) return []
+    
+    // Para cada trabajador activo, verificar si tiene un pacto VIGENTE
+    for (const employee of employees) {
+      const { data: activePacts } = await supabase
+        .from('overtime_pacts')
+        .select('id, start_date, end_date, status')
+        .eq('employee_id', employee.id)
+        .eq('status', 'active')
+        .gte('end_date', today.toISOString().split('T')[0])
+        .lte('start_date', today.toISOString().split('T')[0])
+      
+      // Si NO tiene pacto vigente, generar alerta
+      if (!activePacts || activePacts.length === 0) {
+        notifications.push({
+          id: `no_pact_${employee.id}`,
+          employee: {
+            id: employee.id,
+            full_name: employee.full_name,
+            rut: employee.rut
+          },
+          pact: {
+            id: null,
+            pact_number: null,
+            start_date: null,
+            end_date: null,
+            max_daily_hours: null,
+            reason: null
+          },
+          dias_restantes: null,
+          status: 'no_pact',
+          alertType: 'no_pact',
+          priority: 2, // ALTA (no crítico porque puede que no necesite hacer HH.EE.)
+          message: `Trabajador sin pacto de horas extras vigente. Debe generar pacto si requiere trabajar horas extras.`,
+          legalReference: 'Art. 32 CT - Pacto previo obligatorio para trabajar horas extraordinarias.',
+          recentOvertimeHours: undefined,
+          lastOvertimeDate: undefined
+        })
+      }
+    }
+    
+    return notifications
+  } catch (error) {
+    console.error('Error detectando trabajadores sin pacto:', error)
+    return []
+  }
+}
+
+/**
  * Obtiene las notificaciones de pactos de horas extras para una empresa
  * @param companyId ID de la empresa
  * @param supabase Cliente de Supabase
@@ -130,7 +203,10 @@ export async function getOvertimeNotifications(
     
     const employeeIds = employeesData.map((emp: any) => emp.id)
     
-    // Obtener pactos activos que requieren atención (próximos 30 días o vencidos)
+    // 1. Detectar trabajadores SIN PACTO pero con horas extras recientes (CRÍTICO)
+    const noPactNotifications = await detectEmployeesWithoutValidPact(companyId, employeeIds, supabase)
+    
+    // 2. Obtener pactos activos que requieren atención (próximos 30 días o vencidos)
     const { data: pactsData, error } = await supabase
       .from('overtime_pacts')
       .select(`
@@ -210,13 +286,23 @@ export async function getOvertimeNotifications(
       })
     }
     
+    // Combinar notificaciones de trabajadores sin pacto + pactos por vencer
+    const allNotifications = [...noPactNotifications, ...notifications]
+    
     // Ordenar por prioridad (1 primero) y luego por días restantes
-    notifications.sort((a, b) => {
+    allNotifications.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority
-      return a.dias_restantes - b.dias_restantes
+      // Para 'no_pact', considerar como más urgente que otros de prioridad 1
+      if (a.alertType === 'no_pact' && b.alertType !== 'no_pact') return -1
+      if (b.alertType === 'no_pact' && a.alertType !== 'no_pact') return 1
+      // Si ambos tienen dias_restantes, ordenar por eso
+      if (a.dias_restantes !== null && b.dias_restantes !== null) {
+        return a.dias_restantes - b.dias_restantes
+      }
+      return 0
     })
     
-    return notifications
+    return allNotifications
   } catch (error) {
     console.error('Error al obtener notificaciones de pactos de horas extras:', error)
     return []
@@ -253,4 +339,5 @@ export function groupOvertimeNotificationsByType(notifications: OvertimeNotifica
     expiringSoon: notifications.filter(n => n.alertType === 'expiring_soon')
   }
 }
+
 

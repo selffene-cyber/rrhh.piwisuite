@@ -208,3 +208,4 @@ JOIN companies c ON c.id = cu.company_id
 WHERE au.email = 'hmartinez@hlms.cl'
 ORDER BY c.name;
 
+

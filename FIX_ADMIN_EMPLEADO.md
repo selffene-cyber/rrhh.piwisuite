@@ -334,3 +334,4 @@ No, solo afecta al empleado que tenga el `user_id` del admin.
 **Migración**: 092  
 **Estado**: ✅ Listo para ejecutar
 
+

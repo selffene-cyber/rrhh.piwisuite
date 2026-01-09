@@ -92,3 +92,4 @@ COMMENT ON FUNCTION archive_old_vacation_periods IS 'Archiva períodos antiguos 
 -- FIN DE LA MIGRACIÓN
 -- ============================================================================
 
+

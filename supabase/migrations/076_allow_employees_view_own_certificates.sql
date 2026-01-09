@@ -23,3 +23,4 @@ COMMENT ON POLICY "Employees can view their own certificates" ON certificates IS
 
 
 
+

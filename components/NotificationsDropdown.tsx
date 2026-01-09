@@ -552,9 +552,14 @@ export default function NotificationsDropdown() {
                         <OvertimeNotificationItem
                           key={notif.id}
                           notification={notif}
-                          onClick={(pactId) => {
+                          onClick={(pactIdOrRoute) => {
                             setIsOpen(false)
-                            router.push(`/overtime/${pactId}`)
+                            // Si empieza con /, es una ruta completa
+                            if (pactIdOrRoute.startsWith('/')) {
+                              router.push(pactIdOrRoute)
+                            } else {
+                              router.push(`/overtime/${pactIdOrRoute}`)
+                            }
                           }}
                         />
                       ))}
@@ -965,11 +970,19 @@ function OvertimeNotificationItem({
   onClick
 }: {
   notification: OvertimeNotification
-  onClick: (pactId: string) => void
+  onClick: (pactIdOrRoute: string) => void
 }) {
   // Determinar colores según prioridad y tipo de alerta
   const getPriorityColors = () => {
     switch (notification.alertType) {
+      case 'no_pact':
+        return {
+          bg: '#fffbeb',
+          border: '#fef3c7',
+          iconColor: '#f59e0b',
+          textColor: '#92400e',
+          badge: { bg: '#f59e0b', color: '#fff', text: '⚠️ SIN PACTO' }
+        }
       case 'expired':
         return {
           bg: '#fef2f2',
@@ -1012,7 +1025,14 @@ function OvertimeNotificationItem({
   
   return (
     <div
-      onClick={() => onClick(notification.pact.id)}
+      onClick={() => {
+        // Si no hay pacto, redirigir a /overtime para crear uno
+        if (notification.alertType === 'no_pact') {
+          onClick('/overtime')
+        } else {
+          onClick(notification.pact.id || '')
+        }
+      }}
       style={{
         padding: '12px 16px',
         borderBottom: `1px solid ${colors.border}`,
@@ -1046,9 +1066,23 @@ function OvertimeNotificationItem({
           marginBottom: '4px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '8px',
+          flexWrap: 'wrap'
         }}>
-          Pacto Horas Extras
+          {notification.alertType === 'no_pact' ? 'Trabajador Sin Pacto' : 'Pacto Horas Extras'}
+          {notification.alertType === 'no_pact' && 'badge' in colors && colors.badge && (
+            <span style={{
+              display: 'inline-block',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: '700',
+              backgroundColor: colors.badge.bg,
+              color: colors.badge.color
+            }}>
+              {colors.badge.text}
+            </span>
+          )}
           {notification.pact.pact_number && (
             <span style={{
               display: 'inline-block',
@@ -1088,19 +1122,30 @@ function OvertimeNotificationItem({
           marginTop: '6px'
         }}>
           <span>👤 {notification.employee.rut}</span>
-          <span>•</span>
-          <span>📅 Vence: {new Date(notification.pact.end_date).toLocaleDateString('es-CL')}</span>
-          <span>•</span>
-          <span>⏱️ Máx: {notification.pact.max_daily_hours}h/día</span>
-          <span>•</span>
-          <span style={{ 
-            fontWeight: '600',
-            color: notification.dias_restantes < 0 ? '#dc2626' : notification.dias_restantes <= 7 ? '#f59e0b' : '#059669'
-          }}>
-            {notification.dias_restantes < 0 
-              ? `Vencido hace ${Math.abs(notification.dias_restantes)} días` 
-              : `${notification.dias_restantes} días restantes`}
-          </span>
+          {notification.alertType === 'no_pact' ? (
+            <>
+              <span>•</span>
+              <span style={{ fontWeight: '600', color: '#f59e0b' }}>
+                📋 Debe crear pacto si requiere trabajar HH.EE.
+              </span>
+            </>
+          ) : (
+            <>
+              <span>•</span>
+              <span>📅 Vence: {new Date(notification.pact.end_date || '').toLocaleDateString('es-CL')}</span>
+              <span>•</span>
+              <span>⏱️ Máx: {notification.pact.max_daily_hours}h/día</span>
+              <span>•</span>
+              <span style={{ 
+                fontWeight: '600',
+                color: notification.dias_restantes && notification.dias_restantes < 0 ? '#dc2626' : notification.dias_restantes && notification.dias_restantes <= 7 ? '#f59e0b' : '#059669'
+              }}>
+                {notification.dias_restantes !== null && (notification.dias_restantes < 0 
+                  ? `Vencido hace ${Math.abs(notification.dias_restantes)} días` 
+                  : `${notification.dias_restantes} días restantes`)}
+              </span>
+            </>
+          )}
         </div>
         <div style={{ 
           fontSize: '10px', 

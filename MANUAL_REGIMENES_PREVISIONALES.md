@@ -410,3 +410,4 @@ Para dudas adicionales o casos especiales:
 **Versión del manual**: 1.0  
 **Sistema**: RH Piwi - Gestión de Recursos Humanos
 
+

@@ -386,3 +386,4 @@ Esta funcionalidad permite **flexibilidad con control**: los administradores pue
 **Implementado en**: `lib/services/vacationPeriods.ts`
 
 
+

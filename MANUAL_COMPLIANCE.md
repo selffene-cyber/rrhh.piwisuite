@@ -695,3 +695,4 @@ El archivo se sube a Supabase Storage y queda vinculado permanentemente.
 ---
 
 
+

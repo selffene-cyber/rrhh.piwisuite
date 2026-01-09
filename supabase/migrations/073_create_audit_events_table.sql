@@ -79,3 +79,4 @@ COMMENT ON COLUMN audit_events.metadata IS 'Datos adicionales flexibles: motivo,
 
 
 
+

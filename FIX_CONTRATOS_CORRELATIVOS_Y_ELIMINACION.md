@@ -491,3 +491,4 @@ ALTER TABLE contracts ADD CONSTRAINT contracts_contract_number_key UNIQUE (contr
 **Migración**: 093  
 **Estado**: ✅ Listo para ejecutar
 
+

@@ -361,3 +361,4 @@ React detecta el cambio y re-renderiza el selector del header.
 **Archivo Modificado**: `app/settings/page.tsx`  
 **Estado**: ✅ Resuelto
 
+

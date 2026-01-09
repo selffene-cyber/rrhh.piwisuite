@@ -239,3 +239,4 @@ export default function AccidentsHistory({ employeeRut }: { employeeRut: string 
 
 
 
+

@@ -165,3 +165,4 @@ export function shouldCalculateAFC(employee: EmployeeWithPrevision): boolean {
   return employee.afc_applicable
 }
 
+

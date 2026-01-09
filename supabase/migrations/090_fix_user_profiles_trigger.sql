@@ -143,3 +143,4 @@ LEFT JOIN user_profiles up ON e.user_id = up.id
 ORDER BY e.created_at DESC
 LIMIT 20;
 
+

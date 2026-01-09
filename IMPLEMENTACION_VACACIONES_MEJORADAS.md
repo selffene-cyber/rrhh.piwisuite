@@ -429,3 +429,4 @@ console.log(notifications)  // Ver detalles
 **Estado**: 🟡 En Progreso (Fases 4-6 pendientes)
 
 
+

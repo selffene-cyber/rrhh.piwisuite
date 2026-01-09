@@ -459,3 +459,4 @@ El **Sistema de Notificaciones v2.0** es:
 **Próximo Deploy**: Listo cuando ejecutes `npm run build` y `supabase db push`
 
 
+
