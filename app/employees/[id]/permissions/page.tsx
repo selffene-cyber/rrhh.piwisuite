@@ -92,7 +92,7 @@ export default function EmployeePermissionsPage({
       alert('Permiso aprobado correctamente (para firmar manualmente)')
       loadData()
     } catch (error: any) {
-      alert('Error al aprobar permiso: ' + error.message)
+      alert(error.message)
     }
   }
 
@@ -112,7 +112,7 @@ export default function EmployeePermissionsPage({
       alert('Permiso aprobado y firmado digitalmente correctamente')
       loadData()
     } catch (error: any) {
-      alert('Error al aprobar permiso: ' + error.message)
+      alert(error.message)
     }
   }
 

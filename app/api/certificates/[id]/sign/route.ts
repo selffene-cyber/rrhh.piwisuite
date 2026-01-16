@@ -87,19 +87,18 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Si no es super admin, verificar que pertenece a una empresa del usuario
+    // Si no es super admin, verificar permisos granulares
     if (!isSuperAdmin) {
-      const { data: companyUser } = await supabase
-        .from('company_users')
-        .select('role, company_id')
+      const { data: permissions } = await supabase
+        .from('user_permissions')
+        .select('can_approve_certificates')
         .eq('user_id', user.id)
         .eq('company_id', companyId)
-        .eq('status', 'active')
         .single()
 
-      if (!companyUser || !['owner', 'admin'].includes(companyUser.role)) {
+      if (!permissions?.can_approve_certificates) {
         return NextResponse.json({ 
-          error: 'No autorizado para firmar este certificado' 
+          error: 'No tienes permiso para firmar certificados' 
         }, { status: 403 })
       }
     }

@@ -131,7 +131,7 @@ export default function CertificatesPage() {
       alert('Certificado aprobado exitosamente')
       loadCertificates()
     } catch (error: any) {
-      alert('Error al aprobar certificado: ' + error.message)
+      alert(error.message)
     }
   }
 

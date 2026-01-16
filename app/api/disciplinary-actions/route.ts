@@ -52,10 +52,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // Validar que el empleado pueda recibir una amonestación (requiere contrato activo)
+    // Obtener el companyId del empleado para verificar permisos
     if (body.employee_id) {
-      const { employee } = createValidationServices(supabase)
-      const validation = await employee.canCreateDisciplinaryAction(body.employee_id)
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('company_id')
+        .eq('id', body.employee_id)
+        .single()
+
+      if (!employee) {
+        return NextResponse.json({ error: 'Empleado no encontrado' }, { status: 404 })
+      }
+
+      // Verificar permisos del usuario
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const isSuperAdmin = profile?.role === 'super_admin'
+
+      if (!isSuperAdmin) {
+        const { data: permissions } = await supabase
+          .from('user_permissions')
+          .select('can_create_disciplinary')
+          .eq('user_id', user.id)
+          .eq('company_id', employee.company_id)
+          .single()
+
+        if (!permissions?.can_create_disciplinary) {
+          return NextResponse.json(
+            { error: 'No tienes permiso para crear amonestaciones' },
+            { status: 403 }
+          )
+        }
+      }
+
+      // Validar que el empleado pueda recibir una amonestación (requiere contrato activo)
+      const { employee: employeeValidator } = createValidationServices(supabase)
+      const validation = await employeeValidator.canCreateDisciplinaryAction(body.employee_id)
       
       const errorResponse = handleValidationError(validation)
       if (errorResponse) return errorResponse

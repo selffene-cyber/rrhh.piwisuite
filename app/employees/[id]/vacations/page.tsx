@@ -569,7 +569,7 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
                                 alert('Vacación aprobada exitosamente')
                                 loadData()
                               } catch (error: any) {
-                                alert('Error: ' + error.message)
+                                alert(error.message)
                               }
                             }}
                           >

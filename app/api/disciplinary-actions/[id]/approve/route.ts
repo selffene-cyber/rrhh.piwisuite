@@ -17,13 +17,41 @@ export async function POST(
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const action = await approveDisciplinaryAction(
+    // Obtener companyId de la amonestación
+    const { data: action, error: actionError } = await supabase
+      .from('disciplinary_actions')
+      .select('employee_id, employees!inner(company_id)')
+      .eq('id', params.id)
+      .single()
+
+    if (actionError || !action) {
+      return NextResponse.json({ error: 'Amonestación no encontrada' }, { status: 404 })
+    }
+
+    const companyId = (action as any).employees.company_id
+
+    // Verificar permisos del usuario
+    const { data: permissions } = await supabase
+      .from('user_permissions')
+      .select('can_approve_disciplinary')
+      .eq('user_id', user.id)
+      .eq('company_id', companyId)
+      .single()
+
+    if (!permissions?.can_approve_disciplinary) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para aprobar amonestaciones' },
+        { status: 403 }
+      )
+    }
+
+    const approvedAction = await approveDisciplinaryAction(
       params.id,
       user.id,
       supabase
     )
 
-    return NextResponse.json(action)
+    return NextResponse.json(approvedAction)
   } catch (error: any) {
     console.error('Error al aprobar amonestación:', error)
     return NextResponse.json(

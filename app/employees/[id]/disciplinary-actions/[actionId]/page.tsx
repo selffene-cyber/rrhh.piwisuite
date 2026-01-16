@@ -119,12 +119,18 @@ export default function DisciplinaryActionDetailPage({
         const response = await fetch(`/api/disciplinary-actions/${params.actionId}/approve`, {
           method: 'POST',
         })
-        if (!response.ok) throw new Error('Error al aprobar')
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Error al aprobar' }))
+          throw new Error(errorData.error || 'Error al aprobar')
+        }
       } else if (newStatus === 'issued' && action.status !== 'issued') {
         const response = await fetch(`/api/disciplinary-actions/${params.actionId}/issue`, {
           method: 'POST',
         })
-        if (!response.ok) throw new Error('Error al emitir')
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Error al emitir' }))
+          throw new Error(errorData.error || 'Error al emitir')
+        }
       } else {
         // Para otros estados, usar PUT directo
         const response = await fetch(`/api/disciplinary-actions/${params.actionId}`, {
@@ -136,13 +142,16 @@ export default function DisciplinaryActionDetailPage({
             status: newStatus,
           }),
         })
-        if (!response.ok) throw new Error('Error al cambiar estado')
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Error al cambiar estado' }))
+          throw new Error(errorData.error || 'Error al cambiar estado')
+        }
       }
 
       alert('Estado actualizado correctamente')
       loadData() // Recargar datos
     } catch (error: any) {
-      alert('Error al cambiar estado: ' + error.message)
+      alert(error.message)
     } finally {
       setChangingStatus(false)
     }

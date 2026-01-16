@@ -75,19 +75,18 @@ export async function POST(
     const company = employee.companies as any
     const companyId = employee.company_id
 
-    // Si no es super admin, verificar que pertenece a una empresa del usuario
+    // Si no es super admin, verificar permisos granulares
     if (!isSuperAdmin) {
-      const { data: companyUser } = await supabase
-        .from('company_users')
-        .select('role, company_id')
+      const { data: permissions } = await supabase
+        .from('user_permissions')
+        .select('can_approve_permissions')
         .eq('user_id', user.id)
         .eq('company_id', companyId)
-        .eq('status', 'active')
         .single()
 
-      if (!companyUser || !['owner', 'admin'].includes(companyUser.role)) {
+      if (!permissions?.can_approve_permissions) {
         return NextResponse.json({ 
-          error: 'No autorizado para aprobar este permiso' 
+          error: 'No tienes permiso para aprobar permisos' 
         }, { status: 403 })
       }
     }

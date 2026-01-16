@@ -662,7 +662,7 @@ export default function PermissionsDashboardPage() {
                                   alert('Permiso aprobado exitosamente')
                                   loadData()
                                 } catch (error: any) {
-                                  alert('Error: ' + error.message)
+                                  alert(error.message)
                                 }
                               }}
                             >
