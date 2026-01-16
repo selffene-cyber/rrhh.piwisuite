@@ -9,7 +9,7 @@ interface CompanyUser {
   id: string
   user_id: string
   company_id: string
-  role: 'owner' | 'admin' | 'user'
+  role: 'owner' | 'admin' | 'executive' | 'user'
   status: string
   created_at: string
   user?: {
@@ -29,7 +29,7 @@ export default function CompanyUsersPage() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
-    role: 'user' as 'owner' | 'admin' | 'user',
+    role: 'user' as 'owner' | 'admin' | 'executive' | 'user',
   })
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function CompanyUsersPage() {
     }
   }
 
-  const handleUpdateRole = async (userId: string, newRole: 'owner' | 'admin' | 'user') => {
+  const handleUpdateRole = async (userId: string, newRole: 'owner' | 'admin' | 'executive' | 'user') => {
     try {
       const response = await fetch(`/api/admin/companies/${companyId}/users`, {
         method: 'PUT',
@@ -174,9 +174,10 @@ export default function CompanyUsersPage() {
                 <select
                   required
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'owner' | 'admin' | 'user' })}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'owner' | 'admin' | 'executive' | 'user' })}
                 >
                   <option value="user">Usuario</option>
+                  <option value="executive">Ejecutivo</option>
                   <option value="admin">Administrador</option>
                   <option value="owner">Propietario</option>
                 </select>
@@ -221,10 +222,11 @@ export default function CompanyUsersPage() {
                   <td>
                     <select
                       value={user.role}
-                      onChange={(e) => handleUpdateRole(user.user_id, e.target.value as 'owner' | 'admin' | 'user')}
+                      onChange={(e) => handleUpdateRole(user.user_id, e.target.value as 'owner' | 'admin' | 'executive' | 'user')}
                       style={{ padding: '4px 8px', fontSize: '12px' }}
                     >
                       <option value="user">Usuario</option>
+                      <option value="executive">Ejecutivo</option>
                       <option value="admin">Administrador</option>
                       <option value="owner">Propietario</option>
                     </select>

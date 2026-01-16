@@ -46,10 +46,21 @@ export default function EmployeesPage() {
       const from = (currentPage - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE - 1
 
+      console.log('🔍 Filtros aplicados:', {
+        companyId,
+        selectedCostCenterId,
+        selectedStatus,
+        selectedRegime,
+        selectedAFP,
+        selectedHealthSystem,
+        selectedPosition
+      })
+
       let query = supabase
         .from('employees')
         .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name), previsional_regime, other_regime_type', { count: 'exact' })
         .eq('company_id', companyId)
+        // Temporalmente sin filtro is_active para debugging
 
       // Filtrar por CC si está seleccionado
       if (selectedCostCenterId) {
@@ -99,10 +110,21 @@ export default function EmployeesPage() {
         .order('full_name')
         .range(from, to)
 
+      console.log('📊 Datos de empleados:', {
+        count,
+        dataLength: data?.length,
+        companyId,
+        error: fetchError
+      })
+
       if (fetchError) {
-        console.error('Error al cargar trabajadores:', fetchError)
+        console.error('❌ Error al cargar trabajadores:', fetchError)
         setError(fetchError.message)
         return
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No se encontraron empleados para la empresa:', companyId)
       }
 
       setEmployees(data || [])
@@ -130,6 +152,7 @@ export default function EmployeesPage() {
         .from('employees')
         .select('position')
         .eq('company_id', companyId)
+        // Temporalmente sin filtro is_active para debugging
         .not('position', 'is', null)
 
       if (error) throw error
@@ -185,14 +208,18 @@ export default function EmployeesPage() {
   }, [companyId, currentPage, selectedCostCenterId, selectedStatus, selectedRegime, selectedAFP, selectedHealthSystem, selectedPosition, loadEmployees])
 
   const handleDelete = async (employee: any) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar a ${employee.full_name}? Esta acción no se puede deshacer.`)) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar a ${employee.full_name}? El trabajador será marcado como inactivo pero su historial se preservará.`)) {
       return
     }
 
     try {
+      // Usar soft delete en lugar de eliminación física
       const { error: deleteError } = await supabase
         .from('employees')
-        .delete()
+        .update({
+          is_active: false,
+          deleted_at: new Date().toISOString()
+        })
         .eq('id', employee.id)
 
       if (deleteError) {

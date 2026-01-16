@@ -23,7 +23,7 @@ export default function AdminUsersPage() {
     email: '',
     password: '',
     full_name: '',
-    role: 'user' as 'super_admin' | 'admin' | 'user',
+    role: 'user' as 'super_admin' | 'admin' | 'executive' | 'user',
   })
 
   useEffect(() => {
@@ -224,8 +224,10 @@ export default function AdminUsersPage() {
   }
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
-    const roleLabel = newRole === 'super_admin' ? 'Super Admin' : newRole === 'admin' ? 'Administrador Sistema' : 'Usuario Sistema'
-    if (!confirm(`¿Cambiar ROL DEL SISTEMA del usuario a "${roleLabel}"?\n\n⚠️ IMPORTANTE:\n- Este es el rol a nivel del sistema completo (user_profiles.role)\n- Solo "Super Admin" puede acceder al panel de administración global\n- Para cambiar el rol dentro de una empresa específica, ve a la página de usuarios de esa empresa\n- Los roles por empresa (owner/admin/user) se gestionan desde cada empresa`)) {
+    const roleLabel = newRole === 'super_admin' ? 'Super Admin' : 
+                      newRole === 'admin' ? 'Administrador Sistema' : 
+                      newRole === 'executive' ? 'Ejecutivo' : 'Usuario Sistema'
+    if (!confirm(`¿Cambiar ROL DEL SISTEMA del usuario a "${roleLabel}"?\n\n⚠️ IMPORTANTE:\n- Este es el rol a nivel del sistema completo (user_profiles.role)\n- Solo "Super Admin" puede acceder al panel de administración global\n- "Ejecutivo" puede crear documentos pero NO aprobar\n- Para cambiar el rol dentro de una empresa específica, ve a la página de usuarios de esa empresa\n- Los roles por empresa (owner/admin/executive/user) se gestionan desde cada empresa`)) {
       return
     }
 
@@ -402,6 +404,7 @@ export default function AdminUsersPage() {
           <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>
             <li><strong>Super Admin</strong>: Acceso completo, puede gestionar todas las empresas</li>
             <li><strong>Admin Sistema</strong>: Usuario administrativo del sistema (rara vez usado)</li>
+            <li><strong>Ejecutivo</strong>: Puede crear documentos (permisos, vacaciones, etc.) pero NO aprobar. Acceso completo a RAAT y Cumplimientos</li>
             <li><strong>Usuario Sistema</strong>: Usuario normal del sistema</li>
           </ul>
           <p style={{ margin: '0' }}>
@@ -455,9 +458,10 @@ export default function AdminUsersPage() {
                 <select
                   required
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'super_admin' | 'admin' | 'user' })}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'super_admin' | 'admin' | 'executive' | 'user' })}
                 >
                   <option value="user">Usuario</option>
+                  <option value="executive">Ejecutivo</option>
                   <option value="admin">Administrador</option>
                   <option value="super_admin">Super Administrador</option>
                 </select>
@@ -513,7 +517,8 @@ export default function AdminUsersPage() {
                         <div>
                           <span className={`badge ${user.role}`} style={{ marginBottom: '4px' }}>
                             {user.role === 'super_admin' ? 'Super Admin' : 
-                             user.role === 'admin' ? 'Admin Sistema' : 'Usuario Sistema'}
+                             user.role === 'admin' ? 'Admin Sistema' :
+                             user.role === 'executive' ? 'Ejecutivo' : 'Usuario Sistema'}
                           </span>
                           <small style={{ fontSize: '10px', color: '#6b7280', display: 'block', marginTop: '2px' }}>
                             Rol del Sistema
@@ -766,6 +771,7 @@ export default function AdminUsersPage() {
                               style={{ padding: '4px 8px', fontSize: '12px' }}
                             >
                               <option value="user">Usuario</option>
+                              <option value="executive">Ejecutivo</option>
                               <option value="admin">Administrador</option>
                               <option value="super_admin">Super Admin</option>
                             </select>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock, FaStethoscope } from 'react-icons/fa'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
@@ -21,6 +22,8 @@ const formatDataDate = (year: number, month: number): string => {
 
 export default function HomePage() {
   const { companyId } = useCurrentCompany()
+  const searchParams = useSearchParams()
+  const [showPermissionError, setShowPermissionError] = useState(false)
   const [activeEmployeesCount, setActiveEmployeesCount] = useState(0)
   const [medicalLeaveEmployeesCount, setMedicalLeaveEmployeesCount] = useState(0)
   const [permissionEmployeesCount, setPermissionEmployeesCount] = useState(0)
@@ -165,6 +168,19 @@ export default function HomePage() {
       console.log('Alert Engine ejecutado automáticamente al cargar dashboard')
     }
   }
+
+  // Detectar error de permisos en la URL
+  useEffect(() => {
+    const error = searchParams?.get('error')
+    if (error === 'no_permission') {
+      setShowPermissionError(true)
+      // Limpiar el parámetro de la URL después de 5 segundos
+      setTimeout(() => {
+        setShowPermissionError(false)
+        window.history.replaceState({}, '', '/')
+      }, 5000)
+    }
+  }, [searchParams])
 
   const loadStats = async () => {
     try {
@@ -919,6 +935,30 @@ export default function HomePage() {
           Resumen general del sistema de remuneraciones
         </p>
       </div>
+
+      {/* Mensaje de error de permisos */}
+      {showPermissionError && (
+        <div style={{
+          backgroundColor: '#fee2e2',
+          border: '1px solid #fca5a5',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <FaExclamationTriangle style={{ color: '#dc2626', fontSize: '24px', flexShrink: 0 }} />
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#991b1b', marginBottom: '4px' }}>
+              Acceso Denegado
+            </h3>
+            <p style={{ fontSize: '14px', color: '#7f1d1d' }}>
+              No tienes permiso para acceder a esa sección. Contacta a tu administrador si necesitas acceso.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Cards de Estadísticas */}
       <div style={{ 

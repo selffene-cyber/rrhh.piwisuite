@@ -37,6 +37,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [trabajadoresOpen, setTrabajadoresOpen] = useState(false)
   const [organizacionOpen, setOrganizacionOpen] = useState(false)
   const [gestionPersonasOpen, setGestionPersonasOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiChatOpen, setAiChatOpen] = useState(false)
   const hasLoaded = useRef(false)
 
@@ -142,6 +143,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (pathname?.startsWith('/compliance') || pathname?.startsWith('/raat')) {
       setGestionPersonasOpen(true)
     }
+    // Verificar si estamos en una página de settings para mantener abierto el submenú
+    if (pathname?.startsWith('/settings')) {
+      setSettingsOpen(true)
+    }
   }, [pathname])
 
   // Si estamos en login o en rutas de empleado (portal trabajador), no renderizar el Layout (después de todos los hooks)
@@ -218,7 +223,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: '/raat', label: 'RAAT', icon: FaExclamationCircle },
       ]
     },
-    { href: '/settings', label: 'Configuración', icon: FaCog },
+    {
+      label: 'Configuración',
+      icon: FaCog,
+      openState: settingsOpen,
+      setOpenState: setSettingsOpen,
+      subItems: [
+        { href: '/settings', label: 'Datos de Empresa', icon: FaBuilding },
+        { href: '/settings/indicators', label: 'Indicadores', icon: FaChartBar },
+        { href: '/settings/signatures', label: 'Firmas Digitales', icon: FaFileAlt },
+        { href: '/settings/tax-brackets', label: 'Tramos Tributarios', icon: FaMoneyBillWave },
+        { href: '/settings/usuarios-roles', label: 'Usuarios y Roles', icon: FaUserShield },
+      ]
+    },
   ]
 
   // Agregar links de administración si es super admin

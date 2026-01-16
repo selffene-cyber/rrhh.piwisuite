@@ -163,7 +163,12 @@ export default function DisciplinaryActionsDashboardPage() {
           }
         }
 
-        const emp = employeesMap.get(empId)!
+        const emp = employeesMap.get(empId)
+        if (!emp) {
+          console.warn(`Empleado ${empId} no encontrado en el mapa, omitiendo acción`)
+          return // Saltar esta acción si no se encuentra el empleado
+        }
+        
         emp.totalActions++
         
         if (action.type === 'written') {

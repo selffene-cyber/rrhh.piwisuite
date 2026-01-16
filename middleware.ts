@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner'])
+          .in('role', ['admin', 'owner', 'executive'])
 
         console.log('[Middleware /login] Usuario es empleado, verificando si es admin/owner:', {
           userId: user.id,
@@ -134,7 +134,7 @@ export async function middleware(request: NextRequest) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner'])
+          .in('role', ['admin', 'owner', 'executive'])
 
         console.log('[Middleware /] Usuario es empleado, verificando si es admin/owner:', {
           userId: user.id,
@@ -212,7 +212,7 @@ export async function middleware(request: NextRequest) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner'])
+          .in('role', ['admin', 'owner', 'executive'])
 
         console.log('[Middleware /admin] Verificando permisos para ruta /admin:', {
           userId: user.id,
@@ -291,23 +291,95 @@ export async function middleware(request: NextRequest) {
         // Primero verificar si es admin/owner en alguna empresa (esto permite el acceso)
         const { data: companyUsers, error: companyUserError } = await supabase
           .from('company_users')
-          .select('role, status')
+          .select('role, status, company_id')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner'])
+          .in('role', ['admin', 'owner', 'executive'])
 
-        console.log('[Middleware rutas admin] Verificando si es admin/owner:', {
+        // Diferenciar entre admin/owner y executive
+        const isAdminOrOwner = companyUsers?.some(cu => cu.role === 'admin' || cu.role === 'owner')
+        const isExecutive = companyUsers?.some(cu => cu.role === 'executive')
+        const userRole = companyUsers?.[0]?.role || 'none'
+
+        console.log('[Middleware rutas admin] Verificando permisos de usuario:', {
           userId: user.id,
           pathname,
-          companyUsers,
-          companyUserError,
-          isAdminOwner: companyUsers && companyUsers.length > 0
+          userRole,
+          isAdminOrOwner,
+          isExecutive,
+          hasCompanyUsers: companyUsers && companyUsers.length > 0
         })
 
-        // Si ES admin/owner, permitir acceso inmediatamente
-        if (companyUsers && companyUsers.length > 0 && !companyUserError) {
-          console.log('[Middleware rutas admin] Usuario ES admin/owner, permitiendo acceso a ruta:', pathname)
+        // Si es admin/owner, permitir acceso inmediatamente
+        if (isAdminOrOwner) {
+          console.log(`[Middleware rutas admin] Usuario admin/owner, permitiendo acceso a ruta:`, pathname)
           return response
+        }
+
+        // Si es executive, verificar permisos granulares
+        if (isExecutive) {
+          console.log('[Middleware rutas admin] Usuario executive, verificando permisos granulares...')
+          
+          // Obtener companyId del usuario
+          const companyId = companyUsers?.[0]?.company_id
+          
+          // Cargar permisos del usuario
+          const { data: permissions, error: permissionsError } = await supabase
+            .from('user_permissions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('company_id', companyId)
+            .maybeSingle()
+
+          console.log('[Middleware rutas admin] Permisos del usuario:', { permissions, permissionsError })
+
+          // Mapeo de rutas a permisos requeridos
+          const routePermissions: Record<string, (p: any) => boolean> = {
+            '/payroll': (p) => p.can_create_payroll || p.can_approve_payroll,
+            '/contracts': (p) => p.can_view_contracts || p.can_create_contracts || p.can_approve_contracts,
+            '/advances': (p) => p.can_create_advances || p.can_approve_advances,
+            '/settlements': (p) => p.can_create_settlements || p.can_approve_settlements,
+            '/permissions': (p) => p.can_create_permissions || p.can_approve_permissions,
+            '/vacations': (p) => p.can_create_vacations || p.can_approve_vacations,
+            '/certificates': (p) => p.can_create_certificates || p.can_approve_certificates,
+            '/disciplinary-actions': (p) => p.can_create_disciplinary || p.can_approve_disciplinary,
+            '/compliance': (p) => p.can_view_compliance || p.can_create_compliance,
+            '/raat': (p) => p.can_view_raat || p.can_create_raat,
+            '/documents': (p) => p.can_view_documents || p.can_upload_documents,
+            '/departments': (p) => p.can_view_departments || p.can_create_departments,
+            '/cost-centers': (p) => p.can_view_cost_centers || p.can_create_cost_centers,
+            '/org-chart': (p) => p.can_view_org_chart || p.can_edit_org_chart,
+            '/loans': (p) => p.can_view_loans || p.can_create_loans,
+            '/settings': (p) => p.can_edit_company_settings,
+            '/settings/indicators': (p) => p.can_manage_indicators,
+            '/settings/signatures': (p) => p.can_manage_signatures,
+            '/settings/tax-brackets': (p) => p.can_manage_tax_brackets,
+            '/settings/usuarios-roles': (p) => p.can_manage_users_roles,
+          }
+
+          // Verificar si la ruta requiere permisos específicos
+          const permissionCheck = routePermissions[pathname]
+          
+          if (permissionCheck && permissions) {
+            const hasPermission = permissionCheck(permissions)
+            console.log('[Middleware rutas admin] Resultado verificación permiso:', { pathname, hasPermission })
+            
+            if (!hasPermission) {
+              console.log('[Middleware rutas admin] Usuario executive SIN PERMISO para:', pathname)
+              const url = request.nextUrl.clone()
+              url.pathname = '/'
+              url.searchParams.set('error', 'no_permission')
+              return NextResponse.redirect(url)
+            }
+          }
+
+          console.log(`[Middleware rutas admin] Usuario executive con permiso, permitiendo acceso a:`, pathname)
+          return response
+        }
+
+        // Si no tiene ningún rol administrativo, continuar con verificación de empleado
+        if (!companyUsers || companyUsers.length === 0 || companyUserError) {
+          console.log('[Middleware rutas admin] Usuario sin rol administrativo')
         }
 
         // Si NO es admin/owner, verificar si es trabajador (y redirigir al portal)
