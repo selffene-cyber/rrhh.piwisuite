@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/tax-brackets/scrape-scheduled",
+      "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/compliance/cron",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
+

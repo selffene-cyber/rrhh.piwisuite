@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClientForAPI } from '@/lib/supabase/server-api'
+import { createValidationServices, handleValidationError } from '@/lib/services/validationHelpers'
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createServerClientForAPI(request)
+    const body = await request.json()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    // Validar que el empleado pueda recibir un certificado (requiere contrato activo, pero permite durante licencia médica)
+    if (body.employee_id) {
+      const { employee } = createValidationServices(supabase)
+      const validation = await employee.canGenerateCertificate(body.employee_id)
+      
+      const errorResponse = handleValidationError(validation)
+      if (errorResponse) return errorResponse
+    }
+
+    // Insertar certificado
+    const { data, error } = await supabase
+      .from('certificates')
+      .insert(body)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(data, { status: 201 })
+  } catch (error: any) {
+    console.error('Error al crear certificado:', error)
+    return NextResponse.json(
+      { error: error.message || 'Error al crear certificado' },
+      { status: 500 }
+    )
+  }
+}
+
+
+
+
+
+
+
+

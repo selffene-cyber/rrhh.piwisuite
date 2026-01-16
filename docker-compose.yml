@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Los puertos se manejan automáticamente por Easypanel
+    # IMPORTANTE: El puerto interno debe coincidir con el configurado en Easypanel (3002)
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      # ⚠️ NO incluyas secretos en el repo. Define estos valores vía variables de entorno o un archivo `.env`.
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+    restart: unless-stopped
+
