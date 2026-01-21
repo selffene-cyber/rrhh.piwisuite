@@ -19,8 +19,9 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'super_admin') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    // Permitir a super_admin, admin y owner crear usuarios
+    if (!['super_admin', 'admin', 'owner'].includes(profile?.role || '')) {
+      return NextResponse.json({ error: 'No autorizado. Solo super_admin, admin y owner pueden crear usuarios.' }, { status: 403 })
     }
 
     const body = await request.json()
