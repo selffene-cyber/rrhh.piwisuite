@@ -92,17 +92,79 @@ export function calculateAccumulatedVacationDays(
 }
 
 /**
- * Calcula los días acumulados en un año específico (para períodos)
- * Según ley chilena: máximo 2 períodos (60 días) pueden guardarse
- * Los períodos se organizan por año calendario para gestión, pero se calculan por años de servicio
+ * ✅ NUEVO: Calcula los días acumulados para un año de servicio específico
+ * Según Código del Trabajo chileno (Art. 67): 15 días hábiles por año de servicio
+ * El año de servicio se cuenta desde la fecha de ingreso (aniversario)
+ * 
  * @param hireDate Fecha de ingreso del trabajador
- * @param year Año del período (año calendario)
- * @returns Días acumulados en ese año calendario
+ * @param serviceYear Número de año de servicio (1 = primer año, 2 = segundo año, etc.)
+ * @param referenceDate Fecha de referencia (por defecto: hoy)
+ * @returns Días acumulados en ese año de servicio
+ * 
+ * @example
+ * Ingreso: 14/04/2023
+ * serviceYear 1: 14/04/2023 → 13/04/2024 = 15 días
+ * serviceYear 2: 14/04/2024 → 13/04/2025 = 15 días
+ * serviceYear 3: 14/04/2025 → 13/04/2026 = 15 días
+ */
+export function calculateAccumulatedDaysForServiceYear(
+  hireDate: Date | string,
+  serviceYear: number,
+  referenceDate: Date = new Date()
+): number {
+  // Parsear fecha de ingreso correctamente
+  let hire: Date
+  if (typeof hireDate === 'string') {
+    const dateParts = hireDate.split('T')[0].split('-')
+    hire = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
+  } else {
+    hire = new Date(hireDate.getFullYear(), hireDate.getMonth(), hireDate.getDate())
+  }
+  
+  const ref = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate())
+  
+  // Calcular el inicio y fin del año de servicio
+  // serviceYear 1: desde ingreso hasta 1 año después
+  // serviceYear 2: desde 1 año después hasta 2 años después
+  // etc.
+  
+  const serviceYearStart = new Date(hire)
+  serviceYearStart.setFullYear(hire.getFullYear() + (serviceYear - 1))
+  
+  const serviceYearEnd = new Date(hire)
+  serviceYearEnd.setFullYear(hire.getFullYear() + serviceYear)
+  serviceYearEnd.setDate(serviceYearEnd.getDate() - 1) // Un día antes del siguiente aniversario
+  
+  // Si el periodo aún no ha comenzado
+  if (ref.getTime() < serviceYearStart.getTime()) {
+    return 0
+  }
+  
+  // Si el periodo ya terminó completamente, retornar 15 días
+  if (ref.getTime() > serviceYearEnd.getTime()) {
+    return 15.0 // Año completo de servicio = 15 días
+  }
+  
+  // Si estamos dentro del periodo, calcular días acumulados hasta hoy
+  const monthsAtStart = calculateCompleteMonthsWorked(hire, serviceYearStart)
+  const monthsAtRef = calculateCompleteMonthsWorked(hire, ref)
+  
+  const monthsInPeriod = monthsAtRef - monthsAtStart
+  const accumulated = monthsInPeriod * 1.25
+  
+  return Math.round(accumulated * 100) / 100 // Redondear a 2 decimales
+}
+
+/**
+ * @deprecated Use calculateAccumulatedDaysForServiceYear instead
+ * Esta función calculaba por año calendario, lo cual NO es correcto según ley chilena
  */
 export function calculateAccumulatedDaysForYear(
   hireDate: Date | string,
   year: number
 ): number {
+  console.warn('⚠️ calculateAccumulatedDaysForYear está deprecated. Usa calculateAccumulatedDaysForServiceYear')
+  
   // Parsear fecha de ingreso correctamente
   let hire: Date
   if (typeof hireDate === 'string') {
@@ -184,11 +246,18 @@ export async function getVacationPeriods(
 }
 
 /**
- * Sincroniza los períodos de vacaciones de un trabajador
- * Calcula días acumulados por año calendario (para gestión) pero basado en años de servicio
+ * ✅ NUEVO: Sincroniza los períodos de vacaciones por año de servicio
+ * Según Código del Trabajo chileno: periodos basados en aniversario de ingreso
  * Aplica la regla de máximo 2 períodos (60 días)
+ * 
  * @param employeeId ID del trabajador
  * @param hireDate Fecha de ingreso
+ * 
+ * @example
+ * Ingreso: 14/04/2023
+ * Periodo 1 (2023): 14/04/2023 → 13/04/2024 = 15 días
+ * Periodo 2 (2024): 14/04/2024 → 13/04/2025 = 15 días
+ * Periodo 3 (2025): 14/04/2025 → 13/04/2026 = 15 días (en curso)
  */
 export async function syncVacationPeriods(
   employeeId: string,
@@ -204,26 +273,40 @@ export async function syncVacationPeriods(
       hire = new Date(hireDate.getFullYear(), hireDate.getMonth(), hireDate.getDate())
     }
     
-    const currentYear = new Date().getFullYear()
-    const hireYear = hire.getFullYear()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
     
-    // Solo crear períodos desde el año de ingreso hasta el año actual (no futuro)
-    const yearsToProcess = []
+    // Calcular cuántos años de servicio ha completado o está cursando
+    const totalMonthsWorked = calculateCompleteMonthsWorked(hire, today)
+    const serviceYearsToCreate = Math.ceil(totalMonthsWorked / 12) // Redondear arriba para incluir año en curso
     
-    for (let year = hireYear; year <= currentYear; year++) {
-      yearsToProcess.push(year)
-    }
+    // Si aún no ha completado ni siquiera 1 mes, crear al menos el primer periodo
+    const serviceYears = Math.max(1, serviceYearsToCreate)
     
-    // Calcular días acumulados por año calendario
-    const periodsToUpsert = yearsToProcess.map(year => {
-      const accumulated = calculateAccumulatedDaysForYear(hire, year)
+    console.log(`📅 Sincronizando ${serviceYears} periodo(s) de servicio para empleado ${employeeId}`)
+    console.log(`   Fecha ingreso: ${hire.toISOString().split('T')[0]}`)
+    console.log(`   Meses trabajados: ${totalMonthsWorked}`)
+    
+    // Crear períodos por año de servicio
+    const periodsToUpsert = []
+    
+    for (let serviceYear = 1; serviceYear <= serviceYears; serviceYear++) {
+      const accumulated = calculateAccumulatedDaysForServiceYear(hire, serviceYear, today)
       
-      return {
+      // period_year representa el año de inicio del periodo de servicio
+      // Periodo 1: año de ingreso
+      // Periodo 2: año de ingreso + 1
+      // etc.
+      const periodYearStart = hire.getFullYear() + (serviceYear - 1)
+      
+      periodsToUpsert.push({
         employee_id: employeeId,
-        period_year: year,
+        period_year: periodYearStart,
         accumulated_days: accumulated,
-      }
-    })
+      })
+      
+      console.log(`   Periodo ${serviceYear} (${periodYearStart}): ${accumulated} días`)
+    }
     
     // Upsert períodos
     for (const period of periodsToUpsert) {
@@ -233,7 +316,10 @@ export async function syncVacationPeriods(
           onConflict: 'employee_id,period_year',
         })
       
-      if (error) throw error
+      if (error) {
+        console.error(`Error al upsert periodo ${period.period_year}:`, error)
+        throw error
+      }
     }
     
     // Obtener todos los períodos activos (no archivados)
@@ -248,6 +334,8 @@ export async function syncVacationPeriods(
     if (activePeriods && activePeriods.length > 2) {
       const periodsToArchive = activePeriods.slice(2) // Todos excepto los 2 primeros (más recientes)
       
+      console.log(`⚠️ Archivando ${periodsToArchive.length} periodo(s) antiguo(s) (límite máximo: 2 periodos activos)`)
+      
       for (const period of periodsToArchive) {
         const { error } = await supabase
           .from('vacation_periods')
@@ -258,9 +346,14 @@ export async function syncVacationPeriods(
           })
           .eq('id', period.id)
         
-        if (error) throw error
+        if (error) {
+          console.error(`Error al archivar periodo ${period.period_year}:`, error)
+          throw error
+        }
       }
     }
+    
+    console.log(`✅ Periodos sincronizados correctamente`)
   } catch (error) {
     console.error('Error al sincronizar períodos de vacaciones:', error)
     throw error
@@ -355,6 +448,59 @@ export async function assignVacationDays(
       throw new Error('No hay períodos de vacaciones para este trabajador')
     }
     
+    // ✅ NUEVO: Manejar días negativos (DEVOLVER días)
+    if (days < 0) {
+      console.log(`🔄 Devolviendo ${Math.abs(days)} días (LIFO reverso)`)
+      
+      // Para devolver días, usar LIFO (Last In, First Out) - reverso de FIFO
+      // Devolver días al periodo más reciente primero (que fue el último en usarse)
+      const sortedPeriods = [...allPeriods].sort((a, b) => b.period_year - a.period_year) // Más reciente primero
+      
+      let remainingDaysToReturn = Math.abs(days) // Convertir a positivo
+      const updatedPeriods: VacationPeriod[] = []
+      
+      for (const period of sortedPeriods) {
+        if (remainingDaysToReturn <= 0) break
+        
+        // Solo devolver días a periodos que tengan días usados
+        if (period.used_days <= 0) continue
+        
+        // Calcular cuántos días devolver a este período
+        const daysToReturn = Math.min(remainingDaysToReturn, period.used_days)
+        
+        if (daysToReturn > 0) {
+          const newUsedDays = period.used_days - daysToReturn
+          
+          // Actualizar estado (si tenía "completed", volver a "active")
+          const newStatus = (newUsedDays < period.accumulated_days) ? 'active' : 'completed'
+          
+          const { data: updated, error } = await supabase
+            .from('vacation_periods')
+            .update({ 
+              used_days: Math.max(0, newUsedDays),
+              status: newStatus
+            })
+            .eq('id', period.id)
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          updatedPeriods.push(updated)
+          remainingDaysToReturn -= daysToReturn
+          
+          console.log(`   ↩️ Devueltos ${daysToReturn} días al periodo ${period.period_year}`)
+        }
+      }
+      
+      if (remainingDaysToReturn > 0) {
+        console.warn(`⚠️ Solo se pudieron devolver ${Math.abs(days) - remainingDaysToReturn} de ${Math.abs(days)} días`)
+      }
+      
+      return updatedPeriods
+    }
+    
+    // ✅ Modo FIFO Normal: Asignar días (positivo)
     // Ordenar por año ascendente (más antiguo primero) para FIFO
     // Esto asegura que se descuente primero de 2020, luego 2021, 2022, etc.
     const sortedPeriods = [...allPeriods].sort((a, b) => a.period_year - b.period_year)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { createValidationServices, handleValidationError } from '@/lib/services/validationHelpers'
 import { createAuditService } from '@/lib/services/auditService'
+import { getVacationPeriods, assignVacationDays, syncVacationPeriods } from '@/lib/services/vacationPeriods'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (body.employee_id) {
       const { data: employee } = await supabase
         .from('employees')
-        .select('company_id')
+        .select('company_id, hire_date')
         .eq('id', body.employee_id)
         .single()
 
@@ -59,9 +60,50 @@ export async function POST(request: NextRequest) {
       
       const errorResponse = handleValidationError(validation)
       if (errorResponse) return errorResponse
+
+      // ✅ Determinar el período usando FIFO (del más antiguo con días disponibles)
+      // Primero sincronizar períodos
+      await syncVacationPeriods(body.employee_id, employee.hire_date)
+      
+      // Obtener TODOS los períodos (incluyendo archivados) para FIFO correcto
+      const allPeriods = await getVacationPeriods(body.employee_id, true) // ✅ true = incluir archivados
+      const sortedPeriods = [...allPeriods].sort((a, b) => a.period_year - b.period_year)
+      
+      // Encontrar el primer período con días disponibles (FIFO)
+      // Incluye archivados si tienen días disponibles (legal en Chile por mutuo acuerdo)
+      const firstAvailablePeriod = sortedPeriods.find(p => 
+        (p.accumulated_days - p.used_days) > 0
+      )
+      
+      // Si no hay periodo disponible o no se especifica start_date, usar el año actual como fallback
+      const startDate = body.start_date ? new Date(body.start_date) : new Date()
+      const periodYear = firstAvailablePeriod ? firstAvailablePeriod.period_year : startDate.getFullYear()
+      
+      // ✅ Asignar el period_year calculado con FIFO
+      body.period_year = periodYear
+
+      // Si el estado es 'aprobada' o 'tomada', descontar días inmediatamente
+      if (body.status === 'aprobada' || body.status === 'tomada') {
+        try {
+          const updatedPeriods = await assignVacationDays(
+            body.employee_id,
+            body.days_count
+          )
+          
+          // Actualizar period_year con el periodo real asignado
+          if (updatedPeriods.length > 0) {
+            body.period_year = updatedPeriods[0].period_year
+          }
+          
+          console.log(`✅ Días asignados usando FIFO: ${body.days_count} días del periodo ${body.period_year}`)
+        } catch (error) {
+          console.error('Error al asignar días:', error)
+          // Continuar con la creación pero advertir
+        }
+      }
     }
 
-    // Insertar vacación (period_year se pasa desde el cliente si es necesario)
+    // Insertar vacación con period_year calculado
     const { data, error } = await supabase
       .from('vacations')
       .insert(body)

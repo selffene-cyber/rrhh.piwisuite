@@ -321,9 +321,7 @@ export type LoanAdvanceSummary = {
 
 // ============================================================
 // Tipos para Roles y Permisos (Sistema Executive)
-// ============================================================
-
-// Roles del sistema
+// ============================================================// Roles del sistema
 export type UserRole = 'super_admin' | 'admin' | 'executive' | 'user'
 
 // Permisos granulares por usuario
@@ -766,4 +764,3 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_manage_company_settings: false, // DEPRECATED
   },
 }
-

@@ -204,10 +204,6 @@ export async function POST(
         // Sincronizar períodos primero (asegura que estén actualizados)
         await syncVacationPeriods(vacation.employee_id, employeeData.hire_date)
         
-        // Determinar el año del período según la fecha de inicio de la vacación
-        const vacationStartDate = new Date(vacation.start_date)
-        const periodYear = vacationStartDate.getFullYear()
-        
         // Asignar días al período usando FIFO (descontar del más antiguo)
         // NO especificamos periodYear para que use FIFO automático
         const updatedPeriods = await assignVacationDays(
@@ -215,7 +211,17 @@ export async function POST(
           vacation.days_count
         )
         
-        console.log(`✅ Días descontados: ${vacation.days_count} días de ${updatedPeriods.length} período(s)`)
+        // ✅ Actualizar el period_year de la vacación con el periodo real (FIFO)
+        if (updatedPeriods.length > 0) {
+          const realPeriodYear = updatedPeriods[0].period_year
+          
+          await supabase
+            .from('vacations')
+            .update({ period_year: realPeriodYear })
+            .eq('id', params.id)
+          
+          console.log(`✅ Días descontados usando FIFO: ${vacation.days_count} días del periodo ${realPeriodYear} (${updatedPeriods.length} período(s) afectado(s))`)
+        }
       } catch (periodError) {
         console.error('Error al descontar días del período:', periodError)
         // No fallar la aprobación por este error, solo loguearlo

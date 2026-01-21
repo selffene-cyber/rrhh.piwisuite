@@ -1,5 +1,6 @@
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
 import { createAuditService } from '@/lib/services/auditService'
+import { getVacationPeriods } from '@/lib/services/vacationPeriods'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -75,8 +76,19 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // TODO: Validar días disponibles (se puede hacer más adelante con cálculo de vacaciones acumuladas)
-    // Por ahora, solo validamos que haya días hábiles
+    // ✅ Determinar el período usando FIFO (del más antiguo con días disponibles)
+    // Obtener TODOS los períodos (incluyendo archivados) para FIFO correcto
+    const allPeriods = await getVacationPeriods(employee.id, true) // ✅ true = incluir archivados
+    const sortedPeriods = [...allPeriods].sort((a, b) => a.period_year - b.period_year)
+    
+    // Encontrar el primer período con días disponibles (FIFO)
+    // Incluye archivados si tienen días disponibles (legal en Chile por mutuo acuerdo)
+    const firstAvailablePeriod = sortedPeriods.find(p => 
+      (p.accumulated_days - p.used_days) > 0
+    )
+    
+    // Si no hay periodo disponible, usar el año de la fecha de inicio como fallback
+    const periodYear = firstAvailablePeriod ? firstAvailablePeriod.period_year : start.getFullYear()
 
     // Crear solicitud de vacaciones
     const vacationData: any = {
@@ -88,6 +100,7 @@ export async function POST(request: NextRequest) {
       request_date: new Date().toISOString().split('T')[0],
       requested_by: user.id,
       requested_at: new Date().toISOString(),
+      period_year: periodYear, // ✅ Asignar período FIFO
     }
 
     if (notes?.trim()) {

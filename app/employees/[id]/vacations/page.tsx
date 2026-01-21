@@ -134,12 +134,23 @@ export default function VacationsPage({ params }: { params: { id: string } }) {
         return
       }
 
-      // Determinar el año del período (usar el año de la fecha de inicio)
-      const startDate = new Date(formData.start_date)
-      const periodYear = startDate.getFullYear()
-
       // Verificar si ha cumplido 1 año de servicio
       const hasCompletedYear = employee ? hasCompletedOneYear(employee.hire_date) : false
+      
+      // ✅ SIEMPRE determinar el período usando FIFO (incluso para solicitudes)
+      // Obtener TODOS los períodos (incluyendo archivados) para FIFO correcto
+      const allPeriods = await getVacationPeriods(params.id, true) // ✅ true = incluir archivados
+      const sortedPeriods = [...allPeriods].sort((a, b) => a.period_year - b.period_year)
+      
+      // Encontrar el primer período con días disponibles (FIFO)
+      // Incluye archivados si tienen días disponibles (legal en Chile por mutuo acuerdo)
+      const firstAvailablePeriod = sortedPeriods.find(p => 
+        (p.accumulated_days - p.used_days) > 0
+      )
+      
+      // Si no hay periodo disponible, usar el año de la fecha de inicio como fallback
+      const startDate = new Date(formData.start_date)
+      const periodYear = firstAvailablePeriod ? firstAvailablePeriod.period_year : startDate.getFullYear()
       
       // Si se aprueba o toma, asignar días al período
       let assignedPeriod = null
