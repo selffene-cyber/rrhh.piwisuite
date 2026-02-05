@@ -107,7 +107,7 @@ export default function NewLoanPage({ params }: { params: { id: string } }) {
           .in('employee_id', employeeIds)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (lastLoan?.loan_number) {
           const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
