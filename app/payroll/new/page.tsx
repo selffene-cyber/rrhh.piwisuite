@@ -679,8 +679,8 @@ export default function NewPayrollPage() {
         return
       }
 
-      // Calcular días efectivos (descontando licencia médica)
-      const effectiveDaysWorked = Math.max(0, formData.days_worked - medicalLeaveDays)
+      // Calcular días efectivos (descontando licencia médica y permisos sin goce)
+      const effectiveDaysWorked = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)
 
       // Crear liquidación
       // NOTA: days_worked incluye días de vacaciones (no se descuentan)
@@ -690,7 +690,7 @@ export default function NewPayrollPage() {
         .insert({
           employee_id: formData.employee_id,
           period_id: period.id,
-          days_worked: formData.days_worked, // Días totales (incluye vacaciones, no se descuentan)
+          days_worked: effectiveDaysWorked, // Días efectivos (descontando licencias y permisos sin goce)
           days_leave: medicalLeaveDays, // Días de licencia médica calculados automáticamente
           base_salary: selectedEmployee.base_salary,
           taxable_base: calculation.taxableBase,
