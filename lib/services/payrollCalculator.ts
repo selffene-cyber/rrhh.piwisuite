@@ -34,12 +34,21 @@ export async function calculatePayroll(
   // Sueldo base proporcional a días trabajados (redondear hacia arriba)
   const baseSalaryProportional = Math.ceil((baseSalary / 30) * daysWorked)
 
+  // Calcular otros haberes imponibles primero (redondear todos hacia arriba)
+  const bonusesRounded = Math.ceil(bonuses)
+  const overtimeRounded = Math.ceil(overtime)
+  const vacationRounded = Math.ceil(vacation)
+  const otherTaxableEarnings = Math.ceil((input as any).otherTaxableEarnings || 0)
+
+  // Total de remuneraciones SIN gratificación (base para calcular la gratificación)
+  const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + vacationRounded + otherTaxableEarnings
+
   // Gratificación mensual legal
-  // Según normativa chilena:
-  // - La gratificación es el 25% del sueldo base mensual
+  // Según normativa chilena (Art. 47 Código del Trabajo):
+  // - La gratificación es el 25% del TOTAL de remuneraciones imponibles
   // - PERO tiene un tope legal: (4,75 × Ingreso Mínimo Mensual) / 12
   // - El Ingreso Mínimo Mensual está en los indicadores como RMITrabDepeInd
-  // - Se usa el MENOR entre el 25% del sueldo y el tope legal
+  // - Se usa el MENOR entre el 25% del total y el tope legal
   let monthlyGratification = 0
   if (indicators && indicators.RMITrabDepeInd) {
     // Parsear número chileno (puntos para miles, coma para decimales)
@@ -50,29 +59,29 @@ export async function calculatePayroll(
     
     const ingresoMinimo = parseChileanNumber(indicators.RMITrabDepeInd)
     const topeGratificacion = (4.75 * ingresoMinimo) / 12
-    const gratificacion25Porciento = baseSalary * 0.25
+    // CORRECCIÓN: Calcular sobre el total de remuneraciones, no solo sueldo base
+    const gratificacion25Porciento = totalRemunerationsWithoutGratification * 0.25
     
-    // La gratificación es el menor entre el tope legal y el 25% del sueldo
+    // La gratificación es el menor entre el tope legal y el 25% del total
     const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
     
     // Proporcional a días trabajados (redondear hacia arriba)
     monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
   } else {
-    // Si no hay indicadores, usar cálculo tradicional (25% del sueldo)
-    // Esto es un fallback, idealmente siempre deberían estar los indicadores
-    monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+    // Si no hay indicadores, usar cálculo tradicional (25% del total)
+    // CORRECCIÓN: Calcular sobre el total de remuneraciones, no solo sueldo base
+    monthlyGratification = Math.ceil((totalRemunerationsWithoutGratification * 0.25 / 30) * daysWorked)
   }
 
-  // Haberes imponibles (redondear todos hacia arriba)
-  const otherTaxableEarnings = Math.ceil((input as any).otherTaxableEarnings || 0)
+  // Haberes imponibles (ya redondeados)
   const taxableEarnings = {
     baseSalary: baseSalaryProportional,
-    bonuses: Math.ceil(bonuses),
+    bonuses: bonusesRounded,
     monthlyGratification,
-    overtime: Math.ceil(overtime),
-    vacation: Math.ceil(vacation),
+    overtime: overtimeRounded,
+    vacation: vacationRounded,
     otherTaxableEarnings,
-    total: Math.ceil(baseSalaryProportional + bonuses + monthlyGratification + overtime + vacation + otherTaxableEarnings),
+    total: Math.ceil(baseSalaryProportional + bonusesRounded + monthlyGratification + overtimeRounded + vacationRounded + otherTaxableEarnings),
   }
 
   // Base imponible (para AFP e impuestos) - ya está redondeada arriba
