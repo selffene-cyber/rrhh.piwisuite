@@ -133,7 +133,7 @@ export function useUserPermissions(companyId?: string) {
   const isSuperAdmin = role === 'super_admin'
 
   // Helper: ¿Es ejecutivo?
-  const isExecutive = role === 'executive'
+  const isExecutive = role === 'ejecutivo'
 
   // Helper: ¿Es solo usuario (trabajador)?
   const isUser = role === 'user'

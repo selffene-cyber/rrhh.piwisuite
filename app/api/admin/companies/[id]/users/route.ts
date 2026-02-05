@@ -110,7 +110,7 @@ export async function PUT(
       return NextResponse.json({ error: 'user_id y role son requeridos' }, { status: 400 })
     }
 
-    if (!['owner', 'admin', 'user'].includes(role)) {
+    if (!['owner', 'admin', 'ejecutivo', 'user'].includes(role)) {
       return NextResponse.json({ error: 'Rol inválido' }, { status: 400 })
     }
 

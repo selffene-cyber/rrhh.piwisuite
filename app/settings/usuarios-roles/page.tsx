@@ -9,7 +9,7 @@ import { FaUser, FaEdit, FaTrash, FaPlus, FaTimes, FaToggleOn, FaToggleOff } fro
 interface CompanyUser {
   id: string
   user_id: string
-  role: 'owner' | 'admin' | 'executive' | 'user'
+  role: 'owner' | 'admin' | 'ejecutivo' | 'user'
   status: string
   user_profiles?: {
     email: string
@@ -32,7 +32,7 @@ export default function UsuariosRolesPage() {
     email: '',
     password: '',
     full_name: '',
-    role: 'user' as 'owner' | 'admin' | 'executive' | 'user',
+    role: 'user' as 'owner' | 'admin' | 'ejecutivo' | 'user',
   })
 
   const [permissionsFormData, setPermissionsFormData] = useState<Partial<UserPermissions>>({})
@@ -62,19 +62,28 @@ export default function UsuariosRolesPage() {
       const usersWithDetails = await Promise.all(
         (companyUsers || []).map(async (cu: any) => {
           // Obtener perfil del usuario
-          const { data: userProfile } = await supabase
+          const { data: userProfile, error: profileError } = await supabase
             .from('user_profiles')
             .select('email, full_name, role')
             .eq('id', cu.user_id)
             .single()
 
-          // Obtener permisos personalizados
-          const { data: permissions } = await supabase
+          if (profileError) {
+            console.error('Error al cargar perfil de usuario:', cu.user_id, profileError)
+          }
+
+          // Obtener permisos personalizados (con manejo de error mejorado)
+          const { data: permissions, error: permError } = await supabase
             .from('user_permissions')
             .select('*')
             .eq('user_id', cu.user_id)
             .eq('company_id', companyId)
-            .single()
+            .maybeSingle() // Usa maybeSingle() en lugar de single() para no fallar si no existe
+
+          if (permError && permError.code !== 'PGRST116') {
+            // PGRST116 = no rows found, es normal
+            console.error('Error al cargar permisos de usuario:', cu.user_id, permError)
+          }
 
           return {
             ...cu,
@@ -283,7 +292,7 @@ export default function UsuariosRolesPage() {
                   onChange={(e) => setCreateFormData({ ...createFormData, role: e.target.value as any })}
                 >
                   <option value="user">Usuario</option>
-                  <option value="executive">Ejecutivo</option>
+                  <option value="ejecutivo">Ejecutivo</option>
                   <option value="admin">Administrador</option>
                   <option value="owner">Propietario</option>
                 </select>
@@ -343,15 +352,15 @@ export default function UsuariosRolesPage() {
                           fontWeight: '500',
                           background: user.role === 'owner' ? '#fef3c7' :
                                     user.role === 'admin' ? '#dbeafe' :
-                                    user.role === 'executive' ? '#e0e7ff' : '#f3f4f6',
+                                    user.role === 'ejecutivo' ? '#e0e7ff' : '#f3f4f6',
                           color: user.role === 'owner' ? '#92400e' :
                                 user.role === 'admin' ? '#1e40af' :
-                                user.role === 'executive' ? '#4338ca' : '#374151',
+                                user.role === 'ejecutivo' ? '#4338ca' : '#374151',
                         }}
                       >
                         {user.role === 'owner' ? 'Propietario' :
                          user.role === 'admin' ? 'Administrador' :
-                         user.role === 'executive' ? 'Ejecutivo' : 'Usuario'}
+                         user.role === 'ejecutivo' ? 'Ejecutivo' : 'Usuario'}
                       </span>
                       <span
                         style={{
@@ -365,7 +374,7 @@ export default function UsuariosRolesPage() {
                       >
                         Sistema: {user.user_profiles?.role === 'super_admin' ? 'Super Admin' :
                                 user.user_profiles?.role === 'admin' ? 'Admin' :
-                                user.user_profiles?.role === 'executive' ? 'Ejecutivo' : 'Usuario'}
+                                user.user_profiles?.role === 'ejecutivo' ? 'Ejecutivo' : 'Usuario'}
                       </span>
                     </div>
                   </div>

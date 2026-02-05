@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner', 'executive'])
+          .in('role', ['admin', 'owner', 'ejecutivo'])
 
         console.log('[Middleware /login] Usuario es empleado, verificando si es admin/owner:', {
           userId: user.id,
@@ -134,7 +134,7 @@ export async function middleware(request: NextRequest) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner', 'executive'])
+          .in('role', ['admin', 'owner', 'ejecutivo'])
 
         console.log('[Middleware /] Usuario es empleado, verificando si es admin/owner:', {
           userId: user.id,
@@ -212,7 +212,7 @@ export async function middleware(request: NextRequest) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner', 'executive'])
+          .in('role', ['admin', 'owner', 'ejecutivo'])
 
         console.log('[Middleware /admin] Verificando permisos para ruta /admin:', {
           userId: user.id,
@@ -294,11 +294,11 @@ export async function middleware(request: NextRequest) {
           .select('role, status, company_id')
           .eq('user_id', user.id)
           .eq('status', 'active')
-          .in('role', ['admin', 'owner', 'executive'])
+          .in('role', ['admin', 'owner', 'ejecutivo'])
 
-        // Diferenciar entre admin/owner y executive
+        // Diferenciar entre admin/owner y ejecutivo
         const isAdminOrOwner = companyUsers?.some(cu => cu.role === 'admin' || cu.role === 'owner')
-        const isExecutive = companyUsers?.some(cu => cu.role === 'executive')
+        const isExecutive = companyUsers?.some(cu => cu.role === 'ejecutivo')
         const userRole = companyUsers?.[0]?.role || 'none'
 
         console.log('[Middleware rutas admin] Verificando permisos de usuario:', {

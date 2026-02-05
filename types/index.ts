@@ -322,7 +322,7 @@ export type LoanAdvanceSummary = {
 // ============================================================
 // Tipos para Roles y Permisos (Sistema Executive)
 // ============================================================// Roles del sistema
-export type UserRole = 'super_admin' | 'admin' | 'executive' | 'user'
+export type UserRole = 'super_admin' | 'admin' | 'ejecutivo' | 'user'
 
 // Permisos granulares por usuario
 export interface UserPermissions {
@@ -593,8 +593,8 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_manage_users_roles: true,          // Admin puede gestionar usuarios
     can_manage_company_settings: true,     // DEPRECATED
   },
-  executive: {
-    // Executive: puede CREAR documentos pero NO aprobar
+  ejecutivo: {
+    // Ejecutivo: puede CREAR documentos pero NO aprobar
     // Vista: puede ver trabajadores y detalles básicos, pero NO salarios
     can_view_employees: true,              // ✅ Puede ver lista de trabajadores
     can_view_employee_details: true,       // ✅ Puede ver detalles básicos
