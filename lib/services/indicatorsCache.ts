@@ -31,42 +31,57 @@ export async function getCachedIndicators(
       
       const jsonRMIParsed = parseChileanNumber(jsonRMI || '0')
       
-      // Si hay discrepancia O si el campo numérico existe, usarlo como fuente de verdad
-      if (numericRMI && (jsonRMIParsed !== numericRMI || !jsonRMI)) {
-        if (jsonRMIParsed !== numericRMI) {
-          console.warn('⚠️ [INDICADORES] Discrepancia detectada, corrigiendo JSON:', {
+      // DEBUG: Log siempre para diagnosticar
+      console.log('🔍 [INDICADORES DEBUG]', {
+        año: year,
+        mes: month,
+        campo_numerico: numericRMI,
+        json_original: jsonRMI,
+        json_parseado: jsonRMIParsed,
+        coinciden: jsonRMIParsed === numericRMI
+      })
+      
+      // SIEMPRE usar el campo numérico si existe (sin importar si coincide o no)
+      // Esto asegura que siempre usemos el valor correcto de la BD
+      if (numericRMI) {
+        const numericRMIString = Math.trunc(numericRMI).toString()
+        
+        // Si el JSON no coincide con el numérico, corregirlo
+        if (jsonRMIParsed !== numericRMI || jsonRMI !== numericRMIString) {
+          console.warn('⚠️ [INDICADORES] Corrigiendo JSON para usar campo numérico:', {
             campo_numerico: numericRMI,
             json_actual: jsonRMI,
             json_parseado: jsonRMIParsed,
+            nuevo_valor: numericRMIString,
             año: year,
             mes: month
           })
+          
+          // Actualizar el JSON con el valor del campo numérico (sin decimales)
+          const correctedJson = {
+            ...cached.indicators_json,
+            RMITrabDepeInd: numericRMIString
+          }
+          
+          // Guardar la corrección en la BD (async, no bloquea)
+          supabase
+            .from('previred_indicators')
+            .update({
+              indicators_json: correctedJson,
+              updated_at: new Date().toISOString()
+            })
+            .eq('year', year)
+            .eq('month', month)
+            .then(() => {
+              console.log('✅ [INDICADORES] JSON corregido automáticamente a:', numericRMIString)
+            })
+            .catch((err) => {
+              console.error('❌ [INDICADORES] Error al corregir JSON:', err)
+            })
+          
+          // Devolver el JSON corregido INMEDIATAMENTE
+          return correctedJson as PreviredIndicators
         }
-        
-        // Actualizar el JSON con el valor del campo numérico (sin decimales)
-        const correctedJson = {
-          ...cached.indicators_json,
-          RMITrabDepeInd: Math.trunc(numericRMI).toString() // Sin decimales
-        }
-        
-        // Guardar la corrección en la BD (async, no bloquea)
-        supabase
-          .from('previred_indicators')
-          .update({
-            indicators_json: correctedJson,
-            updated_at: new Date().toISOString()
-          })
-          .eq('year', year)
-          .eq('month', month)
-          .then(() => {
-            console.log('✅ [INDICADORES] JSON corregido automáticamente a:', Math.trunc(numericRMI).toString())
-          })
-          .catch((err) => {
-            console.error('❌ [INDICADORES] Error al corregir JSON:', err)
-          })
-        
-        // Devolver el JSON corregido INMEDIATAMENTE
-        return correctedJson as PreviredIndicators
       }
       
       // Devolver desde cache
