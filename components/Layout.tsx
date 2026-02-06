@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot, FaSitemap, FaProjectDiagram, FaBuilding, FaShieldAlt, FaExclamationCircle } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot, FaSitemap, FaProjectDiagram, FaBuilding, FaShieldAlt, FaExclamationCircle, FaCalendarAlt } from 'react-icons/fa'
 import AlertFab from './AlertFab'
 import CompanySelector from './CompanySelector'
 import AIChatWidget from './AIChatWidget'
@@ -233,6 +233,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: '/settings/indicators', label: 'Indicadores', icon: FaChartBar },
         { href: '/settings/signatures', label: 'Firmas Digitales', icon: FaFileAlt },
         { href: '/settings/tax-brackets', label: 'Tramos Tributarios', icon: FaMoneyBillWave },
+        { href: '/settings/holidays', label: 'Feriados Legales', icon: FaCalendarAlt },
         { href: '/settings/usuarios-roles', label: 'Usuarios y Roles', icon: FaUserShield },
       ]
     },
