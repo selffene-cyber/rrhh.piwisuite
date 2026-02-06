@@ -212,46 +212,49 @@ export default function NewLoanPage() {
         return
       }
 
-      // Insertar préstamo
-      // El loan_number será generado automáticamente por el trigger de la base de datos
-      // Si hay un error de duplicado, intentaremos generar uno manualmente
+      // Generar número de préstamo
+      // Primero intentamos obtener el último número de la empresa
+      const { data: employeesData } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', companyId)
+
+      const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
+
+      let loanNumber = 'PT-01'
+      if (employeeIds.length > 0) {
+        const { data: lastLoan } = await supabase
+          .from('loans')
+          .select('loan_number')
+          .in('employee_id', employeeIds)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (lastLoan?.loan_number) {
+          const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
+          if (!isNaN(lastNumber)) {
+            loanNumber = `PT-${String(lastNumber + 1).padStart(2, '0')}`
+          }
+        }
+      }
+
+      // Insertar préstamo con reintentos en caso de duplicado
       let attempts = 0
-      const maxAttempts = 5
+      const maxAttempts = 10
       let newLoan: any = null
       let lastError: any = null
 
       while (attempts < maxAttempts) {
         try {
-          // Obtener los IDs de los empleados de la empresa para filtrar préstamos (solo si necesitamos generar manualmente)
-          let loanNumber: string | null = null
-          
+          // Si es un reintento, incrementar el número
+          let currentLoanNumber = loanNumber
           if (attempts > 0) {
-            // Si es un reintento, generar número manualmente
-            const { data: employeesData } = await supabase
-              .from('employees')
-              .select('id')
-              .eq('company_id', companyId)
-
-            const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
-
-            if (employeeIds.length > 0) {
-              const { data: lastLoan } = await supabase
-                .from('loans')
-                .select('loan_number')
-                .in('employee_id', employeeIds)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-
-              if (lastLoan?.loan_number) {
-                const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
-                const newNumber = lastNumber + 1 + attempts // Incrementar por intentos para evitar duplicados
-                loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
-              } else {
-                loanNumber = `PT-${String(1 + attempts).padStart(2, '0')}`
-              }
+            const baseNumber = parseInt(loanNumber.replace('PT-', ''))
+            if (!isNaN(baseNumber)) {
+              currentLoanNumber = `PT-${String(baseNumber + attempts).padStart(2, '0')}`
             } else {
-              loanNumber = `PT-${String(1 + attempts).padStart(2, '0')}`
+              currentLoanNumber = `PT-${String(1 + attempts).padStart(2, '0')}`
             }
           }
 
@@ -267,14 +270,10 @@ export default function NewLoanPage() {
             loan_date: formData.loan_date,
             description: formData.description || null,
             status: 'active',
+            loan_number: currentLoanNumber, // Siempre incluir el número generado
             exceeds_legal_limit: exceedsLimit,
             authorization_signed: exceedsLimit ? formData.authorization_signed : false,
             authorization_date: authorizationDate,
-          }
-
-          // Solo incluir loan_number si estamos en un reintento (el trigger debería generarlo automáticamente)
-          if (loanNumber) {
-            insertData.loan_number = loanNumber
           }
 
           const result = await supabase
@@ -284,10 +283,12 @@ export default function NewLoanPage() {
             .single()
 
           if (result.error) {
-            // Si es error de duplicado, reintentar
+            // Si es error de duplicado, reintentar con otro número
             if (result.error.code === '23505' && result.error.message?.includes('loan_number')) {
               lastError = result.error
               attempts++
+              // Pequeña pausa para evitar race conditions
+              await new Promise(resolve => setTimeout(resolve, 100))
               continue
             }
             throw result.error
@@ -300,6 +301,8 @@ export default function NewLoanPage() {
           // Si es error de duplicado, reintentar
           if (err.code === '23505' && err.message?.includes('loan_number')) {
             attempts++
+            // Pequeña pausa para evitar race conditions
+            await new Promise(resolve => setTimeout(resolve, 100))
             continue
           }
           throw err
