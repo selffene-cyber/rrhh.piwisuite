@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
-import DateInput from '@/components/DateInput'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { calculateLegalDiscountLimit, getLegalLimitAlert, getLegalLimitInfo, type LegalLimitCalculation } from '@/lib/services/loanLegalCalculator'
 import { createValidationServices } from '@/lib/services/validationHelpers'
@@ -463,10 +462,19 @@ export default function NewLoanPage() {
 
                 <div className="form-group">
                   <label>Fecha del Préstamo *</label>
-                  <DateInput
-                    value={formData.loan_date}
-                    onChange={(value) => setFormData({ ...formData, loan_date: value })}
+                  <input
+                    type="date"
                     required
+                    value={formData.loan_date}
+                    onChange={(e) => setFormData({ ...formData, loan_date: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      backgroundColor: '#fff'
+                    }}
                   />
                 </div>
               </div>
