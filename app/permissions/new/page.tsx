@@ -30,33 +30,38 @@ export default function NewPermissionPage() {
     }
   }, [currentCompany])
 
-  // Función para calcular días hábiles entre dos fechas (excluyendo sábados y domingos)
-  const calculateBusinessDays = (start: Date, end: Date): number => {
-    let count = 0
-    const current = new Date(start)
-    
-    while (current <= end) {
-      const dayOfWeek = current.getDay()
-      // Excluir sábados (6) y domingos (0)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        count++
-      }
-      current.setDate(current.getDate() + 1)
-    }
-    
-    return count
-  }
-
   // Función para calcular fecha de término sumando días hábiles a una fecha de inicio
-  const addBusinessDays = (startDate: Date, businessDays: number): Date => {
+  // Excluye sábados, domingos y feriados legales
+  const addBusinessDaysWithHolidays = async (startDate: Date, businessDays: number): Promise<Date> => {
     const result = new Date(startDate)
     let daysAdded = 0
+    
+    // Estimar un rango de fechas para obtener feriados (hasta 3 meses después como máximo)
+    const estimatedEndDate = new Date(startDate)
+    estimatedEndDate.setDate(estimatedEndDate.getDate() + (businessDays * 2)) // Estimación: días hábiles * 2 para cubrir fines de semana
+    
+    // Obtener feriados en el rango estimado
+    const startStr = startDate.toISOString().split('T')[0]
+    const endStr = estimatedEndDate.toISOString().split('T')[0]
+    
+    const { data: holidays } = await supabase
+      .from('holidays')
+      .select('date')
+      .gte('date', startStr)
+      .lte('date', endStr)
+    
+    const holidayDates = new Set(holidays?.map((h: any) => h.date) || [])
     
     while (daysAdded < businessDays) {
       result.setDate(result.getDate() + 1)
       const dayOfWeek = result.getDay()
-      // Solo contar días hábiles (lunes a viernes)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      const dateStr = result.toISOString().split('T')[0]
+      
+      // Solo contar días hábiles (lunes a viernes) que no sean feriados
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+      const isHoliday = holidayDates.has(dateStr)
+      
+      if (!isWeekend && !isHoliday) {
         daysAdded++
       }
     }
@@ -68,15 +73,20 @@ export default function NewPermissionPage() {
     // Calcular fecha de término automáticamente cuando cambian fecha de inicio o días
     // Solo calcular si hay días ingresados y fecha de inicio
     if (formData.start_date && formData.days && formData.days.trim() !== '' && parseFloat(formData.days) > 0) {
-      const start = new Date(formData.start_date)
+      const start = new Date(formData.start_date + 'T00:00:00')
       const businessDays = parseFloat(formData.days)
-      const endDate = addBusinessDays(start, businessDays)
-      const endDateStr = endDate.toISOString().split('T')[0]
       
-      // Solo actualizar si es diferente para evitar loops
-      if (formData.end_date !== endDateStr) {
-        setFormData(prev => ({ ...prev, end_date: endDateStr }))
-      }
+      // Calcular fecha de término excluyendo sábados, domingos y feriados
+      addBusinessDaysWithHolidays(start, businessDays).then((endDate) => {
+        const endDateStr = endDate.toISOString().split('T')[0]
+        
+        // Solo actualizar si es diferente para evitar loops
+        if (formData.end_date !== endDateStr) {
+          setFormData(prev => ({ ...prev, end_date: endDateStr }))
+        }
+      }).catch((error) => {
+        console.error('Error al calcular fecha de término:', error)
+      })
     } else if (formData.days === '' || parseFloat(formData.days) <= 0) {
       // Si no hay días o son 0, limpiar fecha de término
       if (formData.end_date !== '') {
@@ -286,7 +296,7 @@ export default function NewPermissionPage() {
                 title="Se calcula automáticamente según los días hábiles"
               />
               <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                Calculada automáticamente (días hábiles, excluye sábados y domingos)
+                Calculada automáticamente (días hábiles, excluye sábados, domingos y feriados legales)
               </p>
             </div>
           </div>
@@ -304,7 +314,7 @@ export default function NewPermissionPage() {
                 placeholder="0"
               />
               <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                Ingrese la cantidad de días hábiles (excluye sábados y domingos)
+                Ingrese la cantidad de días hábiles (excluye sábados, domingos y feriados legales)
               </p>
             </div>
             <div className="form-group">
