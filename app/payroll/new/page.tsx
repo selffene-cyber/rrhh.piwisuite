@@ -390,6 +390,7 @@ export default function NewPayrollPage() {
     // Filtrar permisos: solo los que no están aplicados a otra liquidación del mismo período
     // o que están aprobados y listos para aplicar
     let filteredPermissions = periodPermissions || []
+    let existingSlipIds: string[] = [] // Declarar fuera del bloque if para que esté disponible
     
     // Si hay permisos aplicados, verificar que no pertenezcan a otra liquidación del mismo período
     if (filteredPermissions.length > 0) {
@@ -405,7 +406,7 @@ export default function NewPayrollPage() {
         slip.payroll_periods?.month === formData.month
       ) || []
       
-      const existingSlipIds = slipsInPeriod.map((s: any) => s.id)
+      existingSlipIds = slipsInPeriod.map((s: any) => s.id)
       
       // Filtrar: incluir aprobados no aplicados, o aplicados sin payroll_slip_id, o aplicados con payroll_slip_id que no existe
       filteredPermissions = filteredPermissions.filter((perm: any) => {
