@@ -450,8 +450,9 @@ export default function NewPayrollPage() {
         const permType = permission.permission_types
         // Solo considerar permisos sin goce de sueldo
         if (permType && permType.affects_payroll) {
-          const permStart = new Date(permission.start_date)
-          const permEnd = new Date(permission.end_date)
+          // Parsear fechas correctamente (sin hora, solo fecha)
+          const permStart = new Date(permission.start_date + 'T00:00:00')
+          const permEnd = new Date(permission.end_date + 'T00:00:00')
           
           // Calcular intersección entre período y permiso
           const overlapStart = permStart > periodStart ? permStart : periodStart
@@ -461,7 +462,27 @@ export default function NewPayrollPage() {
             // Calcular días hábiles (lunes a viernes) excluyendo feriados
             // Usar calculateBusinessDays para excluir sábados, domingos y feriados legales
             const { calculateBusinessDays } = await import('@/lib/services/vacationCalculator')
-            const diffDays = await calculateBusinessDays(overlapStart, overlapEnd)
+            
+            // Normalizar fechas para evitar problemas de zona horaria
+            // Crear fechas en hora local (medianoche) para evitar desfases
+            const overlapStartNormalized = new Date(overlapStart.getFullYear(), overlapStart.getMonth(), overlapStart.getDate())
+            const overlapEndNormalized = new Date(overlapEnd.getFullYear(), overlapEnd.getMonth(), overlapEnd.getDate())
+            
+            const diffDays = await calculateBusinessDays(overlapStartNormalized, overlapEndNormalized)
+            
+            console.log('🔍 [PERMISO DEBUG]', {
+              permiso_id: permission.id,
+              start_date: permission.start_date,
+              end_date: permission.end_date,
+              permission_days_field: permission.days, // Días guardados en el permiso
+              permStart_parsed: permStart.toISOString().split('T')[0],
+              permEnd_parsed: permEnd.toISOString().split('T')[0],
+              overlapStart: overlapStartNormalized.toISOString().split('T')[0],
+              overlapEnd: overlapEndNormalized.toISOString().split('T')[0],
+              days_calculated: diffDays,
+              periodStart: periodStart.toISOString().split('T')[0],
+              periodEnd: periodEnd.toISOString().split('T')[0]
+            })
             
             permissionDaysWithoutPay += diffDays
             
