@@ -236,7 +236,7 @@ export async function createPermission(
       .single()
 
     // Si el permiso afecta la liquidación, calcular el descuento
-    if (permissionType?.affects_payroll && (permission as any).employee_id) {
+    if ((permissionType as any)?.affects_payroll && (permission as any).employee_id) {
       // Obtener el sueldo base del empleado
       const { data: employee } = await supabase
         .from('employees')
@@ -244,9 +244,9 @@ export async function createPermission(
         .eq('id', (permission as any).employee_id)
         .single()
 
-      if (employee?.base_salary) {
+      if ((employee as any)?.base_salary) {
         // Calcular descuento: (sueldo_base / 30) * días_permiso
-        discountAmount = calculatePermissionDiscount(employee.base_salary, days)
+        discountAmount = calculatePermissionDiscount((employee as any).base_salary, days)
       }
     }
   }
@@ -281,8 +281,8 @@ export async function updatePermission(
       .single()
 
     if (currentPermission) {
-      const permissionTypeCode = updates.permission_type_code || currentPermission.permission_type_code
-      const days = updates.days !== undefined ? updates.days : currentPermission.days
+      const permissionTypeCode = updates.permission_type_code || (currentPermission as any).permission_type_code
+      const days = updates.days !== undefined ? updates.days : (currentPermission as any).days
 
       // Obtener información del tipo de permiso
       const { data: permissionType } = await supabase
@@ -292,17 +292,17 @@ export async function updatePermission(
         .single()
 
       // Si el permiso afecta la liquidación, recalcular el descuento
-      if (permissionType?.affects_payroll) {
+      if ((permissionType as any)?.affects_payroll) {
         // Obtener el sueldo base del empleado
         const { data: employee } = await supabase
           .from('employees')
           .select('base_salary')
-          .eq('id', currentPermission.employee_id)
+          .eq('id', (currentPermission as any).employee_id)
           .single()
 
-        if (employee?.base_salary) {
+        if ((employee as any)?.base_salary) {
           // Calcular descuento: (sueldo_base / 30) * días_permiso
-          updates.discount_amount = calculatePermissionDiscount(employee.base_salary, days)
+          updates.discount_amount = calculatePermissionDiscount((employee as any).base_salary, days)
         } else {
           updates.discount_amount = 0
         }

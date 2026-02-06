@@ -72,7 +72,7 @@ export async function getCachedIndicators(
             .then(() => {
               console.log('✅ [INDICADORES] JSON actualizado en BD a:', numericRMIString)
             })
-            .catch((err) => {
+            .catch((err: any) => {
               console.error('❌ [INDICADORES] Error al actualizar JSON:', err)
             })
         }
