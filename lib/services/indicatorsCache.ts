@@ -18,24 +18,35 @@ export async function getCachedIndicators(
       .single()
 
     if (!error && cached && cached.indicators_json) {
-      // Verificar si el JSON tiene el valor correcto del sueldo mínimo
-      // Si el campo numérico tiene 539000 pero el JSON tiene 529000, corregirlo
-      const jsonRMI = cached.indicators_json.RMITrabDepeInd
+      // SIEMPRE usar el campo numérico como fuente de verdad para RMITrabDepeInd
+      // Esto previene problemas de discrepancia entre JSON y campo numérico
       const numericRMI = cached.rmi_trab_depe_ind
+      const jsonRMI = cached.indicators_json.RMITrabDepeInd
       
-      // Si hay discrepancia, actualizar el JSON desde el campo numérico
-      if (numericRMI && jsonRMI && numericRMI.toString() !== jsonRMI.replace(/\./g, '').replace(',', '.')) {
-        console.warn('⚠️ [INDICADORES] Discrepancia detectada entre campo numérico y JSON:', {
-          campo_numerico: numericRMI,
-          json_actual: jsonRMI,
-          año: year,
-          mes: month
-        })
+      // Parsear el JSON para comparar (eliminar puntos y comas)
+      const parseChileanNumber = (str: string): number => {
+        if (!str) return 0
+        return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+      }
+      
+      const jsonRMIParsed = parseChileanNumber(jsonRMI || '0')
+      
+      // Si hay discrepancia O si el campo numérico existe, usarlo como fuente de verdad
+      if (numericRMI && (jsonRMIParsed !== numericRMI || !jsonRMI)) {
+        if (jsonRMIParsed !== numericRMI) {
+          console.warn('⚠️ [INDICADORES] Discrepancia detectada, corrigiendo JSON:', {
+            campo_numerico: numericRMI,
+            json_actual: jsonRMI,
+            json_parseado: jsonRMIParsed,
+            año: year,
+            mes: month
+          })
+        }
         
-        // Actualizar el JSON con el valor del campo numérico
+        // Actualizar el JSON con el valor del campo numérico (sin decimales)
         const correctedJson = {
           ...cached.indicators_json,
-          RMITrabDepeInd: numericRMI.toString()
+          RMITrabDepeInd: Math.trunc(numericRMI).toString() // Sin decimales
         }
         
         // Guardar la corrección en la BD (async, no bloquea)
@@ -48,13 +59,13 @@ export async function getCachedIndicators(
           .eq('year', year)
           .eq('month', month)
           .then(() => {
-            console.log('✅ [INDICADORES] JSON corregido automáticamente')
+            console.log('✅ [INDICADORES] JSON corregido automáticamente a:', Math.trunc(numericRMI).toString())
           })
           .catch((err) => {
             console.error('❌ [INDICADORES] Error al corregir JSON:', err)
           })
         
-        // Devolver el JSON corregido
+        // Devolver el JSON corregido INMEDIATAMENTE
         return correctedJson as PreviredIndicators
       }
       
