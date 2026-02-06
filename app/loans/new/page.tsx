@@ -537,17 +537,12 @@ export default function NewLoanPage() {
 
                       {legalCalculation.exceedsLimit && (
                         <div style={{ marginTop: '12px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={formData.authorization_signed}
-                              onChange={(e) => setFormData({ ...formData, authorization_signed: e.target.checked })}
-                            />
-                            <span style={{ fontSize: '12px', color: '#374151' }}>
-                              El trabajador ha autorizado este préstamo que excede el límite legal del 15%
-                            </span>
-                          </label>
-                          <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', marginLeft: '24px' }}>
+                          <ToggleSwitch
+                            checked={formData.authorization_signed}
+                            onChange={(checked) => setFormData({ ...formData, authorization_signed: checked })}
+                            label="El trabajador ha autorizado este préstamo que excede el límite legal del 15%"
+                          />
+                          <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '8px', marginLeft: '60px' }}>
                             Nota: La autorización no elimina la reprogramación automática si la remuneración devengada del mes es insuficiente.
                           </p>
                         </div>
