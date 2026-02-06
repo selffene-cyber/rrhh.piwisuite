@@ -1,10 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FaUmbrellaBeach, FaFileAlt, FaCalendarCheck, FaFolderOpen, FaChartLine, FaShieldAlt, FaHandHoldingUsd, FaHistory } from 'react-icons/fa'
-import './employee-portal.css'
+import { 
+  FaUmbrellaBeach, 
+  FaFileAlt, 
+  FaCalendarCheck, 
+  FaFolderOpen, 
+  FaShieldAlt, 
+  FaHandHoldingUsd, 
+  FaHistory,
+  FaCheckCircle,
+  FaClock
+} from 'react-icons/fa'
 
 interface DashboardData {
   employee: {
@@ -44,10 +52,8 @@ interface DashboardData {
 }
 
 export default function EmployeeDashboard() {
-  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadDashboard()
@@ -56,13 +62,12 @@ export default function EmployeeDashboard() {
   const loadDashboard = async () => {
     try {
       const response = await fetch('/api/employee/dashboard')
-      if (!response.ok) {
-        throw new Error('Error al cargar el dashboard')
+      if (response.ok) {
+        const dashboardData = await response.json()
+        setData(dashboardData)
       }
-      const result = await response.json()
-      setData(result)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error) {
+      console.error('Error al cargar dashboard:', error)
     } finally {
       setLoading(false)
     }
@@ -70,244 +75,163 @@ export default function EmployeeDashboard() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <p>Cargando...</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-blue-200 border-t-blue-600 mb-4"></div>
+          <p className="text-gray-600 text-sm font-medium">Cargando...</p>
+        </div>
       </div>
     )
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <p style={{ color: '#ef4444' }}>Error: {error || 'No se pudo cargar el dashboard'}</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-600">No se pudieron cargar los datos</p>
       </div>
     )
   }
 
-  // Calcular porcentaje de vacaciones usadas
-  const vacationPercentage = data.vacationBalance.accumulated > 0
-    ? Math.round((data.vacationBalance.used / data.vacationBalance.accumulated) * 100)
-    : 0
+  const availableDays = Math.round(data.vacationBalance.available)
+  const usedDays = Math.round(data.vacationBalance.used)
+  const totalDays = Math.round(data.vacationBalance.accumulated)
+  
+  const approvedDocs = data.stats.certificates.approved + data.stats.vacations.approved + data.stats.permissions.approved
+  const pendingDocs = data.stats.certificates.pending + data.stats.vacations.pending + data.stats.permissions.pending
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }} className="fade-in-up">
-      {/* Tags de resumen */}
-      <div style={{
-        display: 'flex',
-        gap: '12px',
-        marginBottom: '24px',
-        flexWrap: 'wrap'
-      }}>
-        <div className="summary-tag blue">
-          <span style={{ color: 'white', marginRight: '4px' }}>●</span>
-          Días disp. {Math.round(data.vacationBalance.available)}
-        </div>
-        <div className="summary-tag green">
-          <span style={{ color: 'white', marginRight: '4px' }}>●</span>
-          Aprobadas {data.stats.certificates.approved + data.stats.vacations.approved + data.stats.permissions.approved}
-        </div>
-        <div className="summary-tag yellow">
-          <span style={{ color: 'white', marginRight: '4px' }}>●</span>
-          Pendientes {data.stats.certificates.pending + data.stats.vacations.pending + data.stats.permissions.pending}
-        </div>
-      </div>
-
-      {/* Card de Vacaciones */}
-      <div className="vacation-hero-card glass-card" style={{
-        marginBottom: '24px'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px'
-        }}>
-          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: 'white' }}>Mis Vacaciones</h2>
-          <Link href="/employee/requests?type=vacations" style={{ fontSize: '20px', textDecoration: 'none', color: 'white', opacity: 0.9 }}>
-            <FaChartLine />
-          </Link>
-        </div>
-
-        {/* Indicador circular de progreso */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '20px',
-          marginBottom: '0'
-        }}>
-          <div className="vacation-circle" style={{ position: 'relative', width: '100px', height: '100px' }}>
-            <svg width="100" height="100" style={{ transform: 'rotate(-90deg)' }}>
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.3)"
-                strokeWidth="6"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                fill="none"
-                stroke="white"
-                strokeWidth="6"
-                strokeDasharray={`${2 * Math.PI * 42}`}
-                strokeDashoffset={`${2 * Math.PI * 42 * (1 - vacationPercentage / 100)}`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '28px', fontWeight: '700', color: 'white' }}>
-                {Math.round(data.vacationBalance.available)}
+    <div className="flex flex-col gap-6 pb-6">
+      {/* Sección de Documentos con Preline UI */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Documentos</h2>
+        <div className="grid grid-cols-2 gap-4">
+          {/* Card Aprobados */}
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 hover:shadow-md transition-all duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <FaCheckCircle className="text-emerald-600 text-xl" />
               </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.9)' }}>días disp.</div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 leading-none mb-1">{approvedDocs}</p>
+                <p className="text-xs text-gray-600 font-medium">Aprobados</p>
+              </div>
             </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: '15px', color: 'rgba(255, 255, 255, 0.95)', marginBottom: '8px', fontWeight: '500' }}>
-              Usaste {Math.round(data.vacationBalance.used)} días • Quedan {Math.round(data.vacationBalance.available)} de {Math.round(data.vacationBalance.accumulated)}
-            </p>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                <input type="radio" name="vacation-view" defaultChecked style={{ margin: 0 }} />
-                <span>Disponible</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                <input type="radio" name="vacation-view" style={{ margin: 0 }} />
-                <span>Usado</span>
-              </label>
+
+          {/* Card Pendientes */}
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 hover:shadow-md transition-all duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <FaClock className="text-amber-600 text-xl" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 leading-none mb-1">{pendingDocs}</p>
+                <p className="text-xs text-gray-600 font-medium">Pendientes</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Acciones rápidas */}
-      <div style={{ marginBottom: '24px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-          Acciones rápidas
-        </h3>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '12px'
-        }}>
-          <Link
-            href="/employee/vacations/request"
-            className="quick-action-card"
-          >
-            <FaUmbrellaBeach className="quick-action-icon" style={{ fontSize: '36px', color: '#4F46E5' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Vacaciones</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Nueva solicitud</div>
-          </Link>
-          <Link
-            href="/employee/permissions/request"
-            className="quick-action-card"
-          >
-            <FaCalendarCheck className="quick-action-icon" style={{ fontSize: '36px', color: '#7C3AED' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Permisos</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Nueva solicitud</div>
-          </Link>
-          <Link
-            href="/employee/certificates/request"
-            className="quick-action-card"
-          >
-            <FaFileAlt className="quick-action-icon" style={{ fontSize: '36px', color: '#06B6D4' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Certificados</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Nueva solicitud</div>
-          </Link>
-          <Link
-            href="/employee/compliance"
-            className="quick-action-card"
-          >
-            <FaShieldAlt className="quick-action-icon" style={{ fontSize: '36px', color: '#10b981' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Cumplimiento</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver mis cumplimientos</div>
-          </Link>
-          <Link
-            href="/employee/documents"
-            className="quick-action-card"
-          >
-            <FaFolderOpen className="quick-action-icon" style={{ fontSize: '36px', color: '#EC4899' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Documentos</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver todos</div>
-          </Link>
-          <Link
-            href="/employee/loans"
-            className="quick-action-card"
-          >
-            <FaHandHoldingUsd className="quick-action-icon" style={{ fontSize: '36px', color: '#F59E0B' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Préstamos</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver historial</div>
-          </Link>
-          <Link
-            href="/employee/audit-history"
-            className="quick-action-card"
-          >
-            <FaHistory className="quick-action-icon" style={{ fontSize: '36px', color: '#8B5CF6' }} />
-            <div style={{ fontSize: '15px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Historial</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Ver todas mis acciones</div>
-          </Link>
+      {/* Sección de Vacaciones con Preline UI */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Mis Vacaciones</h2>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Días disponibles</p>
+              <p className="text-3xl font-bold text-blue-600">{availableDays}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600 mb-1">Días usados</p>
+              <p className="text-3xl font-bold text-gray-700">{usedDays}</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Próximos eventos */}
-      {(data.upcoming.vacations.length > 0 || data.upcoming.permissions.length > 0) && (
-        <div>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#111827' }}>
-            Próximos
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {data.upcoming.vacations.slice(0, 3).map((vacation: any) => (
-              <div
-                key={vacation.id}
-                className="event-card glass-card"
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FaUmbrellaBeach style={{ color: '#4F46E5' }} /> Vacaciones
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      {new Date(vacation.start_date).toLocaleDateString('es-CL')} - {new Date(vacation.end_date).toLocaleDateString('es-CL')}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6366f1', fontWeight: '500' }}>
-                    {vacation.days_count} días
-                  </div>
-                </div>
-              </div>
-            ))}
-            {data.upcoming.permissions.slice(0, 3).map((permission: any) => (
-              <div
-                key={permission.id}
-                className="event-card glass-card"
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FaCalendarCheck style={{ color: '#7C3AED' }} /> {permission.permission_types?.name || 'Permiso'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      {new Date(permission.start_date).toLocaleDateString('es-CL')} - {new Date(permission.end_date).toLocaleDateString('es-CL')}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6366f1', fontWeight: '500' }}>
-                    {permission.days} días
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Accesos Rápidos con Preline UI */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Accesos Rápidos</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link 
+            href="/employee/vacations/request" 
+            className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-3">
+              <FaUmbrellaBeach className="text-blue-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Vacaciones</p>
+            <p className="text-xs text-gray-600">Nueva solicitud</p>
+          </Link>
+
+          <Link 
+            href="/employee/permissions/request" 
+            className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
+              <FaCalendarCheck className="text-indigo-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Permisos</p>
+            <p className="text-xs text-gray-600">Nueva solicitud</p>
+          </Link>
+
+          <Link 
+            href="/employee/certificates/request" 
+            className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-cyan-100 flex items-center justify-center mb-3">
+              <FaFileAlt className="text-cyan-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Certificados</p>
+            <p className="text-xs text-gray-600">Nueva solicitud</p>
+          </Link>
+
+          <Link 
+            href="/employee/compliance" 
+            className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-3">
+              <FaShieldAlt className="text-emerald-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Cumplimiento</p>
+            <p className="text-xs text-gray-600">Ver mis cumplimientos</p>
+          </Link>
+
+          <Link 
+            href="/employee/documents" 
+            className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-3">
+              <FaFolderOpen className="text-purple-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Documentos</p>
+            <p className="text-xs text-gray-600">Ver todos</p>
+          </Link>
+
+          <Link 
+            href="/employee/loans" 
+            className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mb-3">
+              <FaHandHoldingUsd className="text-amber-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Préstamos</p>
+            <p className="text-xs text-gray-600">Ver historial</p>
+          </Link>
+
+          <Link 
+            href="/employee/audit-history" 
+            className="col-span-2 flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl text-center hover:shadow-md hover:border-blue-300 transition-all"
+          >
+            <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center mb-3">
+              <FaHistory className="text-violet-600 text-xl" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Historial</p>
+            <p className="text-xs text-gray-600">Ver todas mis acciones</p>
+          </Link>
         </div>
-      )}
+      </div>
     </div>
   )
 }
-

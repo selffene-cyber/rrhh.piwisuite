@@ -1,0 +1,745 @@
+/* Tailwind CSS para Portal de Trabajadores */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables de tema */
+:root {
+  --portal-primary: #0EA5E9;
+  --portal-primary-light: #E0F2FE;
+  --portal-primary-dark: #0284C7;
+  --portal-border: #BAE6FD;
+}
+
+/* Estilos directos para asegurar que se apliquen - FORZAR ESTILOS */
+.employee-portal-isolated {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #111827;
+  background-color: #f9fafb;
+}
+
+/* Forzar estilos de Tailwind directamente */
+.employee-portal-isolated .min-h-screen {
+  min-height: 100vh !important;
+}
+
+.employee-portal-isolated .bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+
+.employee-portal-isolated .bg-white {
+  background-color: #ffffff !important;
+}
+
+.employee-portal-isolated .bg-gradient-to-r {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops)) !important;
+}
+
+.employee-portal-isolated .from-blue-500 {
+  --tw-gradient-from: #3b82f6 !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(59, 130, 246, 0)) !important;
+}
+
+.employee-portal-isolated .to-blue-600 {
+  --tw-gradient-to: #2563eb !important;
+}
+
+/* Restaurar header azul */
+.employee-portal-isolated header.bg-gradient-to-r {
+  background-image: linear-gradient(to right, #3b82f6, #2563eb) !important;
+}
+
+.employee-portal-isolated header .text-white {
+  color: #ffffff !important;
+}
+
+.employee-portal-isolated header .border-blue-400 {
+  border-color: #60a5fa !important;
+}
+
+/* Restaurar botones de acceso rápido con colores */
+.employee-portal-isolated .bg-blue-100 {
+  background-color: #dbeafe !important;
+}
+
+.employee-portal-isolated .bg-indigo-100 {
+  background-color: #e0e7ff !important;
+}
+
+.employee-portal-isolated .bg-cyan-100 {
+  background-color: #cffafe !important;
+}
+
+.employee-portal-isolated .bg-emerald-100 {
+  background-color: #d1fae5 !important;
+}
+
+.employee-portal-isolated .bg-purple-100 {
+  background-color: #f3e8ff !important;
+}
+
+.employee-portal-isolated .bg-amber-100 {
+  background-color: #fef3c7 !important;
+}
+
+.employee-portal-isolated .bg-violet-100 {
+  background-color: #ede9fe !important;
+}
+
+.employee-portal-isolated .text-blue-600 {
+  color: #2563eb !important;
+}
+
+.employee-portal-isolated .text-indigo-600 {
+  color: #4f46e5 !important;
+}
+
+.employee-portal-isolated .text-cyan-600 {
+  color: #0891b2 !important;
+}
+
+.employee-portal-isolated .text-emerald-600 {
+  color: #059669 !important;
+}
+
+.employee-portal-isolated .text-purple-600 {
+  color: #9333ea !important;
+}
+
+.employee-portal-isolated .text-amber-600 {
+  color: #d97706 !important;
+}
+
+.employee-portal-isolated .text-violet-600 {
+  color: #7c3aed !important;
+}
+
+.employee-portal-isolated .hover\:border-blue-300:hover {
+  border-color: #93c5fd !important;
+}
+
+.employee-portal-isolated .border-b {
+  border-bottom-width: 1px !important;
+}
+
+.employee-portal-isolated .border-blue-400 {
+  border-color: #60a5fa !important;
+}
+
+.employee-portal-isolated .sticky {
+  position: sticky !important;
+}
+
+.employee-portal-isolated .top-0 {
+  top: 0 !important;
+}
+
+.employee-portal-isolated .z-50 {
+  z-index: 50 !important;
+}
+
+.employee-portal-isolated .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.employee-portal-isolated .px-5 {
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+}
+
+.employee-portal-isolated .py-4 {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+.employee-portal-isolated .max-w-2xl {
+  max-width: 42rem !important;
+}
+
+.employee-portal-isolated .mx-auto {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.employee-portal-isolated .flex {
+  display: flex !important;
+}
+
+.employee-portal-isolated .items-center {
+  align-items: center !important;
+}
+
+.employee-portal-isolated .justify-between {
+  justify-content: space-between !important;
+}
+
+.employee-portal-isolated .text-base {
+  font-size: 1rem !important;
+  line-height: 1.5rem !important;
+}
+
+.employee-portal-isolated .font-semibold {
+  font-weight: 600 !important;
+}
+
+.employee-portal-isolated .text-white {
+  color: #ffffff !important;
+}
+
+.employee-portal-isolated .m-0 {
+  margin: 0 !important;
+}
+
+.employee-portal-isolated .text-xs {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+}
+
+.employee-portal-isolated .text-white\/80 {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.employee-portal-isolated .py-2 {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.employee-portal-isolated .px-4 {
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+.employee-portal-isolated .inline-flex {
+  display: inline-flex !important;
+}
+
+.employee-portal-isolated .gap-x-2 {
+  column-gap: 0.5rem !important;
+}
+
+.employee-portal-isolated .text-sm {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+.employee-portal-isolated .font-medium {
+  font-weight: 500 !important;
+}
+
+.employee-portal-isolated .rounded-lg {
+  border-radius: 0.5rem !important;
+}
+
+.employee-portal-isolated .border {
+  border-width: 1px !important;
+}
+
+.employee-portal-isolated .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.employee-portal-isolated .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.employee-portal-isolated .hover\:bg-white\/20:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.employee-portal-isolated .focus\:outline-none:focus {
+  outline: 2px solid transparent !important;
+  outline-offset: 2px !important;
+}
+
+.employee-portal-isolated .focus\:bg-white\/20:focus {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.employee-portal-isolated .py-6 {
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+.employee-portal-isolated .pb-20 {
+  padding-bottom: 5rem !important;
+}
+
+.employee-portal-isolated .fixed {
+  position: fixed !important;
+}
+
+.employee-portal-isolated .bottom-0 {
+  bottom: 0 !important;
+}
+
+.employee-portal-isolated .left-0 {
+  left: 0 !important;
+}
+
+.employee-portal-isolated .right-0 {
+  right: 0 !important;
+}
+
+.employee-portal-isolated .border-t {
+  border-top-width: 1px !important;
+}
+
+.employee-portal-isolated .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.employee-portal-isolated .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.employee-portal-isolated .grid {
+  display: grid !important;
+}
+
+.employee-portal-isolated .grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.employee-portal-isolated .gap-0 {
+  gap: 0 !important;
+}
+
+.employee-portal-isolated .flex-col {
+  flex-direction: column !important;
+}
+
+.employee-portal-isolated .gap-1 {
+  gap: 0.25rem !important;
+}
+
+.employee-portal-isolated .py-3 {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+.employee-portal-isolated .px-2 {
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+.employee-portal-isolated .transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: 150ms !important;
+}
+
+.employee-portal-isolated .text-blue-600 {
+  color: #2563eb !important;
+}
+
+.employee-portal-isolated .bg-blue-50 {
+  background-color: #eff6ff !important;
+}
+
+.employee-portal-isolated .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.employee-portal-isolated .hover\:text-blue-600:hover {
+  color: #2563eb !important;
+}
+
+.employee-portal-isolated .hover\:bg-gray-50:hover {
+  background-color: #f9fafb !important;
+}
+
+.employee-portal-isolated .text-lg {
+  font-size: 1.125rem !important;
+  line-height: 1.75rem !important;
+}
+
+/* Estilos para la página principal */
+.employee-portal-isolated .flex-col {
+  flex-direction: column !important;
+}
+
+.employee-portal-isolated .gap-6 {
+  gap: 1.5rem !important;
+}
+
+.employee-portal-isolated .pb-6 {
+  padding-bottom: 1.5rem !important;
+}
+
+.employee-portal-isolated .text-lg {
+  font-size: 1.125rem !important;
+  line-height: 1.75rem !important;
+}
+
+.employee-portal-isolated .font-semibold {
+  font-weight: 600 !important;
+}
+
+.employee-portal-isolated .text-gray-900 {
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .mb-4 {
+  margin-bottom: 1rem !important;
+}
+
+.employee-portal-isolated .grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.employee-portal-isolated .gap-4 {
+  gap: 1rem !important;
+}
+
+.employee-portal-isolated .gap-3 {
+  gap: 0.75rem !important;
+}
+
+.employee-portal-isolated .rounded-xl {
+  border-radius: 0.75rem !important;
+}
+
+.employee-portal-isolated .p-4 {
+  padding: 1rem !important;
+}
+
+.employee-portal-isolated .p-5 {
+  padding: 1.25rem !important;
+}
+
+.employee-portal-isolated .p-6 {
+  padding: 1.5rem !important;
+}
+
+.employee-portal-isolated .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.employee-portal-isolated .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.employee-portal-isolated .hover\:shadow-md:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+}
+
+.employee-portal-isolated .transition-all {
+  transition-property: all !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: 150ms !important;
+}
+
+.employee-portal-isolated .duration-200 {
+  transition-duration: 200ms !important;
+}
+
+.employee-portal-isolated .w-12 {
+  width: 3rem !important;
+}
+
+.employee-portal-isolated .h-12 {
+  height: 3rem !important;
+}
+
+.employee-portal-isolated .bg-emerald-100 {
+  background-color: #d1fae5 !important;
+}
+
+.employee-portal-isolated .bg-amber-100 {
+  background-color: #fef3c7 !important;
+}
+
+.employee-portal-isolated .bg-blue-100 {
+  background-color: #dbeafe !important;
+}
+
+.employee-portal-isolated .bg-indigo-100 {
+  background-color: #e0e7ff !important;
+}
+
+.employee-portal-isolated .bg-cyan-100 {
+  background-color: #cffafe !important;
+}
+
+.employee-portal-isolated .bg-purple-100 {
+  background-color: #f3e8ff !important;
+}
+
+.employee-portal-isolated .bg-violet-100 {
+  background-color: #ede9fe !important;
+}
+
+.employee-portal-isolated .text-emerald-600 {
+  color: #059669 !important;
+}
+
+.employee-portal-isolated .text-amber-600 {
+  color: #d97706 !important;
+}
+
+.employee-portal-isolated .text-blue-600 {
+  color: #2563eb !important;
+}
+
+.employee-portal-isolated .text-indigo-600 {
+  color: #4f46e5 !important;
+}
+
+.employee-portal-isolated .text-cyan-600 {
+  color: #0891b2 !important;
+}
+
+.employee-portal-isolated .text-purple-600 {
+  color: #9333ea !important;
+}
+
+.employee-portal-isolated .text-violet-600 {
+  color: #7c3aed !important;
+}
+
+.employee-portal-isolated .text-xl {
+  font-size: 1.25rem !important;
+  line-height: 1.75rem !important;
+}
+
+/* Animaciones para dropdowns */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-from-top-2 {
+  from {
+    transform: translateY(-0.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.employee-portal-isolated .animate-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.employee-portal-isolated .fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.employee-portal-isolated .slide-in-from-top-2 {
+  animation: slide-in-from-top-2 0.2s ease-out;
+}
+
+.employee-portal-isolated .duration-200 {
+  animation-duration: 200ms;
+}
+
+/* Border left para items seleccionados */
+.employee-portal-isolated .border-l-3 {
+  border-left-width: 3px !important;
+}
+
+/* ESTILOS ESPECÍFICOS SOLO PARA DROPDOWNS DE SOLICITUDES - MUY ESPECÍFICOS */
+/* Solo afectar dropdowns dentro de la página de solicitudes */
+.employee-portal-isolated .flex.flex-wrap.gap-3 .relative.inline-block button[type="button"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #1f2937 !important;
+  border-color: #d1d5db !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-3 .relative.inline-block button[type="button"]:hover {
+  background-color: #f9fafb !important;
+  background-image: none !important;
+  border-color: #9ca3af !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-3 .relative.inline-block button[type="button"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.3) !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+/* Solo items dentro de dropdowns de solicitudes */
+.employee-portal-isolated .flex.flex-wrap.gap-3 .absolute.z-20 {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-3 .absolute.z-20 button {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #374151 !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-3 .absolute.z-20 button:hover {
+  background-color: #f9fafb !important;
+  background-image: none !important;
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-3 .absolute.z-20 button.bg-gray-100 {
+  background-color: #f3f4f6 !important;
+  background-image: none !important;
+  color: #111827 !important;
+}
+
+/* Sombras mejoradas */
+.employee-portal-isolated .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.employee-portal-isolated .hover\:shadow-md:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Tracking para texto */
+.employee-portal-isolated .tracking-wider {
+  letter-spacing: 0.05em !important;
+}
+
+/* Min width */
+.employee-portal-isolated .min-w-\[180px\] {
+  min-width: 180px !important;
+}
+
+.employee-portal-isolated .w-64 {
+  width: 16rem !important;
+}
+
+/* Z-index para dropdowns */
+.employee-portal-isolated .z-20 {
+  z-index: 20 !important;
+}
+
+/* FORZAR ESTILOS GRISES EN BOTONES DE DOCUMENTOS - ELIMINAR CUALQUIER AZUL */
+/* Tabs de documentos - forzar gris */
+.employee-portal-isolated .flex.gap-2.border-b button {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #374151 !important;
+}
+
+.employee-portal-isolated .flex.gap-2.border-b button:hover {
+  background-color: transparent !important;
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .flex.gap-2.border-b button.text-gray-900 {
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .flex.gap-2.border-b button.border-gray-400 {
+  border-color: #9ca3af !important;
+}
+
+/* Botones de filtro - forzar gris */
+.employee-portal-isolated .flex.flex-wrap.gap-2 button,
+.employee-portal-isolated .flex.flex-wrap.gap-2.mb-4 button {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #374151 !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-2 button:hover,
+.employee-portal-isolated .flex.flex-wrap.gap-2.mb-4 button:hover {
+  background-color: #f9fafb !important;
+  color: #374151 !important;
+}
+
+/* Botones seleccionados - forzar gris claro */
+.employee-portal-isolated .flex.flex-wrap.gap-2 button.bg-gray-100,
+.employee-portal-isolated .flex.flex-wrap.gap-2.mb-4 button.bg-gray-100 {
+  background-color: #f3f4f6 !important;
+  background-image: none !important;
+  color: #111827 !important;
+}
+
+/* Eliminar CUALQUIER azul de tabs y botones de filtro */
+.employee-portal-isolated .flex.gap-2.border-b button[class*="blue"],
+.employee-portal-isolated .flex.flex-wrap.gap-2 button[class*="blue"],
+.employee-portal-isolated .flex.flex-wrap.gap-2.mb-4 button[class*="blue"] {
+  color: #374151 !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border-color: #9ca3af !important;
+}
+
+.employee-portal-isolated .flex.gap-2.border-b button.text-gray-900[class*="blue"] {
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .flex.flex-wrap.gap-2 button.bg-gray-100[class*="blue"] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .text-2xl {
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+}
+
+.employee-portal-isolated .text-3xl {
+  font-size: 1.875rem !important;
+  line-height: 2.25rem !important;
+}
+
+.employee-portal-isolated .font-bold {
+  font-weight: 700 !important;
+}
+
+.employee-portal-isolated .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.employee-portal-isolated .text-gray-700 {
+  color: #374151 !important;
+}
+
+.employee-portal-isolated .text-gray-900 {
+  color: #111827 !important;
+}
+
+.employee-portal-isolated .leading-none {
+  line-height: 1 !important;
+}
+
+.employee-portal-isolated .mb-1 {
+  margin-bottom: 0.25rem !important;
+}
+
+.employee-portal-isolated .mb-3 {
+  margin-bottom: 0.75rem !important;
+}
+
+.employee-portal-isolated .text-center {
+  text-align: center !important;
+}
+
+.employee-portal-isolated .hover\:border-blue-300:hover {
+  border-color: #93c5fd !important;
+}
+
+.employee-portal-isolated .col-span-2 {
+  grid-column: span 2 / span 2 !important;
+}
+
+.employee-portal-isolated .justify-center {
+  justify-content: center !important;
+}
+
+.employee-portal-isolated .text-right {
+  text-align: right !important;
+}
+
+.employee-portal-isolated .flex-shrink-0 {
+  flex-shrink: 0 !important;
+}

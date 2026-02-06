@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { FaHome, FaFileAlt, FaListAlt, FaSignOutAlt, FaShieldAlt } from 'react-icons/fa'
-import './employee-portal.css'
+import './employee-portal-tailwind.css'
 
 export default function EmployeeLayout({
   children,
@@ -21,6 +21,31 @@ export default function EmployeeLayout({
     checkAuth()
   }, [])
 
+  // Inicializar Preline UI solo en el cliente (después del mount)
+  useEffect(() => {
+    // Solo ejecutar en el cliente, no en SSR
+    if (typeof window === 'undefined') return
+    
+    // Cargar Preline dinámicamente solo en el cliente
+    const initPreline = async () => {
+      try {
+        // Usar import dinámico para evitar SSR
+        await import('preline/preline')
+        // Esperar un momento para que Preline se inicialice
+        setTimeout(() => {
+          if (typeof window !== 'undefined' && (window as any).HSStaticMethods) {
+            (window as any).HSStaticMethods.autoInit()
+          }
+        }, 100)
+      } catch (err) {
+        // Silenciar errores de Preline en desarrollo
+        console.warn('Preline no disponible:', err)
+      }
+    }
+    
+    initPreline()
+  }, [])
+
   const checkAuth = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -30,7 +55,6 @@ export default function EmployeeLayout({
         return
       }
 
-      // Verificar que es trabajador
       const { data: emp } = await supabase
         .from('employees')
         .select('id, full_name, email')
@@ -38,7 +62,6 @@ export default function EmployeeLayout({
         .single()
 
       if (!emp) {
-        // No es trabajador, redirigir
         router.push('/')
         return
       }
@@ -59,14 +82,11 @@ export default function EmployeeLayout({
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f3f4f6'
-      }}>
-        <p>Cargando...</p>
+      <div className="employee-portal-wrapper flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-sky-200 border-t-sky-500 mb-4"></div>
+          <p className="text-gray-600 text-sm font-medium">Cargando...</p>
+        </div>
       </div>
     )
   }
@@ -75,128 +95,94 @@ export default function EmployeeLayout({
     return null
   }
 
+  const firstName = employee.full_name?.split(' ')[0] || 'Trabajador'
+  const initials = employee.full_name
+    ?.split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U'
+
   return (
-    <div className="employee-portal-container" style={{
-      minHeight: '100vh',
-      paddingBottom: '80px' // Espacio para navegación inferior
-    }}>
-      {/* Header */}
-      <header className="employee-header" style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div>
-            <h1 style={{
-              margin: 0,
-              fontSize: '20px',
-              fontWeight: '700',
-              color: 'white'
-            }}>
-              Buen día, {employee.full_name?.split(' ')[0] || 'Trabajador'} 👋
-            </h1>
+    <div className="employee-portal-isolated min-h-screen bg-gray-50 pb-20">
+      {/* Header con Preline UI */}
+      <header className="bg-gradient-to-r from-blue-500 to-blue-600 border-b border-blue-400 sticky top-0 z-50 shadow-sm">
+        <div className="px-5 py-4">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-semibold text-white m-0">
+                Buen día, {firstName}
+              </h1>
+              <p className="text-xs text-white/80 m-0">{employee.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="py-2 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 focus:outline-none focus:bg-white/20 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <FaSignOutAlt className="text-xs" />
+              Salir
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="logout-button"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <FaSignOutAlt /> Salir
-          </button>
         </div>
       </header>
 
       {/* Contenido */}
-      <main style={{ padding: '20px' }}>
+      <main className="px-5 py-6 max-w-2xl mx-auto">
         {children}
       </main>
 
-      {/* Navegación inferior */}
-      <nav className="employee-bottom-nav" style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: '12px 0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        zIndex: 100
-      }}>
-        <Link
-          href="/employee"
-          className={pathname === '/employee' ? 'active' : ''}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textDecoration: 'none',
-            color: pathname === '/employee' ? '#4F46E5' : '#6b7280',
-            fontSize: '12px',
-            gap: '4px'
-          }}
-        >
-          <FaHome style={{ fontSize: '22px' }} />
-          <span>Inicio</span>
-        </Link>
-        <Link
-          href="/employee/requests"
-          className={pathname === '/employee/requests' ? 'active' : ''}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textDecoration: 'none',
-            color: pathname === '/employee/requests' ? '#4F46E5' : '#6b7280',
-            fontSize: '12px',
-            gap: '4px'
-          }}
-        >
-          <FaListAlt style={{ fontSize: '22px' }} />
-          <span>Solicitudes</span>
-        </Link>
-        <Link
-          href="/employee/compliance"
-          className={pathname === '/employee/compliance' ? 'active' : ''}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textDecoration: 'none',
-            color: pathname === '/employee/compliance' ? '#4F46E5' : '#6b7280',
-            fontSize: '12px',
-            gap: '4px'
-          }}
-        >
-          <FaShieldAlt style={{ fontSize: '22px' }} />
-          <span>Cumplimiento</span>
-        </Link>
-        <Link
-          href="/employee/documents"
-          className={pathname === '/employee/documents' ? 'active' : ''}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textDecoration: 'none',
-            color: pathname === '/employee/documents' ? '#4F46E5' : '#6b7280',
-            fontSize: '12px',
-            gap: '4px'
-          }}
-        >
-          <FaFileAlt style={{ fontSize: '22px' }} />
-          <span>Documentos</span>
-        </Link>
+      {/* Navegación inferior con Preline UI */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+        <div className="max-w-2xl mx-auto">
+          <div className="grid grid-cols-4 gap-0">
+            <Link
+              href="/employee"
+              className={`flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
+                pathname === '/employee'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <FaHome className="text-lg" />
+              <span>Inicio</span>
+            </Link>
+            <Link
+              href="/employee/requests"
+              className={`flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
+                pathname === '/employee/requests'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <FaListAlt className="text-lg" />
+              <span>Solicitudes</span>
+            </Link>
+            <Link
+              href="/employee/compliance"
+              className={`flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
+                pathname === '/employee/compliance'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <FaShieldAlt className="text-lg" />
+              <span>Cumplimiento</span>
+            </Link>
+            <Link
+              href="/employee/documents"
+              className={`flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
+                pathname === '/employee/documents'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <FaFileAlt className="text-lg" />
+              <span>Documentos</span>
+            </Link>
+          </div>
+        </div>
       </nav>
     </div>
   )
 }
-

@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { FaArrowLeft } from 'react-icons/fa'
 import AuditHistoryTab from '@/components/AuditHistoryTab'
 import { supabase } from '@/lib/supabase/client'
+import '../employee-portal-tailwind.css'
 
 export default function EmployeeAuditHistoryPage() {
   const router = useRouter()
@@ -48,9 +50,10 @@ export default function EmployeeAuditHistoryPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ maxWidth: '672px', margin: '0 auto', padding: '24px' }}>
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>Cargando...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-sky-200 border-t-sky-500 mb-3"></div>
+          <p style={{ color: '#6b7280', fontSize: '14px' }}>Cargando...</p>
         </div>
       </div>
     )
@@ -58,11 +61,15 @@ export default function EmployeeAuditHistoryPage() {
 
   if (!employeeId) {
     return (
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ maxWidth: '672px', margin: '0 auto', padding: '24px' }}>
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>No se pudo cargar la información del trabajador</p>
-          <Link href="/employee">
-            <button style={{ marginTop: '16px' }}>Volver al Dashboard</button>
+          <p style={{ color: '#6b7280', marginBottom: '16px' }}>No se pudo cargar la información del trabajador</p>
+          <Link 
+            href="/employee"
+            className="inline-flex items-center justify-center w-10 h-10 bg-white rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            title="Volver"
+          >
+            <FaArrowLeft size={18} />
           </Link>
         </div>
       </div>
@@ -70,15 +77,19 @@ export default function EmployeeAuditHistoryPage() {
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ maxWidth: '672px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1>Histórico de Acciones</h1>
-        <Link href="/employee">
-          <button className="secondary">Volver al Dashboard</button>
+        <h1 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', margin: 0 }}>Histórico de Acciones</h1>
+        <Link 
+          href="/employee"
+          className="inline-flex items-center justify-center w-10 h-10 bg-white rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          title="Volver"
+        >
+          <FaArrowLeft size={18} />
         </Link>
       </div>
 
-      <div className="card">
+      <div className="employee-portal-card">
         <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
           Aquí puedes ver todas las acciones realizadas relacionadas con tu perfil y documentos.
         </p>
@@ -87,8 +98,3 @@ export default function EmployeeAuditHistoryPage() {
     </div>
   )
 }
-
-
-
-
-

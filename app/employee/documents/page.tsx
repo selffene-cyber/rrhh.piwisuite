@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { FaArrowLeft, FaDownload } from 'react-icons/fa'
-import '../employee-portal.css'
+import '../employee-portal-tailwind.css'
 
 interface Document {
   id: string
@@ -22,17 +22,11 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [laborDocuments, setLaborDocuments] = useState<Document[]>([])
   
-  // Filtros para documentos generales
   const [typeFilter, setTypeFilter] = useState<'all' | 'certificate' | 'permission' | 'vacation' | 'payroll' | 'disciplinary' | 'advance'>('all')
-  
-  // Filtros para liquidaciones
   const [payrollYear, setPayrollYear] = useState<string>('')
   const [payrollMonth, setPayrollMonth] = useState<string>('')
-  
-  // Filtros para documentos laborales
   const [laborTypeFilter, setLaborTypeFilter] = useState<'all' | 'contract' | 'annex' | 'overtime'>('all')
   
-  // Estado para modales
   const [selectedPayroll, setSelectedPayroll] = useState<any>(null)
   const [selectedOvertime, setSelectedOvertime] = useState<any>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -50,7 +44,6 @@ export default function DocumentsPage() {
     try {
       const allDocs: Document[] = []
 
-      // Cargar certificados aprobados/emitidos
       if (typeFilter === 'all' || typeFilter === 'certificate') {
         try {
           const certResponse = await fetch(`/api/employee/certificates?status=approved&_t=${Date.now()}`, {
@@ -74,7 +67,6 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar vacaciones aprobadas
       if (typeFilter === 'all' || typeFilter === 'vacation') {
         try {
           const vacResponse = await fetch(`/api/employee/vacations?status=aprobada&_t=${Date.now()}`, {
@@ -98,7 +90,6 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar permisos aprobados
       if (typeFilter === 'all' || typeFilter === 'permission') {
         try {
           const permResponse = await fetch(`/api/employee/permissions?status=approved&_t=${Date.now()}`, {
@@ -122,14 +113,12 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar liquidaciones de sueldo
       if (typeFilter === 'all' || typeFilter === 'payroll') {
         try {
           let url = '/api/employee/payroll-slips'
           const params = new URLSearchParams()
           if (payrollYear) params.append('year', payrollYear)
           if (payrollMonth) params.append('month', payrollMonth)
-          // Agregar timestamp para evitar cache
           params.append('_t', Date.now().toString())
           if (params.toString()) url += '?' + params.toString()
           
@@ -139,13 +128,8 @@ export default function DocumentsPage() {
               'Cache-Control': 'no-cache'
             }
           })
-          console.log('[FRONTEND] Respuesta de API de liquidaciones:', payrollResponse.status, payrollResponse.ok)
           if (payrollResponse.ok) {
             const payrollData = await payrollResponse.json()
-            console.log('[FRONTEND] Datos de liquidaciones recibidos:', payrollData)
-            if (payrollData.debug) {
-              console.log('[FRONTEND] DEBUG Liquidaciones:', payrollData.debug)
-            }
             const slips = (payrollData.slips || []).map((s: any) => {
               const period = s.payroll_periods
               const monthName = period?.month ? new Date(2000, period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' }) : ''
@@ -165,7 +149,6 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar cartas de amonestación
       if (typeFilter === 'all' || typeFilter === 'disciplinary') {
         try {
           const discResponse = await fetch('/api/employee/disciplinary-actions')
@@ -185,7 +168,6 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar anticipos
       if (typeFilter === 'all' || typeFilter === 'advance') {
         try {
           const advanceResponse = await fetch(`/api/employee/advances?_t=${Date.now()}`, {
@@ -207,7 +189,6 @@ export default function DocumentsPage() {
         }
       }
 
-      // Ordenar por fecha (más recientes primero)
       allDocs.sort((a, b) => {
         const dateA = new Date(a.date).getTime()
         const dateB = new Date(b.date).getTime()
@@ -227,7 +208,6 @@ export default function DocumentsPage() {
     try {
       const allDocs: Document[] = []
 
-      // Cargar contratos firmados
       if (laborTypeFilter === 'all' || laborTypeFilter === 'contract') {
         try {
           const contractResponse = await fetch(`/api/employee/contracts?_t=${Date.now()}`, {
@@ -249,7 +229,6 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar anexos de contratos
       if (laborTypeFilter === 'all' || laborTypeFilter === 'annex') {
         try {
           const annexResponse = await fetch(`/api/employee/contract-annexes?_t=${Date.now()}`, {
@@ -257,34 +236,13 @@ export default function DocumentsPage() {
           })
           if (annexResponse.ok) {
             const annexData = await annexResponse.json()
-            console.log('[FRONTEND] Datos de anexos recibidos:', annexData)
-            if (annexData.debug) {
-              console.log('[FRONTEND] DEBUG Anexos:', annexData.debug)
-            }
-            const annexes = (annexData.annexes || []).map((a: any) => {
-              // IMPORTANTE: Mostrar created_at (fecha de creación) en lugar de start_date (fecha de inicio)
-              // El start_date es la fecha de inicio del anexo, no la fecha en que se creó
-              // Para mostrar cuándo se creó el anexo, usar created_at
-              const displayDate = a.created_at || a.signed_at || a.start_date
-              console.log(`[FRONTEND] Anexo ${a.annex_number}:`)
-              console.log(`  - start_date (fecha inicio): ${a.start_date}`)
-              console.log(`  - created_at (fecha creación): ${a.created_at}`)
-              console.log(`  - signed_at: ${a.signed_at}`)
-              console.log(`  - Usando fecha para mostrar: ${displayDate}`)
-              return {
-                ...a,
-                type: 'annex' as const,
-                title: `Anexo de Contrato - ${a.annex_number || 'Sin número'}`,
-                date: displayDate, // Usar created_at para mostrar fecha de creación
-                downloadUrl: `/contracts/annex/${a.id}/pdf`,
-              }
-            })
-            console.log('Anexos mapeados:', annexes.length)
-            if (annexes.length > 0) {
-              annexes.forEach((a: any, idx: number) => {
-                console.log(`[FRONTEND] Anexo mapeado ${idx + 1}: ${a.annex_number}, fecha mostrada: ${a.date}`)
-              })
-            }
+            const annexes = (annexData.annexes || []).map((a: any) => ({
+              ...a,
+              type: 'annex' as const,
+              title: `Anexo de Contrato - ${a.annex_number || 'Sin número'}`,
+              date: a.created_at || a.signed_at || a.start_date,
+              downloadUrl: `/contracts/annex/${a.id}/pdf`,
+            }))
             allDocs.push(...annexes)
           }
         } catch (err) {
@@ -292,23 +250,13 @@ export default function DocumentsPage() {
         }
       }
 
-      // Cargar pactos de horas extra
       if (laborTypeFilter === 'all' || laborTypeFilter === 'overtime') {
         try {
-          console.log('Cargando pactos de horas extra...')
           const overtimeResponse = await fetch(`/api/employee/overtime-pacts?_t=${Date.now()}`, {
             cache: 'no-store'
           })
-          console.log('[FRONTEND] Respuesta de API de pactos:', overtimeResponse.status, overtimeResponse.ok)
           if (overtimeResponse.ok) {
             const overtimeData = await overtimeResponse.json()
-            console.log('[FRONTEND] Datos de pactos recibidos:', overtimeData)
-            if (overtimeData.debug) {
-              console.log('[FRONTEND] DEBUG Pactos:', overtimeData.debug)
-            }
-            if (overtimeData.error) {
-              console.error('[FRONTEND] Error en respuesta de pactos:', overtimeData.error, overtimeData.details)
-            }
             const pacts = (overtimeData.pacts || []).map((p: any) => ({
               ...p,
               type: 'overtime' as const,
@@ -316,18 +264,13 @@ export default function DocumentsPage() {
               date: p.start_date || p.created_at,
               downloadUrl: p.pdf_url || `/overtime/${p.id}/pdf`,
             }))
-            console.log('Pactos mapeados:', pacts.length)
             allDocs.push(...pacts)
-          } else {
-            const errorData = await overtimeResponse.json().catch(() => ({}))
-            console.error('Error en respuesta de API de pactos:', errorData)
           }
         } catch (err) {
           console.error('Error al cargar pactos:', err)
         }
       }
 
-      // Ordenar por fecha (más recientes primero)
       allDocs.sort((a, b) => {
         const dateA = new Date(a.date).getTime()
         const dateB = new Date(b.date).getTime()
@@ -370,44 +313,24 @@ export default function DocumentsPage() {
     
     try {
       if (doc.type === 'payroll') {
-        await downloadPayrollPDF(doc)
+        window.open(`/payroll/${doc.id}/pdf`, '_blank')
       } else if (doc.type === 'overtime') {
-        await downloadOvertimePDF(doc)
+        window.open(`/overtime/${doc.id}/pdf`, '_blank')
       } else if (doc.type === 'annex') {
-        await downloadAnnexPDF(doc)
+        window.open(`/contracts/annex/${doc.id}/pdf`, '_blank')
       } else {
-        // Para otros tipos, abrir en nueva ventana
         window.open(doc.downloadUrl, '_blank')
       }
     } catch (error) {
       console.error('Error al descargar:', error)
-      alert('Error al descargar el documento: ' + (error instanceof Error ? error.message : 'Error desconocido'))
+      alert('Error al descargar el documento')
     }
-  }
-
-  const downloadPayrollPDF = async (doc: Document) => {
-    // Abrir la página del PDF en una nueva pestaña
-    // Esa página tiene todos los datos correctos y el botón de descarga nativo
-    window.open(`/payroll/${doc.id}/pdf`, '_blank')
-  }
-
-  const downloadOvertimePDF = async (doc: Document) => {
-    // Abrir la página del PDF en una nueva pestaña
-    // Esa página tiene todos los datos correctos y el botón de descarga nativo
-    window.open(`/overtime/${doc.id}/pdf`, '_blank')
-  }
-
-  const downloadAnnexPDF = async (doc: Document) => {
-    // Abrir la página del PDF en una nueva pestaña
-    // Esa página tiene todos los datos correctos y el botón de descarga nativo
-    window.open(`/contracts/annex/${doc.id}/pdf`, '_blank')
   }
 
   const handleViewDetail = async (doc: Document) => {
     setLoadingDetail(true)
     try {
       if (doc.type === 'payroll') {
-        // Cargar detalles de la liquidación
         const response = await fetch(`/api/employee/payroll-slips?_t=${Date.now()}`, {
           cache: 'no-store'
         })
@@ -419,7 +342,6 @@ export default function DocumentsPage() {
           }
         }
       } else if (doc.type === 'overtime') {
-        // Cargar detalles del pacto
         const response = await fetch(`/api/employee/overtime-pacts?_t=${Date.now()}`, {
           cache: 'no-store'
         })
@@ -438,7 +360,6 @@ export default function DocumentsPage() {
     }
   }
 
-  // Generar años para el filtro de liquidaciones (últimos 5 años)
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
   const months = [
@@ -461,64 +382,51 @@ export default function DocumentsPage() {
 
   if (loading && currentDocuments.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <p>Cargando documentos...</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-blue-200 border-t-blue-600 mb-3"></div>
+          <p className="text-gray-600 text-sm font-medium">Cargando documentos...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '24px' }}>
+    <div className="flex flex-col gap-6 pb-6">
+      {/* Header */}
+      <div>
         <Link
           href="/employee"
-          className="back-button-icon"
-          style={{ marginBottom: '16px' }}
+          className="inline-flex items-center justify-center w-10 h-10 mb-4 bg-white rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          title="Volver"
         >
-          <FaArrowLeft />
+          <FaArrowLeft size={18} />
         </Link>
-        <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>Mis Documentos</h1>
-        <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#6b7280' }}>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Mis Documentos</h1>
+        <p className="text-sm text-gray-600">
           Documentos aprobados y disponibles para descargar
         </p>
       </div>
 
       {/* Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: '8px',
-        marginBottom: '20px',
-        borderBottom: '2px solid #e5e7eb'
-      }}>
+      <div className="flex gap-2 border-b border-gray-200">
         <button
           onClick={() => setActiveTab('general')}
-          style={{
-            padding: '12px 24px',
-            border: 'none',
-            background: 'transparent',
-            fontSize: '16px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            color: activeTab === 'general' ? '#6366f1' : '#6b7280',
-            borderBottom: activeTab === 'general' ? '2px solid #6366f1' : '2px solid transparent',
-            marginBottom: '-2px'
-          }}
+          className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            activeTab === 'general'
+              ? 'text-gray-900 border-gray-400'
+              : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300'
+          }`}
         >
           Documentos Generales
         </button>
         <button
           onClick={() => setActiveTab('labor')}
-          style={{
-            padding: '12px 24px',
-            border: 'none',
-            background: 'transparent',
-            fontSize: '16px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            color: activeTab === 'labor' ? '#6366f1' : '#6b7280',
-            borderBottom: activeTab === 'labor' ? '2px solid #6366f1' : '2px solid transparent',
-            marginBottom: '-2px'
-          }}
+          className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            activeTab === 'labor'
+              ? 'text-gray-900 border-gray-400'
+              : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300'
+          }`}
         >
           Documentos Laborales
         </button>
@@ -526,60 +434,32 @@ export default function DocumentsPage() {
 
       {/* Filtros para documentos generales */}
       {activeTab === 'general' && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            marginBottom: '12px',
-            flexWrap: 'wrap'
-          }}>
+        <div>
+          <div className="flex flex-wrap gap-2 mb-4">
             {(['all', 'certificate', 'permission', 'vacation', 'payroll', 'disciplinary', 'advance'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTypeFilter(t)}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  background: typeFilter === t ? '#6366f1' : 'white',
-                  color: typeFilter === t ? 'white' : '#6b7280',
-                  boxShadow: typeFilter === t ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
-                }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                  typeFilter === t
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 {t === 'all' ? 'Todos' : t === 'certificate' ? 'Certificados' : t === 'permission' ? 'Permisos' : t === 'vacation' ? 'Vacaciones' : t === 'payroll' ? 'Liquidaciones' : t === 'disciplinary' ? 'Amonestaciones' : 'Anticipos'}
               </button>
             ))}
           </div>
 
-          {/* Filtros específicos para liquidaciones */}
-          {typeFilter === 'payroll' || typeFilter === 'all' ? (
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              marginBottom: '16px',
-              padding: '12px',
-              background: '#f9fafb',
-              borderRadius: '8px',
-              flexWrap: 'wrap',
-              alignItems: 'center'
-            }}>
-              <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+          {(typeFilter === 'payroll' || typeFilter === 'all') && (
+            <div className="flex flex-wrap gap-3 items-center p-4 bg-gray-50 rounded-xl mb-4">
+              <label className="text-sm font-medium text-gray-700">
                 Filtrar Liquidaciones:
               </label>
               <select
                 value={payrollYear}
                 onChange={(e) => setPayrollYear(e.target.value)}
-                style={{
-                  padding: '6px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  background: 'white'
-                }}
+                className="px-3 py-2 text-sm rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
               >
                 <option value="">Todos los años</option>
                 {years.map(year => (
@@ -589,13 +469,7 @@ export default function DocumentsPage() {
               <select
                 value={payrollMonth}
                 onChange={(e) => setPayrollMonth(e.target.value)}
-                style={{
-                  padding: '6px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  background: 'white'
-                }}
+                className="px-3 py-2 text-sm rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
               >
                 <option value="">Todos los meses</option>
                 {months.map(month => (
@@ -608,47 +482,29 @@ export default function DocumentsPage() {
                     setPayrollYear('')
                     setPayrollMonth('')
                   }}
-                  style={{
-                    padding: '6px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    background: 'white',
-                    cursor: 'pointer'
-                  }}
+                  className="px-3 py-2 text-sm rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Limpiar filtros
                 </button>
               )}
             </div>
-          ) : null}
+          )}
         </div>
       )}
 
       {/* Filtros para documentos laborales */}
       {activeTab === 'labor' && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            flexWrap: 'wrap'
-          }}>
+        <div>
+          <div className="flex flex-wrap gap-2">
             {(['all', 'contract', 'annex', 'overtime'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setLaborTypeFilter(t)}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  background: laborTypeFilter === t ? '#6366f1' : 'white',
-                  color: laborTypeFilter === t ? 'white' : '#6b7280',
-                  boxShadow: laborTypeFilter === t ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
-                }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                  laborTypeFilter === t
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 {t === 'all' ? 'Todos' : t === 'contract' ? 'Contratos' : t === 'annex' ? 'Anexos' : 'Pactos Horas Extra'}
               </button>
@@ -659,110 +515,57 @@ export default function DocumentsPage() {
 
       {/* Lista de documentos */}
       {currentDocuments.length === 0 ? (
-        <div style={{
-          background: 'white',
-          borderRadius: '12px',
-          padding: '40px',
-          textAlign: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📚</div>
-          <p style={{ color: '#6b7280', margin: 0 }}>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-12 text-center">
+          <div className="text-5xl mb-4">📚</div>
+          <p className="text-gray-600 text-sm">
             No hay documentos disponibles
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="flex flex-col gap-4">
           {currentDocuments.map((doc) => (
             <div
               key={doc.id}
-              style={{
-                background: 'white',
-                borderRadius: '12px',
-                padding: '16px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-              }}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 transition-all hover:shadow-md"
             >
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'start',
-                marginBottom: '12px'
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '8px'
-                  }}>
-                    <span style={{ fontSize: '20px' }}>{getTypeIcon(doc.type)}</span>
-                    <h3 style={{
-                      margin: 0,
-                      fontSize: '16px',
-                      fontWeight: '500',
-                      color: '#111827'
-                    }}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">{getTypeIcon(doc.type)}</span>
+                    <h3 className="text-base font-semibold text-gray-900 m-0">
                       {doc.title}
                     </h3>
                   </div>
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    marginBottom: '8px'
-                  }}>
-                    {formatDate(doc.date)}
+                  
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium">Fecha:</span> {formatDate(doc.date)}
+                    </div>
+                    
+                    {doc.type === 'certificate' && doc.folio_number && (
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Folio:</span> {doc.folio_number}
+                      </div>
+                    )}
+                    
+                    {doc.type === 'payroll' && doc.period && (
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Período:</span> {new Date(2000, doc.period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' })} {doc.period.year}
+                      </div>
+                    )}
                   </div>
-                  {doc.type === 'certificate' && doc.folio_number && (
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280'
-                    }}>
-                      Folio: {doc.folio_number}
-                    </div>
-                  )}
-                  {doc.type === 'payroll' && doc.period && (
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280'
-                    }}>
-                      Período: {new Date(2000, doc.period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' })} {doc.period.year}
-                    </div>
-                  )}
-                  {doc.type === 'advance' && doc.advance_date && (
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280'
-                    }}>
-                      Fecha: {formatDate(doc.advance_date)}
-                    </div>
-                  )}
-                  {doc.type === 'overtime' && doc.start_date && doc.end_date && (
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280'
-                    }}>
-                      Vigente desde {formatDate(doc.start_date)} hasta {formatDate(doc.end_date)}
-                    </div>
-                  )}
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                
+                <div className="flex gap-2 flex-shrink-0">
                   {(doc.type === 'payroll' || doc.type === 'overtime') && (
                     <button
                       onClick={() => handleViewDetail(doc)}
                       disabled={loadingDetail}
-                      style={{
-                        padding: '8px 16px',
-                        background: '#f3f4f6',
-                        color: '#374151',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        cursor: loadingDetail ? 'wait' : 'pointer',
-                        whiteSpace: 'nowrap',
-                        opacity: loadingDetail ? 0.6 : 1
-                      }}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                        loadingDetail
+                          ? 'bg-gray-100 text-gray-400 cursor-wait opacity-60'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
                     >
                       {loadingDetail ? 'Cargando...' : 'Ver Detalle'}
                     </button>
@@ -770,23 +573,10 @@ export default function DocumentsPage() {
                   {doc.downloadUrl && (
                     <button
                       onClick={() => handleDownload(doc)}
-                      style={{
-                        padding: '8px 16px',
-                        background: '#6366f1',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
+                      className="inline-flex items-center justify-center w-10 h-10 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      title="Descargar"
                     >
-                      <FaDownload size={14} />
-                      Descargar
+                      <FaDownload size={16} />
                     </button>
                   )}
                 </div>
@@ -798,135 +588,88 @@ export default function DocumentsPage() {
 
       {/* Modal para detalle de liquidación */}
       {selectedPayroll && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }} onClick={() => setSelectedPayroll(null)}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            maxWidth: '800px',
-            maxHeight: '90vh',
-            width: '100%',
-            overflow: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{
-              padding: '24px',
-              borderBottom: '1px solid #e5e7eb',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-5"
+          onClick={() => setSelectedPayroll(null)}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-2xl max-h-[90vh] w-full overflow-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 m-0">
                 Detalle de Liquidación
               </h2>
               <button
                 onClick={() => setSelectedPayroll(null)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6b7280',
-                  padding: '0',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
               >
                 ×
               </button>
             </div>
-            <div style={{ padding: '24px' }}>
-              {selectedPayroll.period && (
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Período</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
-                    {new Date(2000, selectedPayroll.period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' })} {selectedPayroll.period.year}
+            <div className="p-6">
+              <div className="space-y-4">
+                {selectedPayroll.period && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Período</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {new Date(2000, selectedPayroll.period.month - 1, 1).toLocaleDateString('es-CL', { month: 'long' })} {selectedPayroll.period.year}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Estado</p>
+                  <p className="text-base font-medium text-gray-900 capitalize">
+                    {selectedPayroll.status === 'issued' ? 'Emitida' : selectedPayroll.status === 'sent' ? 'Enviada' : selectedPayroll.status}
                   </p>
                 </div>
-              )}
-              <div style={{ marginBottom: '16px' }}>
-                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Estado</p>
-                <p style={{ margin: 0, fontSize: '16px', fontWeight: '500', textTransform: 'capitalize' }}>
-                  {selectedPayroll.status === 'issued' ? 'Emitida' : selectedPayroll.status === 'sent' ? 'Enviada' : selectedPayroll.status}
-                </p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Días Trabajados</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>{selectedPayroll.days_worked}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Días Trabajados</p>
+                    <p className="text-base font-medium text-gray-900">{selectedPayroll.days_worked}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Sueldo Base</p>
+                    <p className="text-base font-medium text-gray-900">
+                      ${selectedPayroll.base_salary?.toLocaleString('es-CL') || 0}
+                    </p>
+                  </div>
                 </div>
                 <div>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Sueldo Base</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
-                    ${selectedPayroll.base_salary?.toLocaleString('es-CL') || 0}
+                  <p className="text-sm text-gray-600 mb-1">Total Haberes</p>
+                  <p className="text-lg font-semibold text-emerald-600">
+                    ${selectedPayroll.total_earnings?.toLocaleString('es-CL') || 0}
                   </p>
                 </div>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Total Haberes</p>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#10b981' }}>
-                  ${selectedPayroll.total_earnings?.toLocaleString('es-CL') || 0}
-                </p>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Total Descuentos</p>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#ef4444' }}>
-                  ${selectedPayroll.total_deductions?.toLocaleString('es-CL') || 0}
-                </p>
-              </div>
-              <div style={{ 
-                padding: '16px',
-                background: '#f3f4f6',
-                borderRadius: '8px',
-                marginTop: '24px'
-              }}>
-                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Líquido a Pagar</p>
-                <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#6366f1' }}>
-                  ${selectedPayroll.net_pay?.toLocaleString('es-CL') || 0}
-                </p>
-              </div>
-              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                <button
-                  onClick={() => {
-                    const doc: Document = {
-                      ...selectedPayroll,
-                      type: 'payroll',
-                      downloadUrl: `/payroll/${selectedPayroll.id}/pdf`,
-                      period: selectedPayroll.payroll_periods
-                    }
-                    handleDownload(doc)
-                  }}
-                  style={{
-                    padding: '12px 24px',
-                    background: '#6366f1',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <FaDownload size={16} />
-                  Descargar PDF
-                </button>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Descuentos</p>
+                  <p className="text-lg font-semibold text-red-600">
+                    ${selectedPayroll.total_deductions?.toLocaleString('es-CL') || 0}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg mt-6">
+                  <p className="text-sm text-gray-600 mb-2">Líquido a Pagar</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    ${selectedPayroll.net_pay?.toLocaleString('es-CL') || 0}
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      const doc: Document = {
+                        ...selectedPayroll,
+                        type: 'payroll',
+                        downloadUrl: `/payroll/${selectedPayroll.id}/pdf`,
+                        period: selectedPayroll.payroll_periods
+                      }
+                      handleDownload(doc)
+                    }}
+                    className="inline-flex items-center justify-center w-12 h-12 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    title="Descargar PDF"
+                  >
+                    <FaDownload size={18} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -935,118 +678,76 @@ export default function DocumentsPage() {
 
       {/* Modal para detalle de pacto de horas extra */}
       {selectedOvertime && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }} onClick={() => setSelectedOvertime(null)}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            maxWidth: '600px',
-            maxHeight: '90vh',
-            width: '100%',
-            overflow: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{
-              padding: '24px',
-              borderBottom: '1px solid #e5e7eb',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-5"
+          onClick={() => setSelectedOvertime(null)}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-lg max-h-[90vh] w-full overflow-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 m-0">
                 Detalle del Pacto de Horas Extra
               </h2>
               <button
                 onClick={() => setSelectedOvertime(null)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6b7280',
-                  padding: '0',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
               >
                 ×
               </button>
             </div>
-            <div style={{ padding: '24px' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Estado</p>
-                <p style={{ margin: 0, fontSize: '16px', fontWeight: '500', textTransform: 'capitalize' }}>
-                  {selectedOvertime.status === 'active' ? 'Activo' : selectedOvertime.status === 'draft' ? 'Borrador' : selectedOvertime.status}
-                </p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div className="p-6">
+              <div className="space-y-4">
                 <div>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Horas Máximas Diarias</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>{selectedOvertime.max_daily_hours} horas</p>
-                </div>
-                <div>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Horas Máximas Semanales</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>{selectedOvertime.max_weekly_hours || '-'} horas</p>
-                </div>
-              </div>
-              {selectedOvertime.start_date && (
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Fecha de Inicio</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
-                    {formatDate(selectedOvertime.start_date)}
+                  <p className="text-sm text-gray-600 mb-1">Estado</p>
+                  <p className="text-base font-medium text-gray-900 capitalize">
+                    {selectedOvertime.status === 'active' ? 'Activo' : selectedOvertime.status === 'draft' ? 'Borrador' : selectedOvertime.status}
                   </p>
                 </div>
-              )}
-              {selectedOvertime.end_date && (
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Fecha de Término</p>
-                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
-                    {formatDate(selectedOvertime.end_date)}
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Horas Máximas Diarias</p>
+                    <p className="text-base font-medium text-gray-900">{selectedOvertime.max_daily_hours} horas</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Horas Máximas Semanales</p>
+                    <p className="text-base font-medium text-gray-900">{selectedOvertime.max_weekly_hours || '-'} horas</p>
+                  </div>
                 </div>
-              )}
-              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                <button
-                  onClick={() => {
-                    const doc: Document = {
-                      ...selectedOvertime,
-                      type: 'overtime',
-                      downloadUrl: `/overtime/${selectedOvertime.id}/pdf`,
-                      start_date: selectedOvertime.start_date
-                    }
-                    handleDownload(doc)
-                  }}
-                  style={{
-                    padding: '12px 24px',
-                    background: '#6366f1',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <FaDownload size={16} />
-                  Descargar PDF
-                </button>
+                {selectedOvertime.start_date && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Fecha de Inicio</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {formatDate(selectedOvertime.start_date)}
+                    </p>
+                  </div>
+                )}
+                {selectedOvertime.end_date && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Fecha de Término</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {formatDate(selectedOvertime.end_date)}
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      const doc: Document = {
+                        ...selectedOvertime,
+                        type: 'overtime',
+                        downloadUrl: `/overtime/${selectedOvertime.id}/pdf`,
+                        start_date: selectedOvertime.start_date
+                      }
+                      handleDownload(doc)
+                    }}
+                    className="inline-flex items-center justify-center w-12 h-12 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    title="Descargar PDF"
+                  >
+                    <FaDownload size={18} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

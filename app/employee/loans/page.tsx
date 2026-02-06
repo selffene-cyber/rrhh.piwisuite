@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { FaArrowLeft, FaDownload, FaFileInvoiceDollar } from 'react-icons/fa'
-import '../employee-portal.css'
+import '../employee-portal-tailwind.css'
 
 interface Loan {
   id: string
@@ -66,7 +66,6 @@ export default function LoansPage() {
   }
 
   const calculateEndDate = (loan: Loan) => {
-    // Calcular fecha de término basándose en la fecha de inicio y número de cuotas
     const startDate = new Date(loan.loan_date)
     const monthsToAdd = loan.installments
     const endDate = new Date(startDate)
@@ -90,7 +89,6 @@ export default function LoansPage() {
       const link = document.createElement('a')
       link.href = blobUrl
       
-      // Generar nombre de archivo
       const date = new Date(loan.loan_date)
       const day = String(date.getDate()).padStart(2, '0')
       const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -137,35 +135,30 @@ export default function LoansPage() {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px' }}>
-        <p>Cargando préstamos...</p>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-sky-200 border-t-sky-500 mb-3"></div>
+        <p style={{ color: '#6b7280', fontSize: '14px' }}>Cargando préstamos...</p>
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '672px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
         <Link
           href="/employee"
-          className="back-button-icon"
-          style={{ marginBottom: '16px' }}
+          className="inline-flex items-center justify-center w-10 h-10 mb-4 bg-white rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          title="Volver"
         >
-          <FaArrowLeft />
+          <FaArrowLeft size={18} />
         </Link>
-        <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>Mis Préstamos</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '600', color: '#111827' }}>Mis Préstamos</h1>
         <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#6b7280' }}>
           Historial de préstamos y estado de pagos
         </p>
       </div>
 
       {loans.length === 0 ? (
-        <div style={{
-          background: 'white',
-          borderRadius: '12px',
-          padding: '40px',
-          textAlign: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-        }}>
+        <div className="employee-portal-card" style={{ textAlign: 'center', padding: '40px' }}>
           <FaFileInvoiceDollar style={{ fontSize: '48px', color: '#d1d5db', marginBottom: '16px' }} />
           <p style={{ color: '#6b7280', margin: 0 }}>
             No hay préstamos disponibles
@@ -182,12 +175,7 @@ export default function LoansPage() {
             return (
               <div
                 key={loan.id}
-                style={{
-                  background: 'white',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                }}
+                className="employee-portal-card"
               >
                 <div style={{
                   display: 'flex',
@@ -202,7 +190,7 @@ export default function LoansPage() {
                       gap: '12px',
                       marginBottom: '8px'
                     }}>
-                      <FaFileInvoiceDollar style={{ fontSize: '24px', color: '#6366f1' }} />
+                      <FaFileInvoiceDollar style={{ fontSize: '24px', color: '#0ea5e9' }} />
                       <h3 style={{
                         margin: 0,
                         fontSize: '18px',
@@ -225,7 +213,7 @@ export default function LoansPage() {
                     <div style={{
                       fontSize: '24px',
                       fontWeight: '700',
-                      color: '#6366f1',
+                      color: '#0ea5e9',
                       marginBottom: '8px'
                     }}>
                       {formatCurrency(loan.total_amount)}
@@ -264,7 +252,7 @@ export default function LoansPage() {
                     <div style={{
                       height: '100%',
                       width: `${progress}%`,
-                      background: '#6366f1',
+                      background: '#0ea5e9',
                       transition: 'width 0.3s ease'
                     }} />
                   </div>
@@ -290,7 +278,14 @@ export default function LoansPage() {
                       fontSize: '14px',
                       fontWeight: '500',
                       cursor: 'pointer',
-                      flex: 1
+                      flex: 1,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#e5e7eb'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f3f4f6'
                     }}
                   >
                     Ver Detalle
@@ -299,7 +294,7 @@ export default function LoansPage() {
                     onClick={() => handleDownload(loan)}
                     style={{
                       padding: '10px 20px',
-                      background: '#6366f1',
+                      background: '#0ea5e9',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -310,8 +305,11 @@ export default function LoansPage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
-                      flex: 1
+                      flex: 1,
+                      transition: 'background-color 0.2s'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0284c7'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0ea5e9'}
                   >
                     <FaDownload size={16} />
                     Descargar PDF
@@ -432,7 +430,7 @@ export default function LoansPage() {
                 </div>
                 <div>
                   <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>Total a Pagar</p>
-                  <p style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#6366f1' }}>
+                  <p style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#0ea5e9' }}>
                     {formatCurrency(selectedLoan.total_amount)}
                   </p>
                 </div>
@@ -459,7 +457,7 @@ export default function LoansPage() {
                   onClick={() => handleDownload(selectedLoan)}
                   style={{
                     padding: '12px 24px',
-                    background: '#6366f1',
+                    background: '#0ea5e9',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
@@ -469,8 +467,11 @@ export default function LoansPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    flex: 1
+                    flex: 1,
+                    transition: 'background-color 0.2s'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0284c7'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0ea5e9'}
                 >
                   <FaDownload size={16} />
                   Descargar PDF
@@ -483,9 +484,3 @@ export default function LoansPage() {
     </div>
   )
 }
-
-
-
-
-
-
