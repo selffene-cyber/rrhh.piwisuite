@@ -682,6 +682,119 @@
   color: #111827 !important;
 }
 
+/* Estilos para banner de actualización PWA en portal */
+.employee-portal-isolated .pwa-update-banner {
+  position: fixed;
+  bottom: 5rem;
+  left: 1rem;
+  right: 1rem;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0.875rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  animation: slideUp 0.3s ease-out;
+}
+
+.employee-portal-isolated .pwa-update-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.employee-portal-isolated .pwa-update-icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 8px;
+  color: #0ea5e9;
+}
+
+.employee-portal-isolated .pwa-update-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.employee-portal-isolated .pwa-update-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.125rem 0;
+}
+
+.employee-portal-isolated .pwa-update-description {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.employee-portal-isolated .pwa-update-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.employee-portal-isolated .pwa-update-button {
+  padding: 0.5rem 1rem;
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.employee-portal-isolated .pwa-update-button:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.employee-portal-isolated .pwa-update-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.employee-portal-isolated .pwa-update-close {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.employee-portal-isolated .pwa-update-close:hover {
+  background: #f3f4f6;
+  color: #475569;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .employee-portal-isolated .text-2xl {
   font-size: 1.5rem !important;
   line-height: 2rem !important;

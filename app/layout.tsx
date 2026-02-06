@@ -30,6 +30,8 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
 }
 
+import PWAScript from '@/components/PWAScript'
+
 export default function RootLayout({
   children,
 }: {
@@ -37,7 +39,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content="#0ea5e9" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="PiwiSuite" />
+      </head>
       <body>
+        <PWAScript />
         <CompanyProvider>
           <Layout>{children}</Layout>
         </CompanyProvider>

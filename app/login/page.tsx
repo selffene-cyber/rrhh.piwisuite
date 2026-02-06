@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
 import Image from 'next/image'
+import PWAInstallBanner from '@/components/PWAInstallBanner'
 import './login.css'
 
 export default function LoginPage() {
@@ -227,6 +228,9 @@ export default function LoginPage() {
                     )}
                   </button>
                 </form>
+
+                {/* Banner de Instalación PWA - Solo en móviles */}
+                <PWAInstallBanner />
 
                 {/* Footer */}
                 <div className="login-footer">

@@ -12,6 +12,24 @@ const nextConfig = {
     // Si prefieres, puedes quitarlo y solo dejar eslint
     ignoreBuildErrors: false, // Mantener TypeScript activo
   },
+  // Configuración para PWA
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

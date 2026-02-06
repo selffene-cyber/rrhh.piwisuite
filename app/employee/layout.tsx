@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { FaHome, FaFileAlt, FaListAlt, FaSignOutAlt, FaShieldAlt } from 'react-icons/fa'
+import PWAUpdateBanner from '@/components/PWAUpdateBanner'
 import './employee-portal-tailwind.css'
 
 export default function EmployeeLayout({
@@ -131,6 +132,9 @@ export default function EmployeeLayout({
       <main className="px-5 py-6 max-w-2xl mx-auto">
         {children}
       </main>
+
+      {/* Banner de Actualización PWA */}
+      <PWAUpdateBanner />
 
       {/* Navegación inferior con Preline UI */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
