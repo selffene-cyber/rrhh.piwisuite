@@ -10,6 +10,49 @@ import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { calculateLegalDiscountLimit, getLegalLimitAlert, getLegalLimitInfo, type LegalLimitCalculation } from '@/lib/services/loanLegalCalculator'
 import { createValidationServices } from '@/lib/services/validationHelpers'
 
+// Componente ToggleSwitch
+const ToggleSwitch = ({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label?: string }) => {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          style={{ display: 'none' }}
+        />
+        <div
+          style={{
+            width: '48px',
+            height: '24px',
+            borderRadius: '12px',
+            background: checked ? '#3b82f6' : '#d1d5db',
+            position: 'relative',
+            transition: 'background 0.2s',
+            cursor: 'pointer',
+          }}
+          onClick={() => onChange(!checked)}
+        >
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '50%',
+              background: 'white',
+              position: 'absolute',
+              top: '2px',
+              left: checked ? '26px' : '2px',
+              transition: 'left 0.2s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }}
+          />
+        </div>
+        {label && <span style={{ marginLeft: '8px', fontSize: '14px' }}>{label}</span>}
+      </label>
+    </div>
+  )
+}
+
 export default function NewLoanPage() {
   const router = useRouter()
   const { companyId } = useCurrentCompany()
