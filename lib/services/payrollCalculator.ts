@@ -354,8 +354,13 @@ export async function calculatePayroll(
   // Líquido a pagar (redondear hacia arriba)
   const netPay = Math.ceil(totalEarnings - totalDeductions)
 
+  // Base tributable = Haberes imponibles - Descuentos legales del trabajador (AFP + Salud + Cesantía)
+  // Este es el valor que se usa para calcular el Impuesto Único
+  const taxableBaseForTax = taxableForTax
+
   return {
     taxableBase,
+    taxableBaseForTax, // Base tributable (para impuesto único)
     taxableEarnings,
     nonTaxableEarnings,
     legalDeductions,

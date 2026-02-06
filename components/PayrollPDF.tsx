@@ -598,6 +598,7 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                   <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
                     {formatCurrency(Math.max(0, slip.taxable_base - 
                       (legalDeductions.find((d: any) => d.category === 'afp')?.amount || 0) - 
+                      (legalDeductions.find((d: any) => d.category === 'salud')?.amount || 0) - 
                       (legalDeductions.find((d: any) => d.category === 'cesantia')?.amount || 0)))}
                   </Text>
                 </View>

@@ -39,7 +39,8 @@ export type PayrollCalculationInput = {
 }
 
 export type PayrollCalculationResult = {
-  taxableBase: number
+  taxableBase: number // Base imponible (suma de haberes imponibles)
+  taxableBaseForTax: number // Base tributable (haberes imponibles - descuentos legales del trabajador: AFP + Salud + Cesantía)
   taxableEarnings: {
     baseSalary: number
     bonuses: number
