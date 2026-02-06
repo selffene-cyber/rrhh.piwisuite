@@ -1073,6 +1073,38 @@ export default function NewPayrollPage() {
               />
             </div>
           </div>
+          
+          {/* Mensaje informativo de permisos sin goce detectados */}
+          {permissionDaysWithoutPay > 0 && permissionsToApply.length > 0 && (
+            <div className="form-row" style={{ marginTop: '12px' }}>
+              <div className="form-group" style={{ width: '100%' }}>
+                <div style={{ padding: '12px', background: '#fee2e2', borderRadius: '6px', border: '1px solid #fecaca' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <strong style={{ color: '#991b1b', fontSize: '14px' }}>⚠️ Permisos sin Goce de Sueldo Detectados</strong>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f1d1d', marginBottom: '8px' }}>
+                    <strong>Total de días de permiso sin goce:</strong> {permissionDaysWithoutPay} día{permissionDaysWithoutPay > 1 ? 's' : ''}
+                    <br />
+                    <strong>Días efectivos a calcular:</strong> {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)} días
+                    <br />
+                    <strong>Cálculo del sueldo:</strong> (Sueldo Base / 30) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)} días efectivos
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#7f1d1d' }}>
+                    <strong>Detalle de permisos:</strong>
+                    <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px' }}>
+                      {permissionsToApply.map((perm, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>
+                          <strong>{perm.permission_types?.name || perm.permission_types?.label || 'Permiso sin goce'}:</strong> {perm.days_in_period} día{perm.days_in_period > 1 ? 's' : ''}
+                          {' '}({new Date(perm.start_date).toLocaleDateString('es-CL')} - {new Date(perm.end_date).toLocaleDateString('es-CL')})
+                          {perm.reason && ` - Motivo: ${perm.reason}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {(medicalLeaveDays > 0 || vacationDays > 0 || permissionDaysWithoutPay > 0) && (
             <div className="form-row">
               <div className="form-group" style={{ width: '100%' }}>
