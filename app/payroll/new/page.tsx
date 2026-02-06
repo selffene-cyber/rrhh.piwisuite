@@ -24,7 +24,7 @@ export default function NewPayrollPage() {
     employee_id: employeeIdParam || '',
     year: getCurrentMonthYear().year,
     month: getCurrentMonthYear().month,
-    days_worked: 30,
+    days_worked: 30, // Siempre 30 días según convención legal chilena (independiente del mes)
     days_leave: 0,
     bonuses: 0,
     overtime_hours: 0, // Solo número de horas
@@ -107,16 +107,9 @@ export default function NewPayrollPage() {
     checkOvertimePact()
   }, [selectedEmployee, formData.overtime_hours, formData.year, formData.month])
 
-  // Calcular automáticamente los días del mes cuando cambia el mes/año
-  // Solo actualizar si el valor actual es el valor por defecto (30) o si cambió el mes/año
-  useEffect(() => {
-    const daysInMonth = new Date(formData.year, formData.month, 0).getDate()
-    // Solo actualizar si el valor actual es 30 (por defecto) o si es diferente al nuevo valor
-    // Esto permite que el usuario pueda cambiar manualmente el valor sin que se sobrescriba
-    if (formData.days_worked === 30 || formData.days_worked !== daysInMonth) {
-      setFormData(prev => ({ ...prev, days_worked: daysInMonth }))
-    }
-  }, [formData.year, formData.month])
+  // En Chile, la convención legal es usar siempre 30 días para el cálculo mensual
+  // Independientemente de si el mes tiene 28, 29, 30 o 31 días
+  // No necesitamos cambiar el valor automáticamente, siempre será 30 por defecto
 
   useEffect(() => {
     if (companyId) {
@@ -128,10 +121,14 @@ export default function NewPayrollPage() {
 
   useEffect(() => {
     if (formData.employee_id && selectedEmployee) {
-      calculate()
+      // Pequeño delay para asegurar que todos los estados se hayan actualizado
+      const timer = setTimeout(() => {
+        calculate()
+      }, 50)
+      return () => clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, selectedEmployee, bonuses, nonTaxableEarnings])
+  }, [formData.employee_id, selectedEmployee, formData.year, formData.month, bonuses, nonTaxableEarnings])
 
   const loadEmployees = async () => {
     try {
@@ -248,6 +245,8 @@ export default function NewPayrollPage() {
     setVacationAmount(0)
     setVacationDetails([])
     setOvertimeAmount(0)
+    setPermissionDaysWithoutPay(0) // Resetear días de permiso al cambiar trabajador
+    setPermissionsToApply([]) // Resetear lista de permisos al cambiar trabajador
 
     // Cargar bonos del contrato activo del trabajador
     try {
@@ -375,13 +374,25 @@ export default function NewPayrollPage() {
     }
 
     // Obtener permisos sin goce de sueldo del período (aprobados, no aplicados aún)
-    const { data: periodPermissions } = await supabase
+    const { data: periodPermissions, error: permissionsError } = await supabase
       .from('permissions')
       .select('*, permission_types (*)')
       .eq('employee_id', selectedEmployee.id)
       .eq('status', 'approved')
       .eq('applied_to_payroll', false)
       .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
+    
+    if (permissionsError) {
+      console.error('Error al obtener permisos:', permissionsError)
+    }
+    
+    console.log('🔍 [PERMISOS DEBUG]', {
+      employee_id: selectedEmployee.id,
+      periodStart: periodStart.toISOString().split('T')[0],
+      periodEnd: periodEnd.toISOString().split('T')[0],
+      permissionsFound: periodPermissions?.length || 0,
+      permissions: periodPermissions
+    })
 
     // Calcular días de permisos sin goce en el período
     // NOTA: NO se calcula descuento adicional porque el sueldo ya se calcula proporcional a los días trabajados
