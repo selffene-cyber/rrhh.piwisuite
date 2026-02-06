@@ -626,10 +626,6 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
             {/* Resumen - Líquido a Pagar */}
             <View style={{ marginTop: 15, padding: 10, borderWidth: 2, borderColor: '#000' }}>
               <View style={[styles.row, { marginBottom: 3 }]}>
-                <Text style={{ width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 9 }}>PRE LIQUIDO A PAGO:</Text>
-                <Text style={{ width: '50%', textAlign: 'right', fontSize: 9 }}>{formatCurrency(slip.net_pay)}</Text>
-              </View>
-              <View style={[styles.row, { marginBottom: 3 }]}>
                 <Text style={{ width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 9 }}>LIQUIDO A PAGAR REMUNERACION:</Text>
                 <Text style={{ width: '50%', textAlign: 'right', fontSize: 9 }}>{formatCurrency(slip.net_pay)}</Text>
               </View>
@@ -644,14 +640,8 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
               <Text style={{ marginBottom: 8, fontSize: 9 }}>
                 SON: {numberToWords(Math.round(slip.net_pay))} ********** Pesos.
               </Text>
-              <Text style={{ marginBottom: 8, fontSize: 7, lineHeight: 1.3 }}>
-                Certifico que recibo de: <Text style={{ textTransform: 'uppercase' }}>{company?.employer_name || ''}</Text>
-              </Text>
-              <Text style={{ marginBottom: 8, fontSize: 7, lineHeight: 1.3 }}>
-                A mi entera satisfacción la suma antes indicada y no tengo cargo ni cobro alguno
-              </Text>
-              <Text style={{ fontSize: 7, lineHeight: 1.3 }}>
-                posterior que hacer, por ninguno de los conceptos comprendidos en esta liquidación.
+              <Text style={{ marginBottom: 8, fontSize: 7, lineHeight: 1.3, textAlign: 'justify' }}>
+                Certifico que recibo de: <Text style={{ textTransform: 'uppercase' }}>{company?.employer_name || ''}</Text> a mi entera satisfacción la suma antes indicada y no tengo cargo ni cobro alguno posterior que hacer, por ninguno de los conceptos comprendidos en esta liquidación.
               </Text>
             </View>
 
