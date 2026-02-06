@@ -59,6 +59,14 @@ export async function calculatePayroll(
     
     const ingresoMinimo = parseChileanNumber(indicators.RMITrabDepeInd)
     const topeGratificacion = (4.75 * ingresoMinimo) / 12
+    
+    // DEBUG: Log temporal para diagnosticar problema de gratificación
+    console.log('🔍 [GRATIFICACIÓN DEBUG]', {
+      RMITrabDepeInd_original: indicators.RMITrabDepeInd,
+      ingresoMinimo_parseado: ingresoMinimo,
+      topeGratificacion_calculado: topeGratificacion,
+      topeGratificacion_redondeado: Math.round(topeGratificacion)
+    })
     // CORRECCIÓN: Calcular sobre el total de remuneraciones, no solo sueldo base
     const gratificacion25Porciento = totalRemunerationsWithoutGratification * 0.25
     
@@ -201,45 +209,64 @@ export async function calculatePayroll(
         
         // Buscar el tramo correspondiente
         let foundBracket = false
-        for (const bracket of sortedBrackets) {
-          const desde = bracket.desde
-          const hasta = bracket.hasta
-          
-          // Verificar si la renta está en este tramo
-          // Tramo exento: desde es null y hasta tiene valor
-          if (desde === null && hasta !== null) {
-            if (taxableForTax <= hasta) {
-              // Está en el tramo exento
-              uniqueTax = 0
-              foundBracket = true
-              console.log('Tramo exento aplicado:', { hasta, taxableForTax })
-              break
-            }
-            // Si es mayor que el límite exento, continuar buscando el siguiente tramo
-            continue
+        
+        // Verificar si el RLI está por debajo del primer tramo (exento)
+        const firstBracket = sortedBrackets[0]
+        if (firstBracket) {
+          const firstDesde = firstBracket.desde
+          // Si el primer tramo tiene un "desde" y el RLI es menor, está exento
+          if (firstDesde !== null && taxableForTax <= firstDesde) {
+            uniqueTax = 0
+            foundBracket = true
+            console.log('✅ RLI exento (por debajo del primer tramo):', { 
+              rli: taxableForTax, 
+              primerTramoDesde: firstDesde 
+            })
           }
-          
-          // Tramo normal: verificar si está dentro del rango
-          // Rango: desde < RLI <= hasta (o hasta es null para el último tramo "Y MÁS")
-          // Ejemplo: Tramo $938.817,01 - $2.086.260,00 significa: 938.817,01 < RLI <= 2.086.260,00
-          if (desde !== null) {
-            const isInRange = taxableForTax > desde && (hasta === null || taxableForTax <= hasta)
+        }
+        
+        // Si no está exento, buscar el tramo correspondiente
+        if (!foundBracket) {
+          for (const bracket of sortedBrackets) {
+            const desde = bracket.desde
+            const hasta = bracket.hasta
             
-            if (isInRange) {
-              // Calcular impuesto según la fórmula oficial: (RLI × Factor) - Rebaja
-              const calculatedTax = (taxableForTax * bracket.factor) - bracket.cantidad_rebajar
-              // Asegurar que no sea negativo y redondear hacia arriba
-              uniqueTax = Math.max(0, Math.ceil(calculatedTax))
-              foundBracket = true
-              console.log('Tramo aplicado:', {
-                desde,
-                hasta,
-                factor: bracket.factor,
-                rebaja: bracket.cantidad_rebajar,
-                calculatedTax,
-                uniqueTax
-              })
-              break
+            // Verificar si la renta está en este tramo
+            // Tramo exento: desde es null y hasta tiene valor
+            if (desde === null && hasta !== null) {
+              if (taxableForTax <= hasta) {
+                // Está en el tramo exento
+                uniqueTax = 0
+                foundBracket = true
+                console.log('Tramo exento aplicado:', { hasta, taxableForTax })
+                break
+              }
+              // Si es mayor que el límite exento, continuar buscando el siguiente tramo
+              continue
+            }
+            
+            // Tramo normal: verificar si está dentro del rango
+            // Rango: desde < RLI <= hasta (o hasta es null para el último tramo "Y MÁS")
+            // Ejemplo: Tramo $938.817,01 - $2.086.260,00 significa: 938.817,01 < RLI <= 2.086.260,00
+            if (desde !== null) {
+              const isInRange = taxableForTax > desde && (hasta === null || taxableForTax <= hasta)
+              
+              if (isInRange) {
+                // Calcular impuesto según la fórmula oficial: (RLI × Factor) - Rebaja
+                const calculatedTax = (taxableForTax * bracket.factor) - bracket.cantidad_rebajar
+                // Asegurar que no sea negativo y redondear hacia arriba
+                uniqueTax = Math.max(0, Math.ceil(calculatedTax))
+                foundBracket = true
+                console.log('Tramo aplicado:', {
+                  desde,
+                  hasta,
+                  factor: bracket.factor,
+                  rebaja: bracket.cantidad_rebajar,
+                  calculatedTax,
+                  uniqueTax
+                })
+                break
+              }
             }
           }
         }
