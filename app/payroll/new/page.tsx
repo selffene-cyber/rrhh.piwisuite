@@ -48,6 +48,7 @@ export default function NewPayrollPage() {
   const [vacationDetails, setVacationDetails] = useState<any[]>([])
   const [overtimeAmount, setOvertimeAmount] = useState(0)
   const [permissionDaysWithoutPay, setPermissionDaysWithoutPay] = useState(0)
+  const [permissionsToApply, setPermissionsToApply] = useState<any[]>([])
   const [periodAdvances, setPeriodAdvances] = useState<any[]>([])
   const [overtimePactInfo, setOvertimePactInfo] = useState<{
     exists: boolean
@@ -105,6 +106,17 @@ export default function NewPayrollPage() {
 
     checkOvertimePact()
   }, [selectedEmployee, formData.overtime_hours, formData.year, formData.month])
+
+  // Calcular automáticamente los días del mes cuando cambia el mes/año
+  // Solo actualizar si el valor actual es el valor por defecto (30) o si cambió el mes/año
+  useEffect(() => {
+    const daysInMonth = new Date(formData.year, formData.month, 0).getDate()
+    // Solo actualizar si el valor actual es 30 (por defecto) o si es diferente al nuevo valor
+    // Esto permite que el usuario pueda cambiar manualmente el valor sin que se sobrescriba
+    if (formData.days_worked === 30 || formData.days_worked !== daysInMonth) {
+      setFormData(prev => ({ ...prev, days_worked: daysInMonth }))
+    }
+  }, [formData.year, formData.month])
 
   useEffect(() => {
     if (companyId) {
@@ -429,6 +441,7 @@ export default function NewPayrollPage() {
     setMedicalLeaveDays(leaveDays)
     setVacationDays(vacationDays)
     setPermissionDaysWithoutPay(permissionDaysWithoutPay)
+    setPermissionsToApply(permissionsToApply)
 
     // Obtener préstamos activos del trabajador con sus cuotas pendientes
     const { data: activeLoans } = await supabase
@@ -979,6 +992,19 @@ export default function NewPayrollPage() {
                 value={formData.days_worked}
                 onChange={(e) => setFormData({ ...formData, days_worked: parseInt(e.target.value) })}
               />
+              {(() => {
+                const effectiveDays = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)
+                if (effectiveDays !== formData.days_worked) {
+                  return (
+                    <small style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
+                      Días efectivos a calcular: <strong>{effectiveDays}</strong> 
+                      {permissionDaysWithoutPay > 0 && ` (${formData.days_worked} - ${permissionDaysWithoutPay} días permiso${permissionDaysWithoutPay > 1 ? 's' : ''})`}
+                      {medicalLeaveDays > 0 && ` ${permissionDaysWithoutPay > 0 ? '-' : '('}${medicalLeaveDays} días licencia${medicalLeaveDays > 1 ? 's' : ''}${permissionDaysWithoutPay > 0 ? '' : ')'}`}
+                    </small>
+                  )
+                }
+                return null
+              })()}
             </div>
             <div className="form-group" style={{ flex: '0 0 20%' }}>
               <label>Días de Licencia</label>
@@ -992,16 +1018,43 @@ export default function NewPayrollPage() {
               />
             </div>
           </div>
-          {(medicalLeaveDays > 0 || vacationDays > 0) && (
+          {(medicalLeaveDays > 0 || vacationDays > 0 || permissionDaysWithoutPay > 0) && (
             <div className="form-row">
               <div className="form-group" style={{ width: '100%' }}>
                 {medicalLeaveDays > 0 && (
-                  <div style={{ marginTop: '8px', padding: '8px', background: '#fef3c7', borderRadius: '4px', marginBottom: vacationDays > 0 ? '8px' : '0' }}>
+                  <div style={{ marginTop: '8px', padding: '8px', background: '#fef3c7', borderRadius: '4px', marginBottom: (vacationDays > 0 || permissionDaysWithoutPay > 0) ? '8px' : '0' }}>
                     <strong>⚠️ Licencia Médica Detectada</strong>
                     <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
                       Días de licencia en el período: {medicalLeaveDays}
                       <br />
-                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays)}
+                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)}
+                    </p>
+                  </div>
+                )}
+                {permissionDaysWithoutPay > 0 && (
+                  <div style={{ padding: '8px', background: '#fee2e2', borderRadius: '4px', marginBottom: vacationDays > 0 ? '8px' : '0' }}>
+                    <strong>⚠️ Permisos sin Goce de Sueldo Detectados</strong>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
+                      Días de permiso sin goce en el período: {permissionDaysWithoutPay} día(s)
+                      <br />
+                      {permissionsToApply.length > 0 && (
+                        <>
+                          Permisos:
+                          <ul style={{ margin: '4px 0', paddingLeft: '20px', fontSize: '11px' }}>
+                            {permissionsToApply.map((perm, idx) => (
+                              <li key={idx}>
+                                {perm.permission_types?.name || perm.permission_types?.label || 'Permiso sin goce'}: {perm.days_in_period} día(s) 
+                                ({new Date(perm.start_date).toLocaleDateString('es-CL')} - {new Date(perm.end_date).toLocaleDateString('es-CL')})
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)}
+                      <br />
+                      <small style={{ color: '#991b1b' }}>
+                        ⚠️ El sueldo se calculará proporcionalmente: (Sueldo Base / {formData.days_worked}) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)} días efectivos
+                      </small>
                     </p>
                   </div>
                 )}
