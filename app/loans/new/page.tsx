@@ -56,7 +56,7 @@ export default function NewLoanPage() {
 
       const { data, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, base_salary')
+        .select('id, full_name, rut, base_salary, position')
         .eq('status', 'active')
         .eq('company_id', companyId)
         .order('full_name')
