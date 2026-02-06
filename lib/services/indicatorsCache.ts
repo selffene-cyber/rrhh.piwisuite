@@ -18,6 +18,46 @@ export async function getCachedIndicators(
       .single()
 
     if (!error && cached && cached.indicators_json) {
+      // Verificar si el JSON tiene el valor correcto del sueldo mínimo
+      // Si el campo numérico tiene 539000 pero el JSON tiene 529000, corregirlo
+      const jsonRMI = cached.indicators_json.RMITrabDepeInd
+      const numericRMI = cached.rmi_trab_depe_ind
+      
+      // Si hay discrepancia, actualizar el JSON desde el campo numérico
+      if (numericRMI && jsonRMI && numericRMI.toString() !== jsonRMI.replace(/\./g, '').replace(',', '.')) {
+        console.warn('⚠️ [INDICADORES] Discrepancia detectada entre campo numérico y JSON:', {
+          campo_numerico: numericRMI,
+          json_actual: jsonRMI,
+          año: year,
+          mes: month
+        })
+        
+        // Actualizar el JSON con el valor del campo numérico
+        const correctedJson = {
+          ...cached.indicators_json,
+          RMITrabDepeInd: numericRMI.toString()
+        }
+        
+        // Guardar la corrección en la BD (async, no bloquea)
+        supabase
+          .from('previred_indicators')
+          .update({
+            indicators_json: correctedJson,
+            updated_at: new Date().toISOString()
+          })
+          .eq('year', year)
+          .eq('month', month)
+          .then(() => {
+            console.log('✅ [INDICADORES] JSON corregido automáticamente')
+          })
+          .catch((err) => {
+            console.error('❌ [INDICADORES] Error al corregir JSON:', err)
+          })
+        
+        // Devolver el JSON corregido
+        return correctedJson as PreviredIndicators
+      }
+      
       // Devolver desde cache
       return cached.indicators_json as PreviredIndicators
     }
