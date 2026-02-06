@@ -390,20 +390,10 @@ export default function NewPayrollPage() {
           const overlapEnd = permEnd < periodEnd ? permEnd : periodEnd
           
           if (overlapStart <= overlapEnd) {
-            // Calcular días hábiles (lunes a viernes) en el rango
-            // Esto evita contar días de fin de semana que no deberían descontarse
-            let diffDays = 0
-            const currentDate = new Date(overlapStart)
-            const endDate = new Date(overlapEnd)
-            
-            while (currentDate <= endDate) {
-              const dayOfWeek = currentDate.getDay()
-              // Contar solo días hábiles (lunes=1 a viernes=5), excluir sábado=6 y domingo=0
-              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                diffDays++
-              }
-              currentDate.setDate(currentDate.getDate() + 1)
-            }
+            // Calcular días hábiles (lunes a viernes) excluyendo feriados
+            // Usar calculateBusinessDays para excluir sábados, domingos y feriados legales
+            const { calculateBusinessDays } = await import('@/lib/services/vacationCalculator')
+            const diffDays = await calculateBusinessDays(overlapStart, overlapEnd)
             
             permissionDaysWithoutPay += diffDays
             
