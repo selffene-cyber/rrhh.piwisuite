@@ -225,11 +225,38 @@ export async function createPermission(
   const end = new Date((permission as any).end_date)
   const days = (permission as any).days || Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1)
 
+  // Calcular discount_amount si el tipo de permiso afecta la liquidación
+  let discountAmount = 0
+  if ((permission as any).permission_type_code) {
+    // Obtener información del tipo de permiso
+    const { data: permissionType } = await supabase
+      .from('permission_types')
+      .select('affects_payroll')
+      .eq('code', (permission as any).permission_type_code)
+      .single()
+
+    // Si el permiso afecta la liquidación, calcular el descuento
+    if (permissionType?.affects_payroll && (permission as any).employee_id) {
+      // Obtener el sueldo base del empleado
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('base_salary')
+        .eq('id', (permission as any).employee_id)
+        .single()
+
+      if (employee?.base_salary) {
+        // Calcular descuento: (sueldo_base / 30) * días_permiso
+        discountAmount = calculatePermissionDiscount(employee.base_salary, days)
+      }
+    }
+  }
+
   const { data, error } = await (supabase as any)
     .from('permissions')
     .insert({
       ...(permission as any),
       days,
+      discount_amount: discountAmount,
     })
     .select()
     .single()
@@ -244,6 +271,46 @@ export async function updatePermission(
   updates: Partial<Permission>,
   supabase: SupabaseClient<Database>
 ): Promise<Permission> {
+  // Si se actualizan días o tipo de permiso, recalcular discount_amount
+  if (updates.days !== undefined || updates.permission_type_code !== undefined) {
+    // Obtener el permiso actual para obtener employee_id y permission_type_code
+    const { data: currentPermission } = await supabase
+      .from('permissions')
+      .select('employee_id, permission_type_code, days')
+      .eq('id', id)
+      .single()
+
+    if (currentPermission) {
+      const permissionTypeCode = updates.permission_type_code || currentPermission.permission_type_code
+      const days = updates.days !== undefined ? updates.days : currentPermission.days
+
+      // Obtener información del tipo de permiso
+      const { data: permissionType } = await supabase
+        .from('permission_types')
+        .select('affects_payroll')
+        .eq('code', permissionTypeCode)
+        .single()
+
+      // Si el permiso afecta la liquidación, recalcular el descuento
+      if (permissionType?.affects_payroll) {
+        // Obtener el sueldo base del empleado
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('base_salary')
+          .eq('id', currentPermission.employee_id)
+          .single()
+
+        if (employee?.base_salary) {
+          // Calcular descuento: (sueldo_base / 30) * días_permiso
+          updates.discount_amount = calculatePermissionDiscount(employee.base_salary, days)
+        } else {
+          updates.discount_amount = 0
+        }
+      } else {
+        updates.discount_amount = 0
+      }
+    }
+  }
   const { data, error } = await (supabase as any)
     .from('permissions')
     .update(updates)
