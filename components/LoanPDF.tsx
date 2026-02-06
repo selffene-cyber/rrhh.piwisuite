@@ -90,7 +90,15 @@ export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
     // Limpiar RUT: remover puntos y guiones para el nombre del archivo
     const rut = employee?.rut ? employee.rut.replace(/\./g, '').replace(/-/g, '') : 'SINRUT'
     // Usar la fecha del préstamo o la fecha actual
-    const loanDate = loan?.loan_date ? new Date(loan.loan_date) : new Date()
+    // Parsear fecha sin problemas de zona horaria
+    let loanDate: Date
+    if (loan?.loan_date) {
+      const dateStr = loan.loan_date.split('T')[0] // Quitar hora si existe
+      const [y, m, d] = dateStr.split('-').map(Number)
+      loanDate = new Date(y, m - 1, d) // Mes es 0-indexed
+    } else {
+      loanDate = new Date()
+    }
     const month = loanDate.getMonth() + 1
     const year = loanDate.getFullYear()
     const monthAbbr = MONTHS[month - 1]?.substring(0, 3).toUpperCase() || 'XXX'
