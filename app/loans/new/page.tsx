@@ -154,31 +154,8 @@ export default function NewLoanPage() {
         setFormData({ ...formData, authorization_signed: true })
       }
 
-      // Obtener los IDs de los empleados de la empresa para filtrar préstamos
-      const { data: employeesData } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('company_id', companyId)
-
-      const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
-
-      // Generar ID correlativo PT-## por empresa
-      let loanNumber = 'PT-01'
-      if (employeeIds.length > 0) {
-        const { data: lastLoan } = await supabase
-          .from('loans')
-          .select('loan_number')
-          .in('employee_id', employeeIds)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (lastLoan?.loan_number) {
-          const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
-          const newNumber = lastNumber + 1
-          loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
-        }
-      }
+      // El loan_number será generado automáticamente por el trigger de la base de datos
+      // Si el trigger no existe, intentaremos generar uno manualmente como fallback
 
       const exceedsLimit = legalCalculation?.exceedsLimit || false
       const authorizationDate = exceedsLimit && formData.authorization_signed ? formData.loan_date : null
@@ -194,29 +171,102 @@ export default function NewLoanPage() {
       }
 
       // Insertar préstamo
-      const { data: newLoan, error } = await supabase
-        .from('loans')
-        .insert({
-          employee_id: selectedEmployeeId,
-          company_id: companyId,
-          amount,
-          interest_rate: interestRate,
-          total_amount: totalAmount,
-          installments,
-          installment_amount: installmentAmount,
-          remaining_amount: totalAmount,
-          loan_date: formData.loan_date,
-          description: formData.description || null,
-          status: 'active',
-          loan_number: loanNumber,
-          exceeds_legal_limit: exceedsLimit,
-          authorization_signed: exceedsLimit ? formData.authorization_signed : false,
-          authorization_date: authorizationDate,
-        })
-        .select()
-        .single()
+      // El loan_number será generado automáticamente por el trigger de la base de datos
+      // Si hay un error de duplicado, intentaremos generar uno manualmente
+      let attempts = 0
+      const maxAttempts = 5
+      let newLoan: any = null
+      let lastError: any = null
 
-      if (error) throw error
+      while (attempts < maxAttempts) {
+        try {
+          // Obtener los IDs de los empleados de la empresa para filtrar préstamos (solo si necesitamos generar manualmente)
+          let loanNumber: string | null = null
+          
+          if (attempts > 0) {
+            // Si es un reintento, generar número manualmente
+            const { data: employeesData } = await supabase
+              .from('employees')
+              .select('id')
+              .eq('company_id', companyId)
+
+            const employeeIds = employeesData?.map((emp: { id: string }) => emp.id) || []
+
+            if (employeeIds.length > 0) {
+              const { data: lastLoan } = await supabase
+                .from('loans')
+                .select('loan_number')
+                .in('employee_id', employeeIds)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+              if (lastLoan?.loan_number) {
+                const lastNumber = parseInt(lastLoan.loan_number.replace('PT-', ''))
+                const newNumber = lastNumber + 1 + attempts // Incrementar por intentos para evitar duplicados
+                loanNumber = `PT-${String(newNumber).padStart(2, '0')}`
+              } else {
+                loanNumber = `PT-${String(1 + attempts).padStart(2, '0')}`
+              }
+            } else {
+              loanNumber = `PT-${String(1 + attempts).padStart(2, '0')}`
+            }
+          }
+
+          const insertData: any = {
+            employee_id: selectedEmployeeId,
+            company_id: companyId,
+            amount,
+            interest_rate: interestRate,
+            total_amount: totalAmount,
+            installments,
+            installment_amount: installmentAmount,
+            remaining_amount: totalAmount,
+            loan_date: formData.loan_date,
+            description: formData.description || null,
+            status: 'active',
+            exceeds_legal_limit: exceedsLimit,
+            authorization_signed: exceedsLimit ? formData.authorization_signed : false,
+            authorization_date: authorizationDate,
+          }
+
+          // Solo incluir loan_number si estamos en un reintento (el trigger debería generarlo automáticamente)
+          if (loanNumber) {
+            insertData.loan_number = loanNumber
+          }
+
+          const result = await supabase
+            .from('loans')
+            .insert(insertData)
+            .select()
+            .single()
+
+          if (result.error) {
+            // Si es error de duplicado, reintentar
+            if (result.error.code === '23505' && result.error.message?.includes('loan_number')) {
+              lastError = result.error
+              attempts++
+              continue
+            }
+            throw result.error
+          }
+
+          newLoan = result.data
+          break // Éxito, salir del loop
+        } catch (err: any) {
+          lastError = err
+          // Si es error de duplicado, reintentar
+          if (err.code === '23505' && err.message?.includes('loan_number')) {
+            attempts++
+            continue
+          }
+          throw err
+        }
+      }
+
+      if (!newLoan) {
+        throw lastError || new Error('No se pudo crear el préstamo después de varios intentos')
+      }
 
       // Crear cuotas individuales
       if (newLoan) {
