@@ -373,25 +373,69 @@ export default function NewPayrollPage() {
       }
     }
 
-    // Obtener permisos sin goce de sueldo del período (aprobados, no aplicados aún)
+    // Obtener permisos sin goce de sueldo del período
+    // Buscar tanto permisos aprobados no aplicados como permisos aplicados del período actual
+    // (un permiso puede estar aplicado pero aún no asignado a una liquidación específica)
     const { data: periodPermissions, error: permissionsError } = await supabase
       .from('permissions')
       .select('*, permission_types (*)')
       .eq('employee_id', selectedEmployee.id)
-      .eq('status', 'approved')
-      .eq('applied_to_payroll', false)
+      .in('status', ['approved', 'applied']) // Incluir tanto aprobados como aplicados
       .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
     
     if (permissionsError) {
       console.error('Error al obtener permisos:', permissionsError)
     }
     
+    // Filtrar permisos: solo los que no están aplicados a otra liquidación del mismo período
+    // o que están aprobados y listos para aplicar
+    let filteredPermissions = periodPermissions || []
+    
+    // Si hay permisos aplicados, verificar que no pertenezcan a otra liquidación del mismo período
+    if (filteredPermissions.length > 0) {
+      // Obtener liquidaciones existentes del período para este trabajador
+      const { data: existingSlips } = await supabase
+        .from('payroll_slips')
+        .select('id, payroll_periods!inner(year, month)')
+        .eq('employee_id', selectedEmployee.id)
+      
+      // Filtrar por período manualmente ya que el join puede ser complejo
+      const slipsInPeriod = existingSlips?.filter((slip: any) => 
+        slip.payroll_periods?.year === formData.year && 
+        slip.payroll_periods?.month === formData.month
+      ) || []
+      
+      const existingSlipIds = slipsInPeriod.map((s: any) => s.id)
+      
+      // Filtrar: incluir aprobados no aplicados, o aplicados sin payroll_slip_id, o aplicados con payroll_slip_id que no existe
+      filteredPermissions = filteredPermissions.filter((perm: any) => {
+        // Si está aprobado y no aplicado, incluirlo
+        if (perm.status === 'approved' && !perm.applied_to_payroll) {
+          return true
+        }
+        // Si está aplicado, verificar que no tenga payroll_slip_id o que el payroll_slip_id no corresponda a una liquidación existente
+        if (perm.status === 'applied') {
+          // Si no tiene payroll_slip_id, está disponible para este período
+          if (!perm.payroll_slip_id) {
+            return true
+          }
+          // Si tiene payroll_slip_id pero no está en las liquidaciones existentes, también está disponible
+          // (puede ser de otro período o una liquidación eliminada)
+          if (existingSlipIds.length === 0 || !existingSlipIds.includes(perm.payroll_slip_id)) {
+            return true
+          }
+        }
+        return false
+      })
+    }
+    
     console.log('🔍 [PERMISOS DEBUG]', {
       employee_id: selectedEmployee.id,
       periodStart: periodStart.toISOString().split('T')[0],
       periodEnd: periodEnd.toISOString().split('T')[0],
-      permissionsFound: periodPermissions?.length || 0,
-      permissions: periodPermissions
+      permissionsFound: filteredPermissions.length,
+      permissions: filteredPermissions,
+      existingSlipsInPeriod: existingSlipIds.length
     })
 
     // Calcular días de permisos sin goce en el período
@@ -400,8 +444,8 @@ export default function NewPayrollPage() {
     let permissionDaysWithoutPay = 0
     const permissionsToApply: any[] = []
 
-    if (periodPermissions && periodPermissions.length > 0) {
-      for (const permission of periodPermissions) {
+    if (filteredPermissions && filteredPermissions.length > 0) {
+      for (const permission of filteredPermissions) {
         const permType = permission.permission_types
         // Solo considerar permisos sin goce de sueldo
         if (permType && permType.affects_payroll) {
