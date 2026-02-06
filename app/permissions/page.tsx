@@ -25,6 +25,27 @@ const STATUS_COLORS: Record<string, string> = {
   void: '#ef4444',
 }
 
+const PERMISSION_TYPE_LABELS: Record<string, string> = {
+  'LEGAL_GOCE': 'Permiso Legal con Goce de Sueldo',
+  'VOLUNTARY_GOCE': 'Permiso Voluntario con Goce de Sueldo',
+  'VOLUNTARY_NO_GOCE': 'Permiso sin Goce de Sueldo',
+}
+
+const getPermissionTypeLabel = (permissionType: any, fallbackCode?: string): string => {
+  // Si tiene el objeto permission_types con name o label, usarlo
+  if (permissionType?.name) return permissionType.name
+  if (permissionType?.label) return permissionType.label
+  
+  // Si no, usar el código para buscar en el mapeo
+  const code = permissionType?.code || fallbackCode
+  if (code && PERMISSION_TYPE_LABELS[code]) {
+    return PERMISSION_TYPE_LABELS[code]
+  }
+  
+  // Si no hay mapeo, retornar el código o un valor por defecto
+  return code || '-'
+}
+
 interface EmployeePermissionData {
   id: string
   full_name: string
@@ -421,7 +442,7 @@ export default function PermissionsDashboardPage() {
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>{perm.employees?.rut || '-'}</div>
                     </td>
                     <td style={{ padding: '12px' }}>
-                      {perm.permission_types?.name || perm.permission_type_code || '-'}
+                      {getPermissionTypeLabel(perm.permission_types, perm.permission_type_code)}
                     </td>
                     <td style={{ padding: '12px' }}>
                       {formatDate(perm.start_date)} - {formatDate(perm.end_date)}
@@ -614,7 +635,7 @@ export default function PermissionsDashboardPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <div>
                         <div style={{ fontWeight: '500', marginBottom: '4px' }}>
-                          {perm.permission_types?.label || perm.permission_type_code}
+                          {getPermissionTypeLabel(perm.permission_types, perm.permission_type_code)}
                         </div>
                         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
                           {formatDate(perm.start_date)} - {formatDate(perm.end_date)} ({perm.days} días)
