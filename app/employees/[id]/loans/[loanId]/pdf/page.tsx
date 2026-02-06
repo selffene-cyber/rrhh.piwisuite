@@ -7,12 +7,18 @@ export default async function LoanPDFPage({ params }: { params: { id: string, lo
   
   const { data: loan, error: loanError } = await supabase
     .from('loans')
-    .select('id, employee_id, amount, remaining_amount, installment_amount, installments, interest_rate, loan_date, status, description, authorization_signed, exceeds_legal_limit')
+    .select('id, employee_id, amount, total_amount, remaining_amount, installment_amount, installments, interest_rate, loan_date, status, description, authorization_signed, exceeds_legal_limit, loan_number, paid_installments')
     .eq('id', params.loanId)
     .single()
 
   if (loanError || !loan) {
     notFound()
+  }
+
+  // Calcular total_amount si no existe o es NaN
+  if (!loan.total_amount || isNaN(loan.total_amount)) {
+    const interestRate = loan.interest_rate || 0
+    loan.total_amount = loan.amount * (1 + interestRate / 100)
   }
 
   const { data: employee } = await supabase
