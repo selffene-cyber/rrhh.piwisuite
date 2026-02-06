@@ -338,11 +338,12 @@ export async function calculatePayroll(
   }
 
   // Otros descuentos (redondear hacia arriba)
+  // NOTA: permissionDiscount NO se aplica porque el descuento ya está implícito en el cálculo proporcional de días trabajados
   const otherDeductions = {
     loans: Math.ceil(loans),
     advances: Math.ceil(advances),
-    permissionDiscount: Math.ceil(permissionDiscount),
-    total: Math.ceil(loans + advances + permissionDiscount),
+    permissionDiscount: 0, // Siempre 0 - el descuento está implícito en el cálculo proporcional
+    total: Math.ceil(loans + advances),
   }
 
   // Total haberes (ya están redondeados arriba)

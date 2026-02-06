@@ -372,8 +372,9 @@ export default function NewPayrollPage() {
       .or(`and(start_date.lte.${periodEnd.toISOString().split('T')[0]},end_date.gte.${periodStart.toISOString().split('T')[0]})`)
 
     // Calcular días de permisos sin goce en el período
+    // NOTA: NO se calcula descuento adicional porque el sueldo ya se calcula proporcional a los días trabajados
+    // El descuento está implícito en: (sueldo_base / 30) * (días_trabajados - días_permiso)
     let permissionDaysWithoutPay = 0
-    let totalPermissionDiscount = 0
     const permissionsToApply: any[] = []
 
     if (periodPermissions && periodPermissions.length > 0) {
@@ -389,18 +390,26 @@ export default function NewPayrollPage() {
           const overlapEnd = permEnd < periodEnd ? permEnd : periodEnd
           
           if (overlapStart <= overlapEnd) {
-            const diffTime = overlapEnd.getTime() - overlapStart.getTime()
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-            permissionDaysWithoutPay += diffDays
+            // Calcular días hábiles (lunes a viernes) en el rango
+            // Esto evita contar días de fin de semana que no deberían descontarse
+            let diffDays = 0
+            const currentDate = new Date(overlapStart)
+            const endDate = new Date(overlapEnd)
             
-            // Calcular descuento: (sueldo_base / 30) * días_permiso
-            const discount = Math.round((selectedEmployee.base_salary / 30) * diffDays)
-            totalPermissionDiscount += discount
+            while (currentDate <= endDate) {
+              const dayOfWeek = currentDate.getDay()
+              // Contar solo días hábiles (lunes=1 a viernes=5), excluir sábado=6 y domingo=0
+              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                diffDays++
+              }
+              currentDate.setDate(currentDate.getDate() + 1)
+            }
+            
+            permissionDaysWithoutPay += diffDays
             
             permissionsToApply.push({
               ...permission,
               days_in_period: diffDays,
-              discount_amount: discount,
             })
           }
         }
@@ -587,7 +596,7 @@ export default function NewPayrollPage() {
         aguinaldo: formData.aguinaldo + totalNonTaxableEarnings,
         loans: totalLoansAmount,
         advances: totalAdvancesAmount,
-        permissionDiscount: totalPermissionDiscount, // Descuento por permisos sin goce
+        permissionDiscount: 0, // NO aplicar descuento adicional - ya está implícito en el cálculo proporcional de días trabajados
       },
       indicators,
       formData.year,
@@ -851,13 +860,7 @@ export default function NewPayrollPage() {
         // Otros descuentos
         { type: 'other_deduction', category: 'prestamo', description: 'Préstamo', amount: calculation.otherDeductions.loans },
         { type: 'other_deduction', category: 'anticipo', description: 'Anticipo', amount: calculation.otherDeductions.advances },
-        // Descuento por permisos sin goce de sueldo
-        ...(calculation.otherDeductions.permissionDiscount && calculation.otherDeductions.permissionDiscount > 0 ? [{
-          type: 'other_deduction' as const,
-          category: 'permiso_sin_goce',
-          description: 'Descuento Permiso sin Goce de Sueldo',
-          amount: calculation.otherDeductions.permissionDiscount
-        }] : []),
+        // NO agregar descuento por permisos sin goce - ya está implícito en el cálculo proporcional
       ].filter(item => item.amount > 0)
 
       const { error: itemsError } = await supabase
