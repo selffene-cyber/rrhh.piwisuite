@@ -87,12 +87,13 @@ interface LoanPDFProps {
 export default function LoanPDF({ loan, employee, company }: LoanPDFProps) {
   // Generar nombre del archivo: PREST.INT-{RUT}-{MES}-{AÑO}
   const generateFileName = () => {
-    const rut = employee?.rut || 'SIN-RUT'
+    // Limpiar RUT: remover puntos y guiones para el nombre del archivo
+    const rut = employee?.rut ? employee.rut.replace(/\./g, '').replace(/-/g, '') : 'SINRUT'
     // Usar la fecha del préstamo o la fecha actual
     const loanDate = loan?.loan_date ? new Date(loan.loan_date) : new Date()
     const month = loanDate.getMonth() + 1
     const year = loanDate.getFullYear()
-    const monthAbbr = MONTHS[month - 1]?.substring(0, 3) || 'XXX'
+    const monthAbbr = MONTHS[month - 1]?.substring(0, 3).toUpperCase() || 'XXX'
     return `PREST.INT-${rut}-${monthAbbr}-${year}`
   }
 
