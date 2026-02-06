@@ -459,27 +459,43 @@ export default function NewPayrollPage() {
           const overlapEnd = permEnd < periodEnd ? permEnd : periodEnd
           
           if (overlapStart <= overlapEnd) {
-            // Calcular días hábiles (lunes a viernes) excluyendo feriados
-            // Usar calculateBusinessDays para excluir sábados, domingos y feriados legales
-            const { calculateBusinessDays } = await import('@/lib/services/vacationCalculator')
-            
             // Normalizar fechas para evitar problemas de zona horaria
-            // Crear fechas en hora local (medianoche) para evitar desfases
             const overlapStartNormalized = new Date(overlapStart.getFullYear(), overlapStart.getMonth(), overlapStart.getDate())
             const overlapEndNormalized = new Date(overlapEnd.getFullYear(), overlapEnd.getMonth(), overlapEnd.getDate())
+            const permStartNormalized = new Date(permStart.getFullYear(), permStart.getMonth(), permStart.getDate())
+            const permEndNormalized = new Date(permEnd.getFullYear(), permEnd.getMonth(), permEnd.getDate())
             
-            const diffDays = await calculateBusinessDays(overlapStartNormalized, overlapEndNormalized)
+            // Verificar si el permiso está completamente dentro del período
+            // Si está completamente dentro, usar el campo days del permiso (ya calculado)
+            // Si hay intersección parcial, recalcular días hábiles
+            const isFullyWithinPeriod = 
+              permStartNormalized.getTime() >= periodStart.getTime() &&
+              permEndNormalized.getTime() <= periodEnd.getTime()
+            
+            let diffDays: number
+            
+            if (isFullyWithinPeriod && permission.days && permission.days > 0) {
+              // Usar los días guardados en el permiso si está completamente dentro del período
+              diffDays = Math.round(permission.days)
+            } else {
+              // Recalcular días hábiles (lunes a viernes) excluyendo feriados
+              // Usar calculateBusinessDays para excluir sábados, domingos y feriados legales
+              const { calculateBusinessDays } = await import('@/lib/services/vacationCalculator')
+              diffDays = await calculateBusinessDays(overlapStartNormalized, overlapEndNormalized)
+            }
             
             console.log('🔍 [PERMISO DEBUG]', {
               permiso_id: permission.id,
               start_date: permission.start_date,
               end_date: permission.end_date,
               permission_days_field: permission.days, // Días guardados en el permiso
-              permStart_parsed: permStart.toISOString().split('T')[0],
-              permEnd_parsed: permEnd.toISOString().split('T')[0],
+              permStart_parsed: permStartNormalized.toISOString().split('T')[0],
+              permEnd_parsed: permEndNormalized.toISOString().split('T')[0],
               overlapStart: overlapStartNormalized.toISOString().split('T')[0],
               overlapEnd: overlapEndNormalized.toISOString().split('T')[0],
-              days_calculated: diffDays,
+              isFullyWithinPeriod,
+              days_used: diffDays,
+              days_source: isFullyWithinPeriod && permission.days ? 'permission.days' : 'calculated',
               periodStart: periodStart.toISOString().split('T')[0],
               periodEnd: periodEnd.toISOString().split('T')[0]
             })
