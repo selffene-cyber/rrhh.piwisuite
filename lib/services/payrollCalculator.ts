@@ -1,5 +1,6 @@
 import { PayrollCalculationInput, PayrollCalculationResult } from '@/types'
 import { PreviredIndicators, getAFPRate, getUnemploymentInsuranceRate } from './previredAPI'
+import { getCachedIndicators } from './indicatorsCache'
 
 /**
  * Calcula liquidación de sueldo según normativa chilena
@@ -48,21 +49,35 @@ export async function calculatePayroll(
   // - La gratificación es el 25% del TOTAL de remuneraciones imponibles
   // - PERO tiene un tope legal: (4,75 × Ingreso Mínimo Mensual) / 12
   // - El Ingreso Mínimo Mensual está en los indicadores como RMITrabDepeInd
+  // - IMPORTANTE: La gratificación debe usar el sueldo mínimo del MES DE LA LIQUIDACIÓN, no del mes anterior
   // - Se usa el MENOR entre el 25% del total y el tope legal
   let monthlyGratification = 0
-  if (indicators && indicators.RMITrabDepeInd) {
+  
+  // Obtener indicadores del mes ACTUAL para la gratificación (no del mes anterior)
+  // Los indicadores pasados como parámetro son del mes anterior (para AFP, salud, etc.)
+  let gratificationIndicators: PreviredIndicators | null = null
+  if (year && month) {
+    gratificationIndicators = await getCachedIndicators(year, month)
+  }
+  
+  // Si no hay indicadores del mes actual, usar los pasados como parámetro como fallback
+  const indicatorsForGratification = gratificationIndicators || indicators
+  
+  if (indicatorsForGratification && indicatorsForGratification.RMITrabDepeInd) {
     // Parsear número chileno (puntos para miles, coma para decimales)
     const parseChileanNumber = (str: string): number => {
       if (!str) return 0
       return parseFloat(str.replace(/\./g, '').replace(',', '.'))
     }
     
-    const ingresoMinimo = parseChileanNumber(indicators.RMITrabDepeInd)
+    const ingresoMinimo = parseChileanNumber(indicatorsForGratification.RMITrabDepeInd)
     const topeGratificacion = (4.75 * ingresoMinimo) / 12
     
     // DEBUG: Log temporal para diagnosticar problema de gratificación
     console.log('🔍 [GRATIFICACIÓN DEBUG]', {
-      RMITrabDepeInd_original: indicators.RMITrabDepeInd,
+      mes_liquidacion: month ? `${year}/${month}` : 'N/A',
+      mes_indicadores_usados: gratificationIndicators ? `${year}/${month}` : 'mes_anterior',
+      RMITrabDepeInd_original: indicatorsForGratification.RMITrabDepeInd,
       ingresoMinimo_parseado: ingresoMinimo,
       topeGratificacion_calculado: topeGratificacion,
       topeGratificacion_redondeado: Math.round(topeGratificacion)
