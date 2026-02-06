@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
   },
   signatureRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 40,
+    justifyContent: 'center',
+    marginTop: 50,
   },
   signatureBox: {
     width: '45%',
@@ -647,9 +647,6 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
 
             {/* Firmas */}
             <View style={styles.signatureRow}>
-              <View style={styles.signatureBox}>
-                <Text>Vo Bo REMUNERACIONES</Text>
-              </View>
               <View style={styles.signatureBox}>
                 <Text>FIRMA DEL TRABAJADOR</Text>
               </View>
