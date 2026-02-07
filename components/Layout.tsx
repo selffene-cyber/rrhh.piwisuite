@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot, FaSitemap, FaProjectDiagram, FaBuilding, FaShieldAlt, FaExclamationCircle, FaCalendarAlt } from 'react-icons/fa'
+import { FaHome, FaUsers, FaFileInvoiceDollar, FaCog, FaUserShield, FaBell, FaSearch, FaBars, FaTimes, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaArrowLeft, FaFileContract, FaUmbrellaBeach, FaCalendarCheck, FaExclamationTriangle, FaFolderOpen, FaHandHoldingUsd, FaFileAlt, FaClock, FaChartBar, FaRobot, FaSitemap, FaProjectDiagram, FaBuilding, FaShieldAlt, FaExclamationCircle, FaCalendarAlt, FaRedo } from 'react-icons/fa'
 import AlertFab from './AlertFab'
 import CompanySelector from './CompanySelector'
 import AIChatWidget from './AIChatWidget'
@@ -194,6 +194,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       subItems: [
         { href: '/advances', label: 'Anticipos', icon: FaMoneyBillWave },
         { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
+        { href: '/payroll/reliquidations', label: 'Reliquidaciones', icon: FaRedo },
         { href: '/loans', label: 'Gestionar Préstamos', icon: FaHandHoldingUsd },
         { href: '/overtime', label: 'Gestión Horas Extras', icon: FaClock },
         { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },

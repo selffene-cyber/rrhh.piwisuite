@@ -1,0 +1,49 @@
+# ============================================
+# CONFIGURACIÓN PARA .env.local
+# Puerto 3005 + BD Local en 127.0.0.1:8787
+# ============================================
+# 
+# INSTRUCCIONES:
+# 1. Copia todo el contenido de abajo
+# 2. Pégalo en tu archivo .env.local (créalo si no existe)
+# 3. Ajusta las claves de Supabase si son diferentes
+# 
+# ============================================
+
+# URL de Supabase (tu BD local en otra máquina)
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8787
+
+# Anon Key (clave pública de Supabase local)
+# IMPORTANTE: Estas son las claves por defecto de Supabase local
+# Si tu instalación usa otras claves, reemplázalas
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+# Service Role Key (clave de servicio para operaciones admin)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+# URL del sitio (ahora en puerto 3005)
+NEXT_PUBLIC_SITE_URL=http://localhost:3005
+
+# Cron Secret (opcional)
+CRON_SECRET=mi_cron_secret_123
+
+# Gemini AI (opcional - si tienes la clave, agrégala)
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+
+# ============================================
+# NOTAS IMPORTANTES:
+# ============================================
+# 
+# 1. Si tu Supabase local usa claves diferentes, puedes encontrarlas en:
+#    - Terminal donde corriste: supabase start
+#    - O en: supabase/.temp/api-keys.json (si existe)
+# 
+# 2. Si el puerto 8787 no funciona, Supabase local normalmente usa:
+#    - API: http://127.0.0.1:54321
+#    - Studio: http://127.0.0.1:54323
+# 
+# 3. Después de crear/editar .env.local, reinicia el servidor:
+#    npm run dev
+# 
+# ============================================

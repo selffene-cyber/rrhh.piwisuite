@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FaArrowLeft, FaCalendarCheck } from 'react-icons/fa'
+import { FaArrowLeft, FaCalendarCheck, FaQuestionCircle } from 'react-icons/fa'
 import '../../employee-portal.css'
 
 interface PermissionType {
@@ -28,6 +28,63 @@ export default function RequestPermissionPage() {
   })
   const [error, setError] = useState<string | null>(null)
   const [daysCount, setDaysCount] = useState(0)
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  // Opciones de permisos legales con goce de sueldo
+  const legalPermissionReasons = [
+    { value: 'fallecimiento_mascota', label: 'Fallecimiento Mascota (Ley Duque) - 1 día hábil', category: 'ley_duque' },
+    { value: 'acompanamiento_hijo_grave', label: 'Acompañamiento Hijo Grave (Ley SANNA) - Según licencia', category: 'ley_sanna' },
+    { value: 'fallecimiento_hijo', label: 'Fallecimiento Hijo(a) - 10 días corridos', category: 'duelos' },
+    { value: 'fallecimiento_conyuge', label: 'Fallecimiento Cónyuge / Conviviente - 7 días corridos', category: 'duelos' },
+    { value: 'fallecimiento_hijo_gestacion', label: 'Fallecimiento Hijo en Gestación - 7 días hábiles', category: 'duelos' },
+    { value: 'fallecimiento_padre_madre_hermano', label: 'Fallecimiento Padre, Madre o Hermano - 4 días hábiles', category: 'duelos' },
+    { value: 'matrimonio_auc', label: 'Matrimonio o Acuerdo Unión Civil - 5 días hábiles', category: 'matrimonio' },
+    { value: 'nacimiento_hijo', label: 'Nacimiento de Hijo (Paternidad) - 5 días hábiles', category: 'paternidad' },
+    { value: 'examenes_preventivos', label: 'Exámenes Preventivos (Salud) - 1/2 día anual', category: 'examenes' },
+    { value: 'cargas_publicas', label: 'Cargas Públicas (Votar/Vocal) - Tiempo necesario', category: 'cargas' },
+    { value: 'bomberos', label: 'Bomberos (Emergencias) - Tiempo necesario', category: 'bomberos' },
+  ]
+
+  // Opciones de permisos voluntarios con goce de sueldo
+  const voluntaryPermissionReasons = [
+    { value: 'asuntos_particulares', label: 'Asuntos Particulares' },
+  ]
+
+  // Información detallada para el tooltip
+  const tooltipInfo: Record<string, { title: string; content: string }> = {
+    duelos: {
+      title: 'Duelos (Fallecimiento de familiares)',
+      content: 'Documento: Certificado de Defunción del Registro Civil (original o digital).\n\nPlazo para usar: Inmediatamente ocurrido el deceso (los días comienzan a contar desde el fallecimiento).\n\nAviso: Inmediato al empleador por cualquier vía formal.\n\nDato Pro: En caso de hijos o cónyuges, tienes Fuero Laboral de 1 mes (no te pueden despedir sin autorización judicial).'
+    },
+    ley_duque: {
+      title: 'Ley Duque (Mascotas)',
+      content: 'Documento: Certificado de defunción emitido por un veterinario + Certificado de Inscripción en el Registro Nacional de Mascotas (Ley Cholito) a nombre del trabajador.\n\nPlazo para usar: Dentro de los 5 días hábiles siguientes al deceso.\n\nRegla de Oro: Es pagado, pero las horas son recuperables dentro de los 90 días siguientes.'
+    },
+    paternidad: {
+      title: 'Nacimiento (Paternidad)',
+      content: 'Documento: Certificado de Nacimiento del hijo (emitido por el Registro Civil).\n\nPlazo para usar: Tienes dos opciones:\n- Desde el momento del parto (días continuos).\n- Distribuirlos como quieras dentro del primer mes de vida del bebé.\n\nAviso: Se recomienda avisar la fecha probable de parto con antelación.'
+    },
+    matrimonio: {
+      title: 'Matrimonio o Acuerdo de Unión Civil',
+      content: 'Documento: Certificado de Matrimonio o de Acuerdo de Unión Civil.\n\nPlazo para usar: Puedes usarlos de forma continua, ya sea el día de la ceremonia y los días inmediatamente anteriores o posteriores.\n\nAviso: La ley exige avisar con 30 días de anticipación.'
+    },
+    ley_sanna: {
+      title: 'Ley SANNA (Cuidado de hijos)',
+      content: 'Documento: Licencia Médica Electrónica (LME) tipo "SANNA" otorgada por el médico tratante.\n\nRequisito: Tener al menos 8 cotizaciones en los últimos 24 meses (las 3 últimas deben ser continuas).\n\nPago: No lo paga el jefe, lo paga la Mutualidad o el ISL con cargo al seguro.'
+    },
+    examenes: {
+      title: 'Exámenes Preventivos (Pap / Próstata / Mamografía)',
+      content: 'Documento: Comprobante de atención médica o certificado de realización del examen.\n\nAviso: Debes avisar con una semana de anticipación.\n\nDuración: Medio día de permiso (incluye el tiempo de traslado).'
+    },
+    cargas: {
+      title: 'Cargas Públicas (Votar/Vocal)',
+      content: 'Duración: Tiempo necesario (mínimo 2 horas para ir a votar).\n\nCon goce de sueldo según Código del Trabajo.'
+    },
+    bomberos: {
+      title: 'Bomberos (Emergencias)',
+      content: 'Duración: Tiempo necesario.\n\nSolo para voluntarios activos en llamados de comandancia.\n\nCon goce de sueldo según Art. 66 ter del Código del Trabajo.'
+    }
+  }
 
   useEffect(() => {
     loadPermissionTypes()
@@ -142,6 +199,14 @@ export default function RequestPermissionPage() {
   // Obtener fecha mínima (hoy)
   const today = new Date().toISOString().split('T')[0]
 
+  // Verificar el tipo de permiso seleccionado
+  const selectedType = permissionTypes.find(
+    (t) => t.code === formData.permission_type_code
+  )
+  const isLegalWithPay = selectedType && selectedType.code === 'LEGAL_GOCE'
+  const isVoluntaryWithPay = selectedType && selectedType.code === 'VOLUNTARY_GOCE'
+  const showReasonDropdown = isLegalWithPay || isVoluntaryWithPay
+
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }} className="fade-in-up">
       <div style={{ marginBottom: '24px' }}>
@@ -202,22 +267,122 @@ export default function RequestPermissionPage() {
 
             <div style={{ marginBottom: '20px' }}>
               <label style={{
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: '500',
                 color: '#111827'
               }}>
                 Motivo del Permiso *
+                {isLegalWithPay && (
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <FaQuestionCircle
+                      style={{ cursor: 'pointer', color: '#4F46E5', fontSize: '16px' }}
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                    />
+                    {showTooltip && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: '0',
+                          marginTop: '8px',
+                          width: '450px',
+                          maxWidth: '90vw',
+                          maxHeight: '70vh',
+                          padding: '16px',
+                          background: '#fff',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                          zIndex: 1000,
+                          fontSize: '13px',
+                          lineHeight: '1.6',
+                          color: '#374151',
+                          overflowY: 'auto',
+                          overflowX: 'hidden',
+                        }}
+                        onMouseEnter={() => setShowTooltip(true)}
+                        onMouseLeave={() => setShowTooltip(false)}
+                      >
+                        <div style={{ fontWeight: '600', marginBottom: '12px', color: '#111827', fontSize: '14px', position: 'sticky', top: 0, background: '#fff', paddingBottom: '8px', borderBottom: '1px solid #e5e7eb' }}>
+                          Información sobre Permisos Legales con Goce de Sueldo
+                        </div>
+                        <div style={{ maxHeight: 'calc(70vh - 80px)', overflowY: 'auto', paddingTop: '8px' }}>
+                          {formData.reason && (() => {
+                            const selectedReason = legalPermissionReasons.find(r => r.value === formData.reason)
+                            if (selectedReason && tooltipInfo[selectedReason.category]) {
+                              const info = tooltipInfo[selectedReason.category]
+                              return (
+                                <div>
+                                  <div style={{ fontWeight: '600', marginBottom: '8px', color: '#1f2937' }}>
+                                    {info.title}
+                                  </div>
+                                  <div style={{ whiteSpace: 'pre-line', color: '#4b5563' }}>
+                                    {info.content}
+                                  </div>
+                                </div>
+                              )
+                            }
+                            return null
+                          })()}
+                          {(!formData.reason || !legalPermissionReasons.find(r => r.value === formData.reason)) && (
+                            <div>
+                              <div style={{ marginBottom: '12px', fontWeight: '500', color: '#1f2937' }}>
+                                Selecciona un motivo para ver información detallada:
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {Object.entries(tooltipInfo).map(([key, info]) => (
+                                  <div key={key} style={{ padding: '8px', background: '#f9fafb', borderRadius: '4px' }}>
+                                    <div style={{ fontWeight: '500', marginBottom: '4px', fontSize: '12px' }}>
+                                      {info.title}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'pre-line' }}>
+                                      {info.content.split('\n').slice(0, 2).join('\n')}...
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </label>
-              <input
-                type="text"
-                required
-                value={formData.reason}
-                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                placeholder="Ej: Trámite personal, consulta médica, etc."
-                className="form-input"
-              />
+              {showReasonDropdown ? (
+                <select
+                  required
+                  value={formData.reason}
+                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="">Seleccione un motivo</option>
+                  {isLegalWithPay && legalPermissionReasons.map((reason) => (
+                    <option key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </option>
+                  ))}
+                  {isVoluntaryWithPay && voluntaryPermissionReasons.map((reason) => (
+                    <option key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={formData.reason}
+                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  placeholder="Ej: Trámite personal, consulta médica, etc."
+                  className="form-input"
+                />
+              )}
             </div>
 
             <div style={{ marginBottom: '20px' }}>

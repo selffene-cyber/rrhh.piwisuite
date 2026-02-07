@@ -101,6 +101,11 @@ export type PayrollBookEntry = {
   payroll_book_id: string
   employee_id: string
   payroll_slip_id: string | null
+  // Campos de reliquidación
+  is_reliquidation?: boolean
+  reliquidation_id?: string | null
+  reference_period_year?: number | null
+  reference_period_month?: number | null
   // Snapshot del trabajador
   employee_rut: string
   employee_name: string
@@ -155,6 +160,122 @@ export type PayrollBookEntry = {
 export type PayrollBookWithEntries = PayrollBook & {
   entries?: PayrollBookEntry[]
   company?: Company | null
+}
+
+// Tipos para Reliquidaciones de Remuneraciones
+export type PayrollReliquidation = {
+  id: string
+  company_id: string
+  employee_id: string
+  period_id: string
+  reference_payroll_slip_id: string
+  type: 'rectificatoria' | 'complementaria'
+  reason_category: 'horas_extra' | 'retroactivo' | 'licencia' | 'tope_imponible' | 'descuento' | 'gratificacion' | 'otro'
+  reason_text: string | null
+  diff_taxable_earnings: number
+  diff_non_taxable_earnings: number
+  diff_total_earnings: number
+  diff_legal_deductions: number
+  diff_other_deductions: number
+  diff_total_deductions: number
+  diff_net_pay: number
+  status: 'draft' | 'approved' | 'issued' | 'paid'
+  created_by: string | null
+  approved_by: string | null
+  issued_by: string | null
+  created_at: string
+  approved_at: string | null
+  issued_at: string | null
+  paid_at: string | null
+  updated_at: string
+  metadata: Record<string, any>
+  pdf_url: string | null
+}
+
+export type PayrollReliquidationItem = {
+  id: string
+  reliquidation_id: string
+  original_item_id: string | null
+  type: 'taxable_earning' | 'non_taxable_earning' | 'legal_deduction' | 'other_deduction'
+  category: string
+  description: string
+  original_amount: number
+  corrected_amount: number
+  difference: number
+  is_taxable: boolean
+  is_tributable: boolean
+  affects_deductions: boolean
+  affects_gratification: boolean
+  created_at: string
+}
+
+export type PayrollReliquidationDelta = {
+  id: string
+  reliquidation_id: string
+  // Originales
+  original_days_worked: number | null
+  original_days_leave: number | null
+  original_base_salary: number | null
+  original_taxable_base: number | null
+  original_total_taxable_earnings: number | null
+  original_total_non_taxable_earnings: number | null
+  original_total_earnings: number | null
+  original_total_legal_deductions: number | null
+  original_total_other_deductions: number | null
+  original_total_deductions: number | null
+  original_net_pay: number | null
+  // Corregidos
+  corrected_days_worked: number | null
+  corrected_days_leave: number | null
+  corrected_base_salary: number | null
+  corrected_taxable_base: number | null
+  corrected_total_taxable_earnings: number | null
+  corrected_total_non_taxable_earnings: number | null
+  corrected_total_earnings: number | null
+  corrected_total_legal_deductions: number | null
+  corrected_total_other_deductions: number | null
+  corrected_total_deductions: number | null
+  corrected_net_pay: number | null
+  // Diferencias
+  diff_days_worked: number
+  diff_days_leave: number
+  diff_base_salary: number
+  diff_taxable_base: number
+  diff_total_taxable_earnings: number
+  diff_total_non_taxable_earnings: number
+  diff_total_earnings: number
+  diff_total_legal_deductions: number
+  diff_total_other_deductions: number
+  diff_total_deductions: number
+  diff_net_pay: number
+  created_at: string
+}
+
+export type PayrollReliquidationWithDetails = PayrollReliquidation & {
+  employees?: Employee | null
+  payroll_periods?: PayrollPeriod | null
+  payroll_slips?: PayrollSlipWithDetails | null
+  payroll_reliquidation_items?: PayrollReliquidationItem[]
+  payroll_reliquidation_deltas?: PayrollReliquidationDelta | null
+}
+
+export type ReliquidationReasonCategory = 
+  | 'horas_extra'
+  | 'retroactivo'
+  | 'licencia'
+  | 'tope_imponible'
+  | 'descuento'
+  | 'gratificacion'
+  | 'otro'
+
+export const RELIQUIDATION_REASON_CATEGORIES: Record<ReliquidationReasonCategory, string> = {
+  horas_extra: 'Error en horas extra / trato / comisiones',
+  retroactivo: 'Retroactivo por reajuste / convenio',
+  licencia: 'Licencia médica / subsidio / días no trabajados',
+  tope_imponible: 'Tope imponible / renta vital / cambio AFP/Isapre/Fonasa',
+  descuento: 'Descuento mal aplicado (préstamo, atraso, inasistencia)',
+  gratificacion: 'Gratificación mal calculada',
+  otro: 'Otro'
 }
 
 // Tipos para Centros de Costo
@@ -365,6 +486,10 @@ export interface UserPermissions {
   can_approve_settlements: boolean
   can_create_advances: boolean
   can_approve_advances: boolean
+  can_view_reliquidations: boolean          // Ver reliquidaciones
+  can_create_reliquidations: boolean        // Crear reliquidaciones
+  can_approve_reliquidations: boolean       // Aprobar reliquidaciones
+  can_view_legal_holidays: boolean          // Ver feriados legales
   
   // ===== PERMISOS DE PRÉSTAMOS (granular) =====
   can_view_loans: boolean                  // Ver lista de préstamos
@@ -461,6 +586,10 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_approve_settlements: true,
     can_create_advances: true,
     can_approve_advances: true,
+    can_view_reliquidations: true,
+    can_create_reliquidations: true,
+    can_approve_reliquidations: true,
+    can_view_legal_holidays: true,
     // Préstamos
     can_view_loans: true,
     can_create_loans: true,
@@ -546,6 +675,10 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_approve_settlements: true,
     can_create_advances: true,
     can_approve_advances: true,
+    can_view_reliquidations: true,
+    can_create_reliquidations: true,
+    can_approve_reliquidations: true,
+    can_view_legal_holidays: true,
     // Préstamos
     can_view_loans: true,
     can_create_loans: true,
@@ -631,6 +764,10 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_approve_settlements: false,
     can_create_advances: false,
     can_approve_advances: false,
+    can_view_reliquidations: false,
+    can_create_reliquidations: false,
+    can_approve_reliquidations: false,
+    can_view_legal_holidays: true,
     // Préstamos: puede ver, crear, pero NO editar/eliminar
     can_view_loans: true,
     can_create_loans: true,
@@ -716,6 +853,10 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_approve_settlements: false,
     can_create_advances: false,
     can_approve_advances: false,
+    can_view_reliquidations: false,
+    can_create_reliquidations: false,
+    can_approve_reliquidations: false,
+    can_view_legal_holidays: false,
     // Préstamos: sin permisos
     can_view_loans: false,
     can_create_loans: false,

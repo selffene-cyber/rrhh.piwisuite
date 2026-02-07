@@ -23,8 +23,9 @@
 19. [Sistema de Departamentos](#sistema-de-departamentos)
 20. [Módulo RAAT](#módulo-raat)
 21. [Portal para Trabajadores](#portal-para-trabajadores)
-22. [Organigramas](#organigramas)
-23. [Sistema de Storage y PDFs](#sistema-de-storage-y-pdfs)
+22. [Implementación PWA](#implementación-pwa-progressive-web-app)
+23. [Organigramas](#organigramas)
+24. [Sistema de Storage y PDFs](#sistema-de-storage-y-pdfs)
 
 ---
 
@@ -34,9 +35,11 @@
 - **Framework**: Next.js 14.2.35 (App Router)
 - **Lenguaje**: TypeScript 5.3.3
 - **UI Library**: React 18.2.0
-- **Estilos**: CSS Modules + Inline Styles
+- **Estilos**: Tailwind CSS v4 + CSS Modules + Inline Styles
+- **UI Components**: Preline UI 4.0.1 (componentes modernos y interactivos)
 - **Iconos**: react-icons 5.5.0
 - **Gráficos**: recharts 3.6.0
+- **PWA**: Service Worker + Web App Manifest (instalación y actualizaciones automáticas)
 
 ### Backend
 - **Runtime**: Node.js (Next.js API Routes)
@@ -1007,7 +1010,34 @@ Certificados laborales.
 - Permite ajustes individuales
 - Cálculo automático de horas extra por trabajador según su sueldo y términos del contrato
 
-#### 3.5 Detalle de Liquidación (`/payroll/[id]`)
+#### 3.5 Lista de Liquidaciones (`/payroll`) - Mejorado
+**Cards de Resumen (arriba de filtros):**
+1. **Total Líquido a Pagar**: Suma de liquidaciones emitidas/enviadas del período seleccionado
+2. **Total Imposiciones**: Descuentos legales + Aportes del empleador (AFP, SIS, AFC)
+3. **Liquidaciones Pendientes**: Trabajadores activos sin liquidación del mes en curso
+4. **Liquidaciones Atrasadas**: Trabajadores activos sin liquidación del mes anterior
+
+**Filtros Mejorados:**
+- Trabajador, Año, Mes, Estado
+- Botón "Actualizar" en la misma fila que el título "Filtros"
+- Diseño compacto y responsive
+
+**Tabla de Liquidaciones:**
+- Columnas: Trabajador, RUT, Período, Días Trabajados, **Total Haberes**, **Total Descuentos**, Líquido a Pagar, Estado, Acciones
+- Valores tomados directamente de la liquidación (independiente del estado)
+- Vista responsive: tabla en desktop, cards en mobile
+- Acciones: Ver detalle, Eliminar (con restauración de anticipos vinculados)
+
+**Gráfico Histórico Anual:**
+- Gráfico de líneas suavizadas con histórico desde la primera liquidación
+- Dos líneas: Total Haberes (azul) y Líquido Pagado (verde)
+- Vista anual agrupada por año
+- Solo muestra liquidaciones emitidas/enviadas
+- Tooltip con formato de moneda chilena
+- Eje Y en millones para mejor legibilidad
+- Se muestra después de los filtros y antes de la tabla
+
+#### 3.6 Detalle de Liquidación (`/payroll/[id]`)
 - Vista completa de la liquidación
 - Desglose de haberes y descuentos
 - Desglose expandible de préstamos y anticipos
@@ -2413,7 +2443,23 @@ Sistema completo de cálculo y gestión de finiquitos conforme al Código del Tr
 ## 👤 Portal para Trabajadores
 
 ### Descripción General
-Sistema completo de portal para que los trabajadores accedan a sus propios documentos, realicen solicitudes y descarguen PDFs desde cualquier dispositivo.
+Sistema completo de portal para que los trabajadores accedan a sus propios documentos, realicen solicitudes y descarguen PDFs desde cualquier dispositivo. **Diseñado como Progressive Web App (PWA) con enfoque Mobile First Responsive**.
+
+### Características Técnicas
+
+#### Progressive Web App (PWA)
+- **Service Worker**: Implementado en `public/sw.js` para funcionalidad offline y actualizaciones automáticas
+- **Manifest**: Configurado en `public/site.webmanifest` con metadata completa
+- **Instalación**: Banner de instalación en página de login (Android e iOS)
+- **Actualizaciones Automáticas**: Sistema de detección de nuevas versiones con banner discreto
+- **Offline**: Caché de recursos estáticos para funcionamiento sin conexión
+
+#### Diseño y Estilos
+- **Framework CSS**: Tailwind CSS v4 con sintaxis `@import "tailwindcss"`
+- **UI Library**: Preline UI integrado para componentes modernos
+- **Enfoque**: Mobile First Responsive Design
+- **Estilos Aislados**: CSS específico en `app/employee/employee-portal-tailwind.css` para evitar conflictos
+- **Tema Minimalista**: Paleta de colores blanco/gris para dropdowns y componentes
 
 ### Funcionalidades Principales
 
@@ -2425,6 +2471,9 @@ Sistema completo de portal para que los trabajadores accedan a sus propios docum
   - Solicitar Vacaciones
   - Solicitar Permiso
   - Mis Solicitudes
+- Cards de acceso rápido con diseño moderno
+- Balance de vacaciones visible
+- Resumen de documentos pendientes
 
 #### Mis Documentos (`/employee/documents`)
 **Pestañas:**
@@ -2442,11 +2491,12 @@ Sistema completo de portal para que los trabajadores accedan a sus propios docum
    - Pactos de Horas Extra (activos/renovados)
 
 **Características:**
-- Filtros por tipo de documento
+- Filtros por tipo de documento con diseño minimalista (dropdowns blancos/grises)
 - Filtros específicos para liquidaciones (año/mes)
 - Botón "Ver Detalle" para liquidaciones y pactos (modal con información completa)
-- Botón "Descargar" que abre PDF en nueva pestaña sin contenedor
-- Descarga nativa con botones del navegador
+- Botón "Descargar" icono-only (sin texto) para mejor UX móvil
+- Botones con estilo minimalista (fondo blanco, hover gris)
+- Diseño responsive optimizado para móviles
 
 **APIs utilizadas:**
 - `/api/employee/certificates`
@@ -2474,6 +2524,26 @@ Sistema completo de portal para que los trabajadores accedan a sus propios docum
   - Botón "Descargar" para PDF del préstamo
 
 **API:** `/api/employee/loans`
+
+#### Mis Solicitudes (`/employee/requests`)
+- Vista consolidada de todas las solicitudes del trabajador
+- Filtros con dropdowns minimalistas (estado, tipo, período)
+- Tabla responsive con información detallada
+- Estados: Pendiente, Aprobada, Rechazada
+- Diseño consistente con el resto del portal
+
+#### Mis Cumplimientos (`/employee/compliance`)
+- Vista de cumplimientos asignados al trabajador
+- Cards de resumen con estado de cumplimiento
+- Notificaciones de cumplimientos pendientes
+- Filtros y búsqueda integrados
+- Diseño con márgenes y espaciado optimizados
+
+#### Historial de Auditoría (`/employee/audit-history`)
+- Registro completo de eventos relacionados con el trabajador
+- Filtros por tipo de evento y fecha
+- Vista de tabla responsive
+- Botón "Volver" icono-only en esquina superior izquierda
 
 ### Autenticación y Autorización
 
@@ -2549,6 +2619,114 @@ Sistema completo de portal para que los trabajadores accedan a sus propios docum
 - **Autenticación**: Requerida
 - **Funcionalidad**: Obtiene préstamos activos/pagados del trabajador
 - **Respuesta**: Array de préstamos con todos los datos
+
+### Mejoras de Diseño y Estilos
+
+#### Estilos del Portal Trabajador
+- **Archivo CSS**: `app/employee/employee-portal-tailwind.css`
+- **Aislamiento**: Clase `.employee-portal-isolated` para evitar conflictos con otros módulos
+- **Tailwind v4**: Sintaxis `@import "tailwindcss"` (compatible con v4)
+- **Preline UI**: Integrado para componentes interactivos modernos
+- **Tema Minimalista**: 
+  - Dropdowns: fondo blanco, texto gris oscuro, selector gris claro
+  - Botones: estilo limpio sin bordes gruesos
+  - Sin colores azules en componentes de filtro
+  - Paleta consistente en todo el portal
+
+#### Componentes Mejorados
+- **Botón "Volver"**: Icono-only en esquina superior izquierda (mejor UX móvil)
+- **Botones de Descarga**: Solo icono, sin texto "Descargar"
+- **Filtros**: Dropdowns minimalistas con estilo consistente
+- **Tabs**: Diseño limpio sin bordes gruesos
+- **Cards**: Espaciado y márgenes optimizados
+
+#### Responsive Design
+- **Mobile First**: Diseño optimizado primero para móviles
+- **Breakpoints**: Adaptación automática a diferentes tamaños de pantalla
+- **Tablas**: Se convierten en cards en dispositivos móviles
+- **Navegación**: Bottom navigation en móviles, sidebar en desktop
+
+### Implementación PWA (Progressive Web App)
+
+#### Service Worker (`public/sw.js`)
+- **Estrategia de Caché**: Network First con fallback a cache
+- **Eventos**: `install`, `activate`, `fetch`, `message`
+- **Actualizaciones**: `self.skipWaiting()` para activación inmediata
+- **Versiones**: Detecta nuevas versiones y notifica al usuario
+
+#### Manifest (`public/site.webmanifest`)
+- **Configuración completa**: name, short_name, description, icons
+- **Orientación**: portrait (optimizado para móviles)
+- **Display**: standalone (experiencia tipo app nativa)
+- **Theme**: Color de tema y fondo configurados
+- **Scope**: `/` (toda la aplicación)
+
+#### Componentes PWA
+
+**PWAInstallBanner** (`components/PWAInstallBanner.tsx`):
+- Banner de instalación en página de login
+- Solo visible en dispositivos móviles
+- Instrucciones específicas para Android e iOS
+- Botón "Instalar" para Android (usa `beforeinstallprompt`)
+- Instrucciones de "Compartir" para iOS
+- Persistencia de estado (no mostrar si ya se descartó)
+
+**PWAUpdateBanner** (`components/PWAUpdateBanner.tsx`):
+- Banner discreto para notificar actualizaciones
+- Aparece en el layout del portal trabajador
+- Permite actualizar manualmente o descartar
+- Se muestra cuando se detecta nueva versión del service worker
+
+**PWAScript** (`components/PWAScript.tsx`):
+- Componente para registrar el service worker
+- Se incluye en el layout principal
+- Maneja el registro y actualizaciones
+
+#### Hooks Personalizados
+
+**usePWAInstall** (`lib/hooks/usePWAInstall.ts`):
+- Detecta si la app puede instalarse
+- Maneja el evento `beforeinstallprompt`
+- Detecta plataforma (iOS, Android, Desktop)
+- Verifica si la app ya está instalada
+- Controla la visibilidad del banner
+
+**usePWAUpdate** (`lib/hooks/usePWAUpdate.ts`):
+- Detecta nuevas versiones del service worker
+- Notifica al usuario cuando hay actualizaciones disponibles
+- Permite actualización manual o automática
+
+#### Utilidades PWA (`lib/utils/pwa.ts`)
+- `registerServiceWorker()`: Registra el service worker
+- `isPWAInstalled()`: Verifica si la app está instalada
+- `isMobileDevice()`: Detecta dispositivos móviles
+- `isIOS()`: Detecta iOS
+- `isAndroid()`: Detecta Android
+
+#### Flujo de Instalación
+
+1. **Android**:
+   - Usuario visita login en móvil
+   - Aparece banner con botón "Instalar"
+   - Click dispara `beforeinstallprompt`
+   - Navegador muestra diálogo nativo de instalación
+   - App se instala como PWA
+
+2. **iOS**:
+   - Usuario visita login en iPhone/iPad
+   - Aparece banner con instrucciones
+   - Usuario debe usar botón "Compartir" del navegador
+   - Selecciona "Añadir a pantalla de inicio"
+   - App se instala como PWA
+
+#### Flujo de Actualización
+
+1. Service worker detecta nueva versión
+2. Banner discreto aparece en portal trabajador
+3. Usuario puede:
+   - Click en "Actualizar" → Recarga la app con nueva versión
+   - Click en "Cerrar" → Descarta el banner (aparecerá de nuevo)
+4. Actualización automática en segundo plano
 
 ---
 

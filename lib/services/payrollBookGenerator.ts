@@ -60,7 +60,7 @@ export async function generatePayrollBook(
   // 3. Obtener indicadores previsionales del período (para calcular aportes del empleador)
   const indicators = await getCachedIndicators(year, month)
 
-  // 5. Crear o actualizar el libro principal
+  // 4. Crear o actualizar el libro principal
   const { data: existingBookData } = await supabase
     .from('payroll_books')
     .select('*')
@@ -112,7 +112,51 @@ export async function generatePayrollBook(
     payrollBook = newBook as PayrollBook
   }
 
-  // 6. Generar entradas del libro para cada trabajador
+  // 5. Verificar si el libro ya está cerrado o enviado
+  const isBookClosed = payrollBook.status === 'closed' || payrollBook.status === 'sent_dt'
+
+  // 6. Obtener reliquidaciones según el caso:
+  // - Si el libro NO está cerrado: las reliquidaciones del mismo período corrigen las liquidaciones
+  //   (se usan los valores corregidos de las liquidaciones, no se crean entradas separadas)
+  // - Si el libro está cerrado: solo incluir reliquidaciones pagadas en este período (ajuste hacia adelante)
+  let reliquidationsToInclude: any[] = []
+
+  if (isBookClosed) {
+    // Caso 2: Libro cerrado - solo reliquidaciones pagadas en este período (mes diferente al original)
+    const { data: paidReliquidations, error: reliquidationsError } = await supabase
+      .from('payroll_reliquidations')
+      .select(`
+        *,
+        employees (*),
+        payroll_periods (*),
+        payroll_reliquidation_deltas (*)
+      `)
+      .eq('company_id', companyId)
+      .eq('status', 'paid')
+      .not('paid_at', 'is', null)
+
+    if (reliquidationsError) {
+      console.error('Error al obtener reliquidaciones pagadas:', reliquidationsError)
+    } else {
+      // Filtrar reliquidaciones pagadas en este período (mes/año) Y que el período original sea diferente
+      reliquidationsToInclude = (paidReliquidations || []).filter((rel: any) => {
+        if (!rel.paid_at) return false
+        const paidDate = new Date(rel.paid_at)
+        const paidYear = paidDate.getFullYear()
+        const paidMonth = paidDate.getMonth() + 1
+        // Solo incluir si se pagó en este período Y el período original es diferente
+        const originalPeriod = rel.payroll_periods
+        const originalYear = originalPeriod?.year
+        const originalMonth = originalPeriod?.month
+        return paidYear === year && paidMonth === month && 
+               (originalYear !== year || originalMonth !== month)
+      })
+    }
+  }
+  // Si el libro NO está cerrado, no incluimos reliquidaciones como entradas separadas
+  // porque las liquidaciones ya reflejan los valores corregidos si se recalculó
+
+  // 7. Generar entradas del libro para cada trabajador
   const entries: PayrollBookEntry[] = []
   let totalTaxableEarnings = 0
   let totalNonTaxableEarnings = 0
@@ -326,7 +370,145 @@ export async function generatePayrollBook(
     totalNetPay += netPayEntry
   }
 
-  // 7. Actualizar totales del libro
+  // 7. Agregar entradas de reliquidaciones
+  for (const reliquidation of reliquidationsToInclude) {
+    const rel = reliquidation as any
+    const employee = rel.employees
+    if (!employee) continue
+
+    // Obtener delta de la reliquidación
+    const delta = Array.isArray(rel.payroll_reliquidation_deltas)
+      ? (rel.payroll_reliquidation_deltas.length > 0 ? rel.payroll_reliquidation_deltas[0] : null)
+      : rel.payroll_reliquidation_deltas
+
+    // Obtener período original
+    const originalPeriod = rel.payroll_periods
+    const originalYear = originalPeriod?.year || null
+    const originalMonth = originalPeriod?.month || null
+
+    // Valores de la reliquidación (diferencias)
+    const diffTaxableEarnings = rel.diff_taxable_earnings || 0
+    const diffNonTaxableEarnings = rel.diff_non_taxable_earnings || 0
+    const diffTotalEarnings = rel.diff_total_earnings || 0
+    const diffLegalDeductions = rel.diff_legal_deductions || 0
+    const diffOtherDeductions = rel.diff_other_deductions || 0
+    const diffTotalDeductions = rel.diff_total_deductions || 0
+    const diffNetPay = rel.diff_net_pay || 0
+
+    // Si la diferencia aumenta el imponible, recalcular cotizaciones
+    // Las cotizaciones adicionales se calculan sobre el aumento del imponible
+    const increasedTaxableBase = diffTaxableEarnings > 0 ? diffTaxableEarnings : 0
+    let additionalEmployerAfp = 0
+    let additionalEmployerSis = 0
+    let additionalEmployerAfc = 0
+
+    if (increasedTaxableBase > 0 && indicators) {
+      // AFP Empleador: 0.1% del aumento imponible
+      additionalEmployerAfp = Math.ceil(increasedTaxableBase * 0.001)
+
+      // SIS: Tasa del indicador sobre el aumento
+      const sisRate = indicators.TasaSIS ? parseFloat(String(indicators.TasaSIS).replace(/\./g, '').replace(',', '.')) / 100 : 0
+      additionalEmployerSis = Math.ceil(increasedTaxableBase * sisRate)
+
+      // AFC Empleador: según tipo de contrato
+      const contractType = employee.contract_type || 'indefinido'
+      let afcRate = 0
+      if (contractType === 'indefinido' && indicators.AFCCpiEmpleador) {
+        afcRate = parseFloat(String(indicators.AFCCpiEmpleador).replace(/\./g, '').replace(',', '.')) / 100
+      } else if (contractType === 'plazo_fijo' && indicators.AFCCpfEmpleador) {
+        afcRate = parseFloat(String(indicators.AFCCpfEmpleador).replace(/\./g, '').replace(',', '.')) / 100
+      } else if (contractType === 'temporal' && indicators.AFCTcpEmpleador) {
+        afcRate = parseFloat(String(indicators.AFCTcpEmpleador).replace(/\./g, '').replace(',', '.')) / 100
+      }
+      additionalEmployerAfc = Math.ceil(increasedTaxableBase * afcRate)
+    }
+
+    const additionalEmployerContributions = additionalEmployerAfp + additionalEmployerSis + additionalEmployerAfc
+
+    // Crear entrada de reliquidación
+    const reliquidationEntry: Omit<PayrollBookEntry, 'id' | 'created_at'> = {
+      payroll_book_id: payrollBook.id,
+      employee_id: employee.id,
+      payroll_slip_id: null, // No está vinculada a una liquidación del período actual
+      // Campos de reliquidación
+      is_reliquidation: true,
+      reliquidation_id: rel.id,
+      reference_period_year: originalYear,
+      reference_period_month: originalMonth,
+      // Snapshot del trabajador
+      employee_rut: employee.rut,
+      employee_name: employee.full_name,
+      employee_hire_date: employee.hire_date,
+      employee_contract_end_date: employee.contract_end_date || null,
+      employee_contract_type: employee.contract_type || null,
+      employee_afp: employee.afp,
+      employee_health_system: employee.health_system,
+      employee_health_plan: employee.health_plan || null,
+      employee_position: employee.position || null,
+      employee_cost_center: employee.cost_center || null,
+      // Haberes imponibles: la diferencia se agrega como "other_taxable_earnings"
+      base_salary: 0,
+      monthly_gratification: 0,
+      bonuses: 0,
+      overtime: 0,
+      vacation_paid: 0,
+      other_taxable_earnings: diffTaxableEarnings > 0 ? diffTaxableEarnings : 0,
+      total_taxable_earnings: diffTaxableEarnings > 0 ? diffTaxableEarnings : 0,
+      // Haberes no imponibles
+      transportation: 0,
+      meal_allowance: 0,
+      aguinaldo: 0,
+      other_non_taxable_earnings: diffNonTaxableEarnings > 0 ? diffNonTaxableEarnings : 0,
+      total_non_taxable_earnings: diffNonTaxableEarnings > 0 ? diffNonTaxableEarnings : 0,
+      // Descuentos legales: la diferencia se agrega aquí
+      afp_deduction: 0, // Se calcula sobre el aumento, no se duplica
+      health_deduction: 0,
+      unemployment_insurance_deduction: 0,
+      unique_tax_deduction: 0,
+      total_legal_deductions: diffLegalDeductions > 0 ? diffLegalDeductions : 0,
+      // Otros descuentos
+      loans_deduction: 0,
+      advances_deduction: 0,
+      other_deductions: diffOtherDeductions > 0 ? diffOtherDeductions : 0,
+      total_other_deductions: diffOtherDeductions > 0 ? diffOtherDeductions : 0,
+      // Aportes empleador adicionales por el aumento imponible
+      employer_afp_contribution: additionalEmployerAfp,
+      employer_sis_contribution: additionalEmployerSis,
+      employer_afc_contribution: additionalEmployerAfc,
+      total_employer_contributions: additionalEmployerContributions,
+      // Totales
+      total_earnings: diffTotalEarnings > 0 ? diffTotalEarnings : 0,
+      total_deductions: diffTotalDeductions > 0 ? diffTotalDeductions : 0,
+      net_pay: diffNetPay,
+      // Días: no aplica para reliquidación
+      days_worked: 0,
+      days_leave: 0,
+    }
+
+    // Insertar entrada de reliquidación
+    const { data: insertedReliquidationEntry, error: insertReliquidationError } = await (supabase
+      .from('payroll_book_entries') as any)
+      .insert(reliquidationEntry)
+      .select()
+      .single()
+
+    if (insertReliquidationError) {
+      console.error('Error al insertar entrada de reliquidación:', insertReliquidationError)
+      throw insertReliquidationError
+    }
+
+    entries.push(insertedReliquidationEntry as PayrollBookEntry)
+
+    // Acumular totales de reliquidación
+    totalTaxableEarnings += reliquidationEntry.total_taxable_earnings
+    totalNonTaxableEarnings += reliquidationEntry.total_non_taxable_earnings
+    totalLegalDeductions += reliquidationEntry.total_legal_deductions
+    totalOtherDeductions += reliquidationEntry.total_other_deductions
+    totalEmployerContributions += reliquidationEntry.total_employer_contributions
+    totalNetPay += reliquidationEntry.net_pay
+  }
+
+  // 8. Actualizar totales del libro
   const { data: updatedBook, error: updateError } = await (supabase
     .from('payroll_books') as any)
     .update({

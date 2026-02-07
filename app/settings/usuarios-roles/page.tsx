@@ -473,6 +473,7 @@ export default function UsuariosRolesPage() {
                   { key: 'can_view_employee_details', label: 'Ver Detalles de Trabajadores' },
                   { key: 'can_view_employee_salary', label: 'Ver Información Salarial' },
                   { key: 'can_view_contracts', label: 'Ver Contratos' },
+                  { key: 'can_view_legal_holidays', label: 'Ver Feriados Legales' },
                 ]}
                 formData={permissionsFormData}
                 onToggle={togglePermission}
@@ -536,6 +537,9 @@ export default function UsuariosRolesPage() {
                   { key: 'can_approve_settlements', label: 'Aprobar Finiquitos' },
                   { key: 'can_create_advances', label: 'Crear Anticipos' },
                   { key: 'can_approve_advances', label: 'Aprobar Anticipos' },
+                  { key: 'can_view_reliquidations', label: 'Ver Reliquidaciones' },
+                  { key: 'can_create_reliquidations', label: 'Crear Reliquidaciones' },
+                  { key: 'can_approve_reliquidations', label: 'Aprobar Reliquidaciones' },
                 ]}
                 formData={permissionsFormData}
                 onToggle={togglePermission}

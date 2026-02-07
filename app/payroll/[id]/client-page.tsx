@@ -8,6 +8,7 @@ import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { useRouter, usePathname } from 'next/navigation'
 import { pdf } from '@react-pdf/renderer'
 import { PayrollDocument } from '@/components/PayrollPDF'
+import { FaRedo } from 'react-icons/fa'
 import React from 'react'
 
 export default function PayrollDetailClient({ initialSlip, company, vacations, advances, loanPayments }: { initialSlip: any, company: any, vacations?: any[] | null, advances?: any[], loanPayments?: any[] }) {
@@ -323,6 +324,21 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
               Editar
             </button>
           </Link>
+          {(slip.status === 'issued' || slip.status === 'sent') && (
+            <Link href={`/payroll/${slip.id}/reliquidate`}>
+              <button style={{
+                background: '#3b82f6',
+                color: 'white',
+                border: '1px solid #3b82f6',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <FaRedo size={14} />
+                Crear Reliquidación
+              </button>
+            </Link>
+          )}
           {slip.status === 'draft' && (
             <button onClick={handleIssue} disabled={loading}>
               {loading ? 'Emitiendo...' : 'Emitir Liquidación'}
