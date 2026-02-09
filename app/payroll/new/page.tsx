@@ -9,6 +9,7 @@ import { getCurrentMonthYear, MONTHS, formatDate } from '@/lib/utils/date'
 import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { createValidationServices } from '@/lib/services/validationHelpers'
 
 export default function NewPayrollPage() {
   const { companyId } = useCurrentCompany()
@@ -128,7 +129,24 @@ export default function NewPayrollPage() {
       return () => clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.employee_id, selectedEmployee, formData.year, formData.month, bonuses, nonTaxableEarnings])
+  }, [
+    formData.employee_id, 
+    selectedEmployee, 
+    formData.year, 
+    formData.month, 
+    bonuses, 
+    nonTaxableEarnings,
+    formData.transportation,
+    formData.meal_allowance,
+    formData.aguinaldo,
+    formData.other_taxable_earnings,
+    formData.overtime_hours,
+    overtimeAmount,
+    vacationAmount,
+    medicalLeaveDays,
+    permissionDaysWithoutPay,
+    periodAdvances
+  ])
 
   const loadEmployees = async () => {
     try {
@@ -849,7 +867,6 @@ export default function NewPayrollPage() {
       }
 
       // Validar que el empleado pueda recibir una liquidación (requiere contrato activo)
-      const { createValidationServices } = await import('@/lib/services/validationHelpers')
       const { employee } = createValidationServices(supabase as any)
       const validation = await employee.canGeneratePayrollSlip(formData.employee_id)
       
