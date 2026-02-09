@@ -131,8 +131,33 @@ export default function EditPayrollPage() {
         const overlapEnd = vacEnd < periodEnd ? vacEnd : periodEnd
         
         if (overlapStart <= overlapEnd) {
-          const diffTime = overlapEnd.getTime() - overlapStart.getTime()
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+          // Verificar si la vacación está completamente dentro del período
+          const isFullyInPeriod = vacStart >= periodStart && vacEnd <= periodEnd
+          
+          let diffDays = 0
+          
+          if (isFullyInPeriod) {
+            // Si la vacación está completamente dentro del período, usar el days_count almacenado
+            // Esto es más preciso porque ya fue calculado correctamente al crear la vacación
+            diffDays = vacation.days_count || 0
+          } else {
+            // Si la vacación está parcialmente en el período, calcular proporcionalmente
+            // Calcular días hábiles de la intersección
+            const { calculateBusinessDays } = await import('@/lib/services/vacationCalculator')
+            const overlapBusinessDays = await calculateBusinessDays(overlapStart, overlapEnd)
+            
+            // Calcular días hábiles totales de la vacación completa
+            const totalBusinessDays = await calculateBusinessDays(vacStart, vacEnd)
+            
+            // Calcular proporción: días en período / días totales
+            if (totalBusinessDays > 0) {
+              const proportion = overlapBusinessDays / totalBusinessDays
+              diffDays = Math.round((vacation.days_count || 0) * proportion)
+            } else {
+              diffDays = overlapBusinessDays
+            }
+          }
+          
           vacationDays += diffDays
         }
       }
