@@ -94,10 +94,21 @@ export default function PWAInstallBanner({ className = '' }: PWAInstallBannerPro
       return
     }
     
+    console.log('[PWA Banner] Botón instalar presionado', {
+      canInstall,
+      isAndroid,
+      isIOS
+    })
+    
     const success = await install()
+    console.log('[PWA Banner] Resultado de install():', success)
+    
     if (success) {
       setIsVisible(false)
       dismissBanner()
+    } else {
+      // Si falló, mostrar mensaje en consola para debug
+      console.warn('[PWA Banner] La instalación no se completó. Verifica la consola para más detalles.')
     }
   }
 

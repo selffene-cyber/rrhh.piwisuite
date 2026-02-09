@@ -114,27 +114,59 @@ export function usePWAInstall() {
   }, [])
 
   const install = async () => {
-    if (!deferredPrompt) {
+    // Si tenemos el prompt diferido, usarlo
+    if (deferredPrompt) {
+      try {
+        console.log('[PWA] Usando prompt diferido para instalar')
+        await deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
+        
+        console.log('[PWA] Resultado del prompt:', outcome)
+        
+        if (outcome === 'accepted') {
+          setIsInstalled(true)
+          setShowBanner(false)
+          setDeferredPrompt(null)
+          return true
+        }
+        
+        setDeferredPrompt(null)
+        return false
+      } catch (error) {
+        console.error('[PWA] Error al usar prompt diferido:', error)
+        // Continuar con método alternativo
+      }
+    }
+
+    // Si no hay prompt diferido o falló, intentar métodos alternativos
+    console.log('[PWA] No hay prompt diferido, intentando métodos alternativos')
+    
+    // Para Android/Chrome: mostrar instrucciones o intentar abrir menú
+    if (isAndroid) {
+      // Intentar disparar el menú de instalación manualmente
+      // Esto no es posible directamente, pero podemos mostrar instrucciones
+      console.log('[PWA] Android detectado sin prompt - mostrando instrucciones')
+      
+      // Mostrar alerta con instrucciones
+      alert(
+        'Para instalar la app:\n\n' +
+        '1. Toca el menú (3 puntos) en la esquina superior derecha de Chrome\n' +
+        '2. Busca "Instalar app" o "Añadir a pantalla de inicio"\n' +
+        '3. Toca para instalar\n\n' +
+        'Si no ves la opción, la app puede no cumplir todos los requisitos de instalación.'
+      )
+      
       return false
     }
 
-    try {
-      await deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      
-      if (outcome === 'accepted') {
-        setIsInstalled(true)
-        setShowBanner(false)
-        setDeferredPrompt(null)
-        return true
-      }
-      
-      setDeferredPrompt(null)
-      return false
-    } catch (error) {
-      console.error('Error al instalar PWA:', error)
+    // Para iOS: ya se muestran instrucciones en el banner
+    if (isIOS) {
+      console.log('[PWA] iOS detectado - las instrucciones ya están en el banner')
       return false
     }
+
+    console.log('[PWA] No se pudo instalar - plataforma no soportada o prompt no disponible')
+    return false
   }
 
   const dismissBanner = () => {

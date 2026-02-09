@@ -1714,7 +1714,34 @@ GEMINI_MODEL=gemini-2.5-flash  # Modelo por defecto
 4. **Reversión:**
    - Si se elimina la liquidación, los anticipos vuelven a "Pagado"
 
-### 3. Flujo de Préstamos
+### 3. Flujo de Préstamos (Actualizado)
+
+**Creación:**
+1. Ir a `/employees/[id]/loans/new`
+2. Completar formulario (monto, interés, cuotas, fecha, descripción)
+3. Sistema calcula automáticamente: total, valor por cuota, monto pendiente
+4. Guardar préstamo
+
+**Edición (solo si no tiene pagos):**
+1. Ir a `/employees/[id]/loans/[loanId]`
+2. Hacer clic en "Editar"
+3. Modificar campos permitidos (fecha, monto, interés, cuotas, descripción)
+4. Sistema recalcula automáticamente totales
+5. Guardar cambios
+
+**Cancelación:**
+1. Ir a `/employees/[id]/loans/[loanId]`
+2. Hacer clic en "Cancelar"
+3. Confirmar cancelación
+4. El préstamo cambia a estado "Cancelado"
+
+**Eliminación (solo si no tiene pagos):**
+1. Ir a `/employees/[id]/loans/[loanId]`
+2. Hacer clic en "Eliminar" (solo visible si está cancelado o activo sin pagos)
+3. Confirmar eliminación
+4. El préstamo se elimina permanentemente
+
+**Flujo Original:**
 
 1. **Creación:**
    - Ingresar datos del préstamo
@@ -2831,12 +2858,335 @@ Sistema integrado de generación, almacenamiento y distribución de PDFs usando 
 - UPDATE: Actualizar documentos (autenticados)
 - DELETE: Eliminar documentos (autenticados)
 
+#### `115_delete_loan_pt09.sql`
+- Script de ejemplo para eliminar préstamos con validaciones
+- Verifica restricciones antes de eliminar
+- Elimina cuotas asociadas en cascada
+
+---
+
+## 25. Gestión Avanzada de Préstamos
+
+### 25.1 Funcionalidades de Gestión
+
+El sistema permite gestionar préstamos de manera completa, con validaciones que aseguran la integridad de los datos contables.
+
+#### Edición de Préstamos
+
+**Cuándo se puede editar:**
+- ✅ Préstamo en estado `active`
+- ✅ Sin pagos registrados en `loan_payments`
+- ✅ Sin cuotas pagadas (`paid_installments = 0`)
+- ✅ Sin cuotas con estado `paid` o `partial` en `loan_installments`
+
+**Campos editables:**
+- Fecha del préstamo (`loan_date`)
+- Monto solicitado (`amount`)
+- Tasa de interés (`interest_rate`)
+- Número de cuotas (`installments`)
+- Descripción (`description`)
+
+**Campos recalculados automáticamente:**
+- `total_amount` = `amount` + (`amount` × `interest_rate` / 100)
+- `installment_amount` = `total_amount` / `installments`
+- `remaining_amount` = `total_amount` (se reinicia al editar)
+
+#### Cancelación de Préstamos
+
+**Cuándo se puede cancelar:**
+- ✅ Préstamo en estado `active`
+- ✅ No está pagado completamente
+
+**Efectos:**
+- Cambia estado a `cancelled`
+- El préstamo deja de estar activo
+- No se pueden agregar más pagos
+- Se puede eliminar después de cancelar (si no tiene pagos)
+
+#### Eliminación de Préstamos
+
+**Cuándo se puede eliminar:**
+- ✅ Está cancelado (`status = 'cancelled'`) Y no tiene pagos
+- ✅ Está activo (`status = 'active'`) Y no tiene pagos ni cuotas pagadas
+
+**Restricciones:**
+- ❌ No se puede eliminar si tiene pagos registrados
+- ❌ No se puede eliminar si tiene cuotas pagadas
+- ❌ No se puede eliminar si está pagado completamente
+
+**Relaciones eliminadas en cascada:**
+- `loan_payments` (ON DELETE CASCADE)
+- `loan_installments` (ON DELETE CASCADE)
+- `payroll_items.loan_id` (ON DELETE SET NULL)
+
+### 25.2 API de Gestión
+
+#### Endpoints Disponibles
+
+**`GET /api/loans/[id]`**
+- Obtiene préstamo con todas sus relaciones
+- Incluye: empleado, pagos, cuotas
+
+**`PUT /api/loans/[id]`**
+- Actualiza préstamo
+- Valida restricciones antes de permitir edición
+- Recalcula totales automáticamente
+
+**`DELETE /api/loans/[id]`**
+- Elimina préstamo
+- Valida que no tenga pagos antes de eliminar
+- Elimina relaciones en cascada
+
+**`PATCH /api/loans/[id]`**
+- Cancela préstamo (con `action: 'cancel'`)
+- Valida que no esté pagado antes de cancelar
+
+### 25.3 Interfaz de Usuario
+
+#### Página de Detalle (`/employees/[id]/loans/[loanId]`)
+
+**Botones disponibles según estado:**
+
+1. **Editar** (solo si `canEdit()` retorna `true`)
+   - Muestra formulario de edición inline
+   - Permite modificar campos editables
+   - Recalcula automáticamente totales
+   - Botones: "Guardar Cambios" y "Cancelar"
+
+2. **Cancelar** (solo si `canCancel()` retorna `true`)
+   - Cambia estado a "Cancelado"
+   - Muestra confirmación antes de cancelar
+   - Icono: `FaTimesCircle`
+
+3. **Eliminar** (solo si `canDelete()` retorna `true`)
+   - Elimina el préstamo permanentemente
+   - Muestra confirmación antes de eliminar
+   - Redirige a la lista de préstamos después de eliminar
+   - Icono: `FaTrash`
+
+4. **Ver PDF** (siempre disponible)
+   - Genera y muestra el PDF del préstamo
+
+**Indicadores visuales:**
+- Badge de estado (Activo, Pagado, Cancelado)
+- Mensaje informativo si no se puede editar
+- Validaciones en tiempo real
+
+### 25.4 Flujos de Trabajo Recomendados
+
+#### Escenario 1: Error en fecha o monto (sin pagos)
+1. Ir a detalle del préstamo
+2. Hacer clic en "Editar"
+3. Corregir los campos necesarios
+4. Guardar cambios
+
+#### Escenario 2: Préstamo creado por error (sin pagos)
+1. Ir a detalle del préstamo
+2. Opción A: Hacer clic en "Cancelar" (mantiene historial)
+3. Opción B: Hacer clic en "Eliminar" (elimina permanentemente)
+
+#### Escenario 3: Préstamo con pagos (no se puede editar/eliminar)
+1. El sistema mostrará mensaje informativo
+2. Solo se puede cancelar si está activo
+3. Para corregir, crear una reliquidación o ajuste manual
+
+### 25.5 Consideraciones Importantes
+
+1. **Integridad de datos:** Los préstamos con pagos no se pueden modificar para mantener la integridad contable.
+
+2. **Auditoría:** Los préstamos cancelados se mantienen en el sistema para auditoría, pero se pueden eliminar si no tienen pagos.
+
+3. **Liquidaciones:** Si un préstamo ya fue aplicado en una liquidación, no se puede editar ni eliminar. Se debe usar el módulo de reliquidaciones.
+
+4. **Validaciones:** Todas las validaciones se realizan tanto en el frontend como en el backend para seguridad.
+
+### 25.6 Script SQL para Eliminación Manual
+
+Si necesitas eliminar un préstamo manualmente desde la base de datos:
+
+```sql
+-- Verificar restricciones
+SELECT 
+  l.id,
+  l.loan_number,
+  l.status,
+  l.paid_installments,
+  (SELECT COUNT(*) FROM loan_payments WHERE loan_id = l.id) as payments_count,
+  (SELECT COUNT(*) FROM loan_installments WHERE loan_id = l.id AND status IN ('paid', 'partial')) as paid_installments_count
+FROM loans l
+WHERE l.id = 'UUID_DEL_PRESTAMO';
+
+-- Si no tiene pagos, eliminar
+DELETE FROM loans WHERE id = 'UUID_DEL_PRESTAMO';
+```
+
+Ver también: `supabase/migrations/115_delete_loan_pt09.sql` para un ejemplo completo de script de eliminación con validaciones.
+
 ### Seguridad
 
 #### Row Level Security
 - Trabajadores solo pueden ver sus propios documentos
 - Validación mediante `employees.user_id = auth.uid()`
 - Aplicado a: payroll_slips, overtime_pacts, advances, contract_annexes, loans
+
+---
+
+## 25. Gestión Avanzada de Préstamos
+
+### 25.1 Funcionalidades de Gestión
+
+El sistema permite gestionar préstamos de manera completa, con validaciones que aseguran la integridad de los datos contables.
+
+#### Edición de Préstamos
+
+**Cuándo se puede editar:**
+- ✅ Préstamo en estado `active`
+- ✅ Sin pagos registrados en `loan_payments`
+- ✅ Sin cuotas pagadas (`paid_installments = 0`)
+- ✅ Sin cuotas con estado `paid` o `partial` en `loan_installments`
+
+**Campos editables:**
+- Fecha del préstamo (`loan_date`)
+- Monto solicitado (`amount`)
+- Tasa de interés (`interest_rate`)
+- Número de cuotas (`installments`)
+- Descripción (`description`)
+
+**Campos recalculados automáticamente:**
+- `total_amount` = `amount` + (`amount` × `interest_rate` / 100)
+- `installment_amount` = `total_amount` / `installments`
+- `remaining_amount` = `total_amount` (se reinicia al editar)
+
+#### Cancelación de Préstamos
+
+**Cuándo se puede cancelar:**
+- ✅ Préstamo en estado `active`
+- ✅ No está pagado completamente
+
+**Efectos:**
+- Cambia estado a `cancelled`
+- El préstamo deja de estar activo
+- No se pueden agregar más pagos
+- Se puede eliminar después de cancelar (si no tiene pagos)
+
+#### Eliminación de Préstamos
+
+**Cuándo se puede eliminar:**
+- ✅ Está cancelado (`status = 'cancelled'`) Y no tiene pagos
+- ✅ Está activo (`status = 'active'`) Y no tiene pagos ni cuotas pagadas
+
+**Restricciones:**
+- ❌ No se puede eliminar si tiene pagos registrados
+- ❌ No se puede eliminar si tiene cuotas pagadas
+- ❌ No se puede eliminar si está pagado completamente
+
+**Relaciones eliminadas en cascada:**
+- `loan_payments` (ON DELETE CASCADE)
+- `loan_installments` (ON DELETE CASCADE)
+- `payroll_items.loan_id` (ON DELETE SET NULL)
+
+### 25.2 API de Gestión
+
+#### Endpoints Disponibles
+
+**`GET /api/loans/[id]`**
+- Obtiene préstamo con todas sus relaciones
+- Incluye: empleado, pagos, cuotas
+
+**`PUT /api/loans/[id]`**
+- Actualiza préstamo
+- Valida restricciones antes de permitir edición
+- Recalcula totales automáticamente
+
+**`DELETE /api/loans/[id]`**
+- Elimina préstamo
+- Valida que no tenga pagos antes de eliminar
+- Elimina relaciones en cascada
+
+**`PATCH /api/loans/[id]`**
+- Cancela préstamo (con `action: 'cancel'`)
+- Valida que no esté pagado antes de cancelar
+
+### 25.3 Interfaz de Usuario
+
+#### Página de Detalle (`/employees/[id]/loans/[loanId]`)
+
+**Botones disponibles según estado:**
+
+1. **Editar** (solo si `canEdit()` retorna `true`)
+   - Muestra formulario de edición inline
+   - Permite modificar campos editables
+   - Recalcula automáticamente totales
+   - Botones: "Guardar Cambios" y "Cancelar"
+
+2. **Cancelar** (solo si `canCancel()` retorna `true`)
+   - Cambia estado a "Cancelado"
+   - Muestra confirmación antes de cancelar
+   - Icono: `FaTimesCircle`
+
+3. **Eliminar** (solo si `canDelete()` retorna `true`)
+   - Elimina el préstamo permanentemente
+   - Muestra confirmación antes de eliminar
+   - Redirige a la lista de préstamos después de eliminar
+   - Icono: `FaTrash`
+
+4. **Ver PDF** (siempre disponible)
+   - Genera y muestra el PDF del préstamo
+
+**Indicadores visuales:**
+- Badge de estado (Activo, Pagado, Cancelado)
+- Mensaje informativo si no se puede editar
+- Validaciones en tiempo real
+
+### 25.4 Flujos de Trabajo Recomendados
+
+#### Escenario 1: Error en fecha o monto (sin pagos)
+1. Ir a detalle del préstamo
+2. Hacer clic en "Editar"
+3. Corregir los campos necesarios
+4. Guardar cambios
+
+#### Escenario 2: Préstamo creado por error (sin pagos)
+1. Ir a detalle del préstamo
+2. Opción A: Hacer clic en "Cancelar" (mantiene historial)
+3. Opción B: Hacer clic en "Eliminar" (elimina permanentemente)
+
+#### Escenario 3: Préstamo con pagos (no se puede editar/eliminar)
+1. El sistema mostrará mensaje informativo
+2. Solo se puede cancelar si está activo
+3. Para corregir, crear una reliquidación o ajuste manual
+
+### 25.5 Consideraciones Importantes
+
+1. **Integridad de datos:** Los préstamos con pagos no se pueden modificar para mantener la integridad contable.
+
+2. **Auditoría:** Los préstamos cancelados se mantienen en el sistema para auditoría, pero se pueden eliminar si no tienen pagos.
+
+3. **Liquidaciones:** Si un préstamo ya fue aplicado en una liquidación, no se puede editar ni eliminar. Se debe usar el módulo de reliquidaciones.
+
+4. **Validaciones:** Todas las validaciones se realizan tanto en el frontend como en el backend para seguridad.
+
+### 25.6 Script SQL para Eliminación Manual
+
+Si necesitas eliminar un préstamo manualmente desde la base de datos:
+
+```sql
+-- Verificar restricciones
+SELECT 
+  l.id,
+  l.loan_number,
+  l.status,
+  l.paid_installments,
+  (SELECT COUNT(*) FROM loan_payments WHERE loan_id = l.id) as payments_count,
+  (SELECT COUNT(*) FROM loan_installments WHERE loan_id = l.id AND status IN ('paid', 'partial')) as paid_installments_count
+FROM loans l
+WHERE l.id = 'UUID_DEL_PRESTAMO';
+
+-- Si no tiene pagos, eliminar
+DELETE FROM loans WHERE id = 'UUID_DEL_PRESTAMO';
+```
+
+Ver también: `supabase/migrations/115_delete_loan_pt09.sql` para un ejemplo completo de script de eliminación con validaciones.
 
 #### Storage Policies
 - Bucket `signed-documents` requiere autenticación
