@@ -689,8 +689,16 @@ export default function NewPayrollPage() {
     }
 
     // Debug: verificar préstamos procesados
-    console.log('🔍 [PRÉSTAMOS DEBUG]', {
+    console.log('🔍 [PRÉSTAMOS DEBUG - RESUMEN]', {
       activeLoans_count: activeLoans?.length || 0,
+      activeLoans: activeLoans?.map(l => ({
+        id: l.id,
+        loan_number: l.loan_number,
+        loan_date: l.loan_date,
+        installments: l.installments,
+        paid_installments: l.paid_installments,
+        remaining_amount: l.remaining_amount
+      })),
       pendingInstallments_count: pendingInstallments?.length || 0,
       loansWithInstallments_count: loansWithInstallments.size,
       loansToPay_count: loansToPay.length,
@@ -700,7 +708,8 @@ export default function NewPayrollPage() {
         installment_number: l.installmentNumber,
         expected_amount: l.expectedAmount,
         allowed_amount: l.allowedAmount
-      }))
+      })),
+      period: `${formData.month}/${formData.year}`
     })
 
     // Guardar información de cuotas a actualizar
