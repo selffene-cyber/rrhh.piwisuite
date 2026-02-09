@@ -1118,7 +1118,15 @@ export default function NewPayrollPage() {
         { type: 'legal_deduction', category: 'cesantia', description: 'Seguro de Cesantía', amount: calculation.legalDeductions.unemploymentInsurance },
         { type: 'legal_deduction', category: 'impuesto_unico', description: 'Impuesto Único', amount: calculation.legalDeductions.uniqueTax },
         // Otros descuentos
-        { type: 'other_deduction', category: 'prestamo', description: 'Préstamo', amount: calculation.otherDeductions.loans },
+        // Separar préstamos manuales de préstamos con cuotas
+        // Los préstamos manuales (formData.loans) se guardan como "Otros Préstamos"
+        // Los préstamos con cuotas (loansToPay) se registran en loan_payments
+        ...(formData.loans > 0 ? [{ 
+          type: 'other_deduction', 
+          category: 'otros_prestamos', 
+          description: 'Otros Préstamos', 
+          amount: formData.loans 
+        }] : []),
         { type: 'other_deduction', category: 'anticipo', description: 'Anticipo', amount: calculation.otherDeductions.advances },
         // NO agregar descuento por permisos sin goce - ya está implícito en el cálculo proporcional
       ].filter(item => item.amount > 0)

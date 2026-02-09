@@ -204,10 +204,25 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
     .filter((item: any) => item.category !== 'prestamo' && item.category !== 'anticipo')
     .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
   
+  // Préstamos con cuotas (desde loan_payments)
   const loansTotal = (loanPayments || []).reduce((sum: number, lp: any) => sum + Number(lp.amount || 0), 0)
+  
+  // Préstamos manuales (desde payroll_items con category 'otros_prestamos')
+  const otherLoansTotal = otherDeductions
+    .filter((item: any) => item.category === 'otros_prestamos')
+    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  
+  // Préstamos con cuotas desde payroll_items (por compatibilidad)
+  const loansFromItems = otherDeductions
+    .filter((item: any) => item.category === 'prestamo')
+    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  
   const advancesTotal = (advances || []).reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
   
-  const calculatedTotalOtherDeductions = otherDeductionsFromItems + loansTotal + advancesTotal
+  // Total de préstamos (con cuotas + manuales)
+  const totalLoans = loansTotal + loansFromItems + otherLoansTotal
+  
+  const calculatedTotalOtherDeductions = otherDeductionsFromItems + totalLoans + advancesTotal
 
   return (
     <Document title={generateFileName()}>
@@ -498,7 +513,7 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                     <View style={[styles.row, { marginBottom: 2 }]}>
                       <Text style={{ width: '55%', fontSize: 7 }}>PRESTAMO:</Text>
                       <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
-                        {formatCurrency(loanPayments.reduce((sum: number, lp: any) => sum + Number(lp.amount || 0), 0))}
+                        {formatCurrency(loansTotal + loansFromItems)}
                       </Text>
                     </View>
                     {loanPayments.map((lp: any, idx: number) => {
@@ -535,14 +550,14 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                 )}
                 {/* Mostrar otros descuentos que no sean préstamos ni anticipos */}
                 {otherDeductions
-                  .filter((item: any) => item.category !== 'prestamo' && item.category !== 'anticipo')
+                  .filter((item: any) => item.category !== 'prestamo' && item.category !== 'anticipo' && item.category !== 'otros_prestamos')
                   .map((item: any) => (
                     <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
                       <Text style={{ width: '55%', fontSize: 7 }}>{item.description.toUpperCase()}:</Text>
                       <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
                     </View>
                   ))}
-                {otherDeductions.length === 0 && (!loanPayments || loanPayments.length === 0) && (!advances || advances.length === 0) && (
+                {otherDeductions.length === 0 && otherLoansTotal === 0 && (!loanPayments || loanPayments.length === 0) && loansFromItems === 0 && (!advances || advances.length === 0) && (
                   <View style={[styles.row, { marginBottom: 2 }]}>
                     <Text style={{ width: '55%', fontSize: 7 }}>No hay otros descuentos</Text>
                     <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>0</Text>
