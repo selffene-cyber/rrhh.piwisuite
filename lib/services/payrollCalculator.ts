@@ -41,11 +41,8 @@ export async function calculatePayroll(
   // Calcular otros haberes imponibles primero (redondear todos hacia arriba)
   const bonusesRounded = Math.ceil(bonuses)
   const overtimeRounded = Math.ceil(overtime)
-  // IMPORTANTE: Las vacaciones NO son un concepto adicional
-  // Se pagan como días trabajados normales (remuneración íntegra)
-  // Por lo tanto, NO se suman aquí como concepto adicional
-  // El monto de vacaciones ya está incluido en baseSalaryProportional (días trabajados)
-  const vacationRounded = 0 // Siempre 0 - las vacaciones no son un concepto adicional
+  // IMPORTANTE: Las vacaciones se pagan como remuneración íntegra (concepto separado)
+  // Se descuentan de los días trabajados pero se suman como concepto adicional más abajo
   const otherTaxableEarnings = Math.ceil((input as any).otherTaxableEarnings || 0)
 
   // Total de remuneraciones SIN gratificación (base para calcular la gratificación)
@@ -104,15 +101,17 @@ export async function calculatePayroll(
   }
 
   // Haberes imponibles (ya redondeados)
-  // NOTA: vacation siempre es 0 porque las vacaciones se pagan como días trabajados normales
+  // NOTA: Las vacaciones se pagan como remuneración íntegra (concepto separado)
+  // Se descuentan de los días trabajados pero se suman como concepto adicional
+  const vacationRounded = Math.ceil(vacation || 0)
   const taxableEarnings = {
     baseSalary: baseSalaryProportional,
     bonuses: bonusesRounded,
     monthlyGratification,
     overtime: overtimeRounded,
-    vacation: 0, // Siempre 0 - las vacaciones no son un concepto adicional
+    vacation: vacationRounded, // Vacaciones como remuneración íntegra (concepto separado)
     otherTaxableEarnings,
-    total: Math.ceil(baseSalaryProportional + bonusesRounded + monthlyGratification + overtimeRounded + otherTaxableEarnings),
+    total: Math.ceil(baseSalaryProportional + bonusesRounded + monthlyGratification + overtimeRounded + vacationRounded + otherTaxableEarnings),
   }
 
   // Base imponible (para AFP e impuestos) - ya está redondeada arriba
