@@ -675,6 +675,8 @@ export default function NewPayrollPage() {
 
     const indicators = await getCachedIndicators(indicatorYear, indicatorMonth)
 
+    // IMPORTANTE: Los haberes no imponibles adicionales se suman al aguinaldo
+    // pero transportation y mealAllowance se pasan por separado
     const result = await calculatePayroll(
       {
         baseSalary: selectedEmployee.base_salary,
@@ -687,9 +689,9 @@ export default function NewPayrollPage() {
         overtime: overtimeAmount,
         vacation: vacationAmount,
         otherTaxableEarnings: formData.other_taxable_earnings,
-        transportation: formData.transportation,
-        mealAllowance: formData.meal_allowance,
-        aguinaldo: formData.aguinaldo + totalNonTaxableEarnings,
+        transportation: Number(formData.transportation) || 0,
+        mealAllowance: Number(formData.meal_allowance) || 0,
+        aguinaldo: (Number(formData.aguinaldo) || 0) + totalNonTaxableEarnings,
         loans: totalLoansAmount,
         advances: totalAdvancesAmount,
         permissionDiscount: 0, // NO aplicar descuento adicional - ya está implícito en el cálculo proporcional de días trabajados
@@ -698,6 +700,20 @@ export default function NewPayrollPage() {
       formData.year,
       formData.month
     )
+
+    // Debug: verificar valores de haberes no imponibles
+    console.log('🔍 [HABERES NO IMPONIBLES DEBUG]', {
+      transportation: formData.transportation,
+      transportation_parsed: Number(formData.transportation) || 0,
+      meal_allowance: formData.meal_allowance,
+      meal_allowance_parsed: Number(formData.meal_allowance) || 0,
+      aguinaldo: formData.aguinaldo,
+      aguinaldo_parsed: Number(formData.aguinaldo) || 0,
+      totalNonTaxableEarnings,
+      aguinaldo_final: (Number(formData.aguinaldo) || 0) + totalNonTaxableEarnings,
+      calculation_result: result.nonTaxableEarnings,
+      total_calculated: result.nonTaxableEarnings.total
+    })
 
     // Guardar información de préstamos, anticipos y permisos para usar al guardar
     setLoansToPay(loansToPay)

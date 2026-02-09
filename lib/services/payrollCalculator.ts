@@ -111,12 +111,31 @@ export async function calculatePayroll(
   const taxableBase = taxableEarnings.total
 
   // Haberes no imponibles (redondear todos hacia arriba)
+  // Asegurar que todos los valores sean números válidos
+  const transportationNum = Number(transportation) || 0
+  const mealAllowanceNum = Number(mealAllowance) || 0
+  const aguinaldoNum = Number(aguinaldo) || 0
+  
   const nonTaxableEarnings = {
-    transportation: Math.ceil(transportation),
-    mealAllowance: Math.ceil(mealAllowance),
-    aguinaldo: Math.ceil(aguinaldo),
-    total: Math.ceil(transportation + mealAllowance + aguinaldo),
+    transportation: Math.ceil(transportationNum),
+    mealAllowance: Math.ceil(mealAllowanceNum),
+    aguinaldo: Math.ceil(aguinaldoNum),
+    total: Math.ceil(transportationNum + mealAllowanceNum + aguinaldoNum),
   }
+  
+  // Debug: verificar cálculo de haberes no imponibles
+  console.log('🔍 [CALCULADOR - HABERES NO IMPONIBLES]', {
+    transportation_input: transportation,
+    transportation_parsed: transportationNum,
+    transportation_rounded: Math.ceil(transportationNum),
+    mealAllowance_input: mealAllowance,
+    mealAllowance_parsed: mealAllowanceNum,
+    mealAllowance_rounded: Math.ceil(mealAllowanceNum),
+    aguinaldo_input: aguinaldo,
+    aguinaldo_parsed: aguinaldoNum,
+    aguinaldo_rounded: Math.ceil(aguinaldoNum),
+    total_calculated: nonTaxableEarnings.total
+  })
 
   // Descuentos legales
 
