@@ -8,8 +8,8 @@ import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { useRouter, usePathname } from 'next/navigation'
 import { pdf } from '@react-pdf/renderer'
 import { PayrollDocument } from '@/components/PayrollPDF'
-import { FaRedo } from 'react-icons/fa'
 import React from 'react'
+import { FaRedo } from 'react-icons/fa'
 
 export default function PayrollDetailClient({ initialSlip, company, vacations, advances, loanPayments }: { initialSlip: any, company: any, vacations?: any[] | null, advances?: any[], loanPayments?: any[] }) {
   const router = useRouter()
