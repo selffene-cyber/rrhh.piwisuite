@@ -572,12 +572,14 @@ export default function NewPayrollPage() {
     }
     setOvertimeAmount(Math.ceil(overtimeAmountCalc))
 
-    // Ajustar días trabajados si hay licencia médica o permisos sin goce
-    // IMPORTANTE: Las vacaciones NO se descuentan de los días trabajados
-    // Las vacaciones se pagan como días trabajados normales (remuneración íntegra)
-    // Por lo tanto, los días de vacaciones deben estar incluidos en daysWorked
-    // Ejemplo: Si tiene 30 días de trabajo y 10 días de vacaciones, daysWorked = 30 (incluye los 10 días de vacaciones)
-    const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays - permissionDaysWithoutPay)
+    // Ajustar días trabajados si hay licencia médica, permisos sin goce o vacaciones
+    // IMPORTANTE: Las vacaciones se descuentan de los días trabajados
+    // Las vacaciones se pagan como remuneración íntegra (concepto separado)
+    // Ejemplo: Si tiene 30 días de trabajo y 10 días de vacaciones:
+    // - Días trabajados efectivos = 30 - 10 = 20 días
+    // - Vacaciones = (sueldo base / 30) × 10 días (concepto separado)
+    // - Total = sueldo base proporcional (20 días) + vacaciones (10 días) = sueldo base completo
+    const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays - permissionDaysWithoutPay - vacationDays)
     setMedicalLeaveDays(leaveDays)
     setVacationDays(vacationDays)
     setPermissionDaysWithoutPay(permissionDaysWithoutPay)
@@ -895,7 +897,7 @@ export default function NewPayrollPage() {
         afcApplicable: selectedEmployee.afc_applicable !== false, // Por defecto true
         bonuses: totalBonuses,
         overtime: overtimeAmount,
-        vacation: 0, // Las vacaciones NO son un concepto adicional, se pagan como días trabajados normales
+        vacation: totalVacationAmount, // Vacaciones como remuneración íntegra (concepto separado)
         otherTaxableEarnings: formData.other_taxable_earnings,
         transportation: Number(formData.transportation) || 0,
         mealAllowance: Number(formData.meal_allowance) || 0,
@@ -1023,18 +1025,19 @@ export default function NewPayrollPage() {
         return
       }
 
-      // Calcular días efectivos (descontando licencia médica y permisos sin goce)
-      const effectiveDaysWorked = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)
+      // Calcular días efectivos (descontando licencia médica, permisos sin goce y vacaciones)
+      const effectiveDaysWorked = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)
 
       // Crear liquidación
-      // NOTA: days_worked incluye días de vacaciones (no se descuentan)
+      // NOTA: days_worked NO incluye días de vacaciones (se descuentan)
+      // Las vacaciones se pagan como remuneración íntegra (concepto separado en taxableEarnings.vacation)
       // days_leave incluye licencias médicas
       const { data: slip, error: slipError } = await supabase
         .from('payroll_slips')
         .insert({
           employee_id: formData.employee_id,
           period_id: period.id,
-          days_worked: effectiveDaysWorked, // Días efectivos (descontando licencias y permisos sin goce)
+          days_worked: effectiveDaysWorked, // Días efectivos (descontando licencias, permisos sin goce y vacaciones)
           days_leave: medicalLeaveDays, // Días de licencia médica calculados automáticamente
           base_salary: selectedEmployee.base_salary,
           taxable_base: calculation.taxableBase,
@@ -1369,7 +1372,7 @@ export default function NewPayrollPage() {
                 onChange={(e) => setFormData({ ...formData, days_worked: parseInt(e.target.value) })}
               />
               {(() => {
-                const effectiveDays = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)
+                const effectiveDays = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)
                 if (effectiveDays !== formData.days_worked) {
                   const parts: string[] = []
                   if (permissionDaysWithoutPay > 0) {
@@ -1387,7 +1390,7 @@ export default function NewPayrollPage() {
                       </span>
                       <br />
                       <span style={{ fontSize: '10px', color: '#9ca3af', fontStyle: 'italic' }}>
-                        La liquidación se calculará por {effectiveDays} días, no por {formData.days_worked} días.
+                        La liquidación se calculará por {effectiveDays} días de sueldo base, más {vacationDays > 0 ? `${vacationDays} días de vacaciones (remuneración íntegra)` : 'sin vacaciones'}, no por {formData.days_worked} días.
                       </span>
                     </small>
                   )
@@ -1419,9 +1422,9 @@ export default function NewPayrollPage() {
                   <div style={{ fontSize: '12px', color: '#7f1d1d', marginBottom: '8px' }}>
                     <strong>Total de días de permiso sin goce:</strong> {permissionDaysWithoutPay} día{permissionDaysWithoutPay > 1 ? 's' : ''}
                     <br />
-                    <strong>Días efectivos a calcular:</strong> {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)} días
+                    <strong>Días efectivos a calcular:</strong> {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)} días
                     <br />
-                    <strong>Cálculo del sueldo:</strong> (Sueldo Base / 30) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)} días efectivos
+                    <strong>Cálculo del sueldo:</strong> (Sueldo Base / 30) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)} días efectivos
                   </div>
                   <div style={{ fontSize: '12px', color: '#7f1d1d' }}>
                     <strong>Detalle de permisos:</strong>
@@ -1448,7 +1451,7 @@ export default function NewPayrollPage() {
                     <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
                       Días de licencia en el período: {medicalLeaveDays}
                       <br />
-                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)}
+                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)}
                     </p>
                   </div>
                 )}
@@ -1471,10 +1474,10 @@ export default function NewPayrollPage() {
                           </ul>
                         </>
                       )}
-                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)}
+                      Días efectivos a calcular: {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)}
                       <br />
                       <small style={{ color: '#991b1b' }}>
-                        ⚠️ El sueldo se calculará proporcionalmente: (Sueldo Base / {formData.days_worked}) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)} días efectivos
+                        ⚠️ El sueldo se calculará proporcionalmente: (Sueldo Base / {formData.days_worked}) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)} días efectivos
                       </small>
                     </p>
                   </div>
@@ -1485,9 +1488,19 @@ export default function NewPayrollPage() {
                     <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
                       Días de vacaciones: {vacationDays} día(s)
                       <br />
-                      Monto calculado: ${vacationAmount.toLocaleString('es-CL')}
+                      <strong>Días efectivos a calcular (sueldo base):</strong> {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)} días
                       <br />
-                      <small>Las vacaciones se pagan como días normales según ley chilena: (Sueldo Base / 30) × Días de Vacaciones</small>
+                      <strong>Monto de vacaciones (remuneración íntegra):</strong> ${vacationAmount.toLocaleString('es-CL')}
+                      <br />
+                      <small style={{ color: '#1e40af' }}>
+                        ℹ️ Las vacaciones se pagan como remuneración íntegra según ley chilena. 
+                        El sueldo base se calculará por {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)} días 
+                        y las vacaciones se pagarán como concepto separado por {vacationDays} día(s).
+                        <br />
+                        <strong>Cálculo:</strong> Sueldo Base = (Sueldo Base / 30) × {Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay - vacationDays)} días
+                        <br />
+                        <strong>Vacaciones:</strong> (Sueldo Base / 30) × {vacationDays} días = ${vacationAmount.toLocaleString('es-CL')}
+                      </small>
                     </p>
                   </div>
                 )}
