@@ -7,7 +7,7 @@ import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { useRouter, usePathname } from 'next/navigation'
 import { pdf } from '@react-pdf/renderer'
-import { PayrollDocument } from '@/components/PayrollPDF'
+import { PayrollDocument } from '@/components/PayrollDocument'
 import React from 'react'
 import { FaRedo } from 'react-icons/fa'
 
