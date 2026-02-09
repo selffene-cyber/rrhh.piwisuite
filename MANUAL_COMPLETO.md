@@ -973,23 +973,30 @@ Certificados laborales.
 #### 3.2 Nueva Liquidación (`/payroll/new`)
 **Proceso:**
 1. Selección de trabajador y período
-2. Cálculo automático de días trabajados (considera licencias)
+2. **Cálculo automático de días trabajados:**
+   - Campo "Días Trabajados" siempre debe ser **30 días** (convención legal chilena)
+   - El sistema descuenta automáticamente:
+     - Permisos sin goce de sueldo
+     - Licencias médicas
+   - **Días efectivos = 30 - permisos sin goce - licencias médicas**
+   - Las vacaciones NO se descuentan (se pagan como días trabajados normales)
+   - El sistema muestra claramente los días efectivos a calcular
 3. Ingreso de haberes adicionales:
    - Bonos (imponible)
    - Horas extras (imponible)
-   - Vacaciones (imponible)
+   - Vacaciones (se pagan como días normales, no como concepto adicional)
    - Otros haberes imponibles
    - Movilización (no imponible)
    - Colación (no imponible)
    - Aguinaldo (no imponible)
 4. Descuentos automáticos:
-   - Préstamos activos (cuota siguiente)
+   - Préstamos activos (cuota siguiente) - **Monto autorizado completo (sin límite del 15%)**
    - Anticipos del período (firmados/pagados)
 5. Cálculo automático de:
    - Haberes imponibles y no imponibles
    - Descuentos legales (AFP, Salud, Impuesto Único, Cesantía)
-   - Otros descuentos
-   - Líquido a pagar
+   - Otros descuentos (con montos autorizados completos)
+   - Líquido a pagar (Total Haberes - Total Descuentos esperados)
 6. Guardado de liquidación y ítems detallados
 
 #### 3.3 Editar Liquidación (`/payroll/[id]/edit`)
@@ -1192,9 +1199,12 @@ Certificados laborales.
 
 **Sueldo Base Proporcional:**
 ```
-Sueldo Base Proporcional = (Sueldo Base / 30) × Días Trabajados
+Sueldo Base Proporcional = (Sueldo Base / 30) × Días Efectivos
+Días Efectivos = 30 - Permisos sin goce - Licencias médicas
 ```
-- Días trabajados = Días del mes - Días de licencia médica
+- **IMPORTANTE:** El campo "Días Trabajados" siempre debe ser **30 días** (convención legal)
+- El sistema descuenta automáticamente permisos sin goce y licencias médicas
+- Las vacaciones NO se descuentan (se pagan como días trabajados normales)
 - Redondeo hacia arriba
 
 **Gratificación Mensual:**
@@ -1272,8 +1282,11 @@ Impuesto Único = (RLI × Factor) - Rebaja
 
 **Préstamos:**
 - Suma de cuotas pendientes de préstamos activos
+- **IMPORTANTE:** Se usa el monto autorizado completo (`installment_amount`) del préstamo
+- **NO se aplica límite del 15%** si el trabajador autorizó un monto mayor
 - Se registra en `loan_payments`
 - Se actualiza estado del préstamo
+- En la visualización se muestra el monto autorizado con referencia "(Autorizado: $XXX)"
 
 **Anticipos:**
 - Suma de anticipos "firmados" o "pagados" del período
@@ -1282,6 +1295,7 @@ Impuesto Único = (RLI × Factor) - Rebaja
 
 **Préstamos Manuales:**
 - Campo adicional para préstamos no registrados en el sistema
+- Se muestran como "Otros Préstamos" en el detalle y PDF
 
 #### 1.5 Totales
 
@@ -1291,12 +1305,17 @@ Total Haberes No Imponibles = Suma de todos los haberes no imponibles
 Total Haberes = Total Haberes Imponibles + Total Haberes No Imponibles
 
 Total Descuentos Legales = AFP + Salud + Cesantía + Impuesto Único
-Total Otros Descuentos = Préstamos + Anticipos + Otros
+Total Otros Descuentos = Préstamos (montos autorizados) + Anticipos + Otros Préstamos Manuales
 
 Total Descuentos = Total Descuentos Legales + Total Otros Descuentos
 
-Líquido a Pagar = Total Haberes - Total Descuentos
+Líquido a Pagar = Total Haberes - Total Descuentos (esperados, sin límite del 15%)
 ```
+
+**IMPORTANTE sobre Préstamos:**
+- Los préstamos se muestran y calculan con el **monto autorizado completo** (`installment_amount`)
+- No se aplica límite del 15% si el trabajador autorizó un monto mayor al momento de crear el préstamo
+- El texto legal en el PDF indica: "se descontarán conforme la autorización del trabajador y empleador"
 
 **Redondeo:**
 - Todos los cálculos monetarios usan `Math.ceil()` (redondeo hacia arriba)
@@ -1422,9 +1441,14 @@ Ejemplo: LIQUIDACIÓN-18.968.229-8-DIC-2025.pdf
 **Desglose de Préstamos en PDF:**
 - Muestra cada préstamo con ID (PT-##) y cuota pagada/total
 - Ejemplo: "PT-01 - Cuota 2/12 $125.000"
+- **IMPORTANTE:** Se muestra el monto autorizado completo (`installment_amount`), no el monto limitado por el 15%
 
 **Desglose de Anticipos en PDF:**
 - Muestra cada anticipo con fecha y monto
+
+**Texto Legal en PDF:**
+- Los descuentos voluntarios (préstamos, anticipos) se descontarán conforme la autorización del trabajador y empleador, considerando lo establecido en el Código del Trabajo.
+- Ya no se menciona el límite del 15% ya que los préstamos pueden estar autorizados para montos mayores.
 
 ### 2. Préstamo Interno (`components/LoanPDF.tsx`)
 
