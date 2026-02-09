@@ -748,7 +748,7 @@ export default function NewPayrollPage() {
     // Debug: verificar préstamos procesados
     console.log('🔍 [PRÉSTAMOS DEBUG - RESUMEN]', {
       activeLoans_count: activeLoans?.length || 0,
-      activeLoans: activeLoans?.map(l => ({
+      activeLoans: activeLoans?.map((l: any) => ({
         id: l.id,
         loan_number: l.loan_number,
         loan_date: l.loan_date,
@@ -759,7 +759,7 @@ export default function NewPayrollPage() {
       pendingInstallments_count: pendingInstallments?.length || 0,
       loansWithInstallments_count: loansWithInstallments.size,
       loansToPay_count: loansToPay.length,
-      loansToPay: loansToPay.map(l => ({
+      loansToPay: loansToPay.map((l: any) => ({
         loan_id: l.id,
         loan_number: l.loan_number,
         installment_number: l.installmentNumber,
