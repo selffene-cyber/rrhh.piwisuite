@@ -340,11 +340,14 @@ export default function NewPayrollPage() {
         const overlapEnd = vacEnd < periodEnd ? vacEnd : periodEnd
         
         if (overlapStart <= overlapEnd) {
-          const diffTime = overlapEnd.getTime() - overlapStart.getTime()
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+          // IMPORTANTE: Las vacaciones se calculan en días HÁBILES (lunes a viernes, excluyendo feriados)
+          // No se usan días calendario, sino días hábiles según la ley chilena
+          const { calculateBusinessDays } = await import('@/lib/services/vacationCalculator')
+          const diffDays = await calculateBusinessDays(overlapStart, overlapEnd)
           vacationDays += diffDays
           
-          // Calcular monto según ley chilena: (sueldo base / 30) * días de vacaciones
+          // Calcular monto según ley chilena: (sueldo base / 30) * días hábiles de vacaciones
+          // NOTA: Este monto NO se suma como concepto adicional, las vacaciones se pagan como días trabajados normales
           const dailySalary = selectedEmployee.base_salary / 30
           const vacationAmountForPeriod = Math.ceil(dailySalary * diffDays)
           totalVacationAmount += vacationAmountForPeriod
@@ -547,7 +550,10 @@ export default function NewPayrollPage() {
     setOvertimeAmount(Math.ceil(overtimeAmountCalc))
 
     // Ajustar días trabajados si hay licencia médica o permisos sin goce
-    // NOTA: Las vacaciones NO descuentan días trabajados (se pagan como días normales)
+    // IMPORTANTE: Las vacaciones NO se descuentan de los días trabajados
+    // Las vacaciones se pagan como días trabajados normales (remuneración íntegra)
+    // Por lo tanto, los días de vacaciones deben estar incluidos en daysWorked
+    // Ejemplo: Si tiene 30 días de trabajo y 10 días de vacaciones, daysWorked = 30 (incluye los 10 días de vacaciones)
     const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays - permissionDaysWithoutPay)
     setMedicalLeaveDays(leaveDays)
     setVacationDays(vacationDays)
@@ -830,7 +836,7 @@ export default function NewPayrollPage() {
         healthPlanPercentage: selectedEmployee.health_plan_percentage || 0, // Porcentaje adicional del plan ISAPRE
         bonuses: totalBonuses,
         overtime: overtimeAmount,
-        vacation: vacationAmount,
+        vacation: 0, // Las vacaciones NO son un concepto adicional, se pagan como días trabajados normales
         otherTaxableEarnings: formData.other_taxable_earnings,
         transportation: Number(formData.transportation) || 0,
         mealAllowance: Number(formData.meal_allowance) || 0,

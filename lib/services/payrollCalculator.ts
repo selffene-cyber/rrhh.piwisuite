@@ -38,11 +38,15 @@ export async function calculatePayroll(
   // Calcular otros haberes imponibles primero (redondear todos hacia arriba)
   const bonusesRounded = Math.ceil(bonuses)
   const overtimeRounded = Math.ceil(overtime)
-  const vacationRounded = Math.ceil(vacation)
+  // IMPORTANTE: Las vacaciones NO son un concepto adicional
+  // Se pagan como días trabajados normales (remuneración íntegra)
+  // Por lo tanto, NO se suman aquí como concepto adicional
+  // El monto de vacaciones ya está incluido en baseSalaryProportional (días trabajados)
+  const vacationRounded = 0 // Siempre 0 - las vacaciones no son un concepto adicional
   const otherTaxableEarnings = Math.ceil((input as any).otherTaxableEarnings || 0)
 
   // Total de remuneraciones SIN gratificación (base para calcular la gratificación)
-  const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + vacationRounded + otherTaxableEarnings
+  const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + otherTaxableEarnings
 
   // Gratificación mensual legal
   // Según normativa chilena (Art. 47 Código del Trabajo):
@@ -97,14 +101,15 @@ export async function calculatePayroll(
   }
 
   // Haberes imponibles (ya redondeados)
+  // NOTA: vacation siempre es 0 porque las vacaciones se pagan como días trabajados normales
   const taxableEarnings = {
     baseSalary: baseSalaryProportional,
     bonuses: bonusesRounded,
     monthlyGratification,
     overtime: overtimeRounded,
-    vacation: vacationRounded,
+    vacation: 0, // Siempre 0 - las vacaciones no son un concepto adicional
     otherTaxableEarnings,
-    total: Math.ceil(baseSalaryProportional + bonusesRounded + monthlyGratification + overtimeRounded + vacationRounded + otherTaxableEarnings),
+    total: Math.ceil(baseSalaryProportional + bonusesRounded + monthlyGratification + overtimeRounded + otherTaxableEarnings),
   }
 
   // Base imponible (para AFP e impuestos) - ya está redondeada arriba
