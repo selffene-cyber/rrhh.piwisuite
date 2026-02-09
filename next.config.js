@@ -12,6 +12,15 @@ const nextConfig = {
     // Si prefieres, puedes quitarlo y solo dejar eslint
     ignoreBuildErrors: false, // Mantener TypeScript activo
   },
+  // Configuración para manejar react-icons correctamente
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // En el servidor, externalizar react-icons para evitar problemas de resolución
+      config.externals = config.externals || []
+      config.externals.push('react-icons')
+    }
+    return config
+  },
   // Configuración para PWA
   async headers() {
     return [
