@@ -33,7 +33,10 @@ export async function calculatePayroll(
   } = input
 
   // Sueldo base proporcional a días trabajados (redondear hacia arriba)
-  const baseSalaryProportional = Math.ceil((baseSalary / 30) * daysWorked)
+  // Si daysWorked es 30, retornar baseSalary directamente para evitar errores de precisión
+  const baseSalaryProportional = daysWorked === 30
+    ? baseSalary
+    : Math.ceil((baseSalary / 30) * daysWorked)
 
   // Calcular otros haberes imponibles primero (redondear todos hacia arriba)
   const bonusesRounded = Math.ceil(bonuses)
