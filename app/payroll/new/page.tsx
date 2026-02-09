@@ -40,6 +40,7 @@ export default function NewPayrollPage() {
   const [bonuses, setBonuses] = useState<Array<{ id: string, name: string, amount: number }>>([])
   const [nonTaxableEarnings, setNonTaxableEarnings] = useState<Array<{ id: string, name: string, amount: number }>>([])
   const [defaultValuesLoaded, setDefaultValuesLoaded] = useState(false)
+  const [copyingLastPayroll, setCopyingLastPayroll] = useState(false)
   const [calculation, setCalculation] = useState<any>(null)
   const [loansToPay, setLoansToPay] = useState<any[]>([])
   const [installmentsToUpdate, setInstallmentsToUpdate] = useState<any[]>([])
@@ -308,6 +309,96 @@ export default function NewPayrollPage() {
     } catch (error) {
       console.error('Error al cargar bonos del contrato:', error)
       setBonuses([])
+    }
+  }
+
+  const copyLastPayroll = async () => {
+    if (!selectedEmployee) return
+    
+    setCopyingLastPayroll(true)
+    try {
+      // Buscar la última liquidación emitida del trabajador
+      const { data: lastSlip, error: slipError } = await supabase
+        .from('payroll_slips')
+        .select(`
+          id,
+          payroll_items (*)
+        `)
+        .eq('employee_id', selectedEmployee.id)
+        .eq('status', 'issued')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (slipError) throw slipError
+
+      if (!lastSlip || !lastSlip.payroll_items || lastSlip.payroll_items.length === 0) {
+        alert('No se encontró una liquidación previa emitida para este trabajador.')
+        return
+      }
+
+      // Extraer bonos imponibles (taxable_earning con category 'bono')
+      const bonusItems = lastSlip.payroll_items.filter((item: any) => 
+        item.type === 'taxable_earning' && item.category === 'bono'
+      )
+      
+      // Extraer haberes no imponibles (non_taxable_earning, excluyendo movilización y colación)
+      const nonTaxableItems = lastSlip.payroll_items.filter((item: any) => 
+        item.type === 'non_taxable_earning' && 
+        item.category !== 'movilizacion' && 
+        item.category !== 'colacion' &&
+        item.category !== 'aguinaldo'
+      )
+
+      // Extraer movilización y colación
+      const transportationItem = lastSlip.payroll_items.find((item: any) => 
+        item.type === 'non_taxable_earning' && item.category === 'movilizacion'
+      )
+      const mealAllowanceItem = lastSlip.payroll_items.find((item: any) => 
+        item.type === 'non_taxable_earning' && item.category === 'colacion'
+      )
+
+      // Aplicar bonos
+      if (bonusItems.length > 0) {
+        const copiedBonuses = bonusItems.map((item: any, idx: number) => ({
+          id: `copied-bonus-${Date.now()}-${idx}`,
+          name: item.description || 'Bono',
+          amount: Number(item.amount) || 0
+        }))
+        setBonuses(copiedBonuses)
+      }
+
+      // Aplicar haberes no imponibles
+      if (nonTaxableItems.length > 0) {
+        const copiedNonTaxable = nonTaxableItems.map((item: any, idx: number) => ({
+          id: `copied-nontaxable-${Date.now()}-${idx}`,
+          name: item.description || 'Haber no imponible',
+          amount: Number(item.amount) || 0
+        }))
+        setNonTaxableEarnings(copiedNonTaxable)
+      }
+
+      // Aplicar movilización y colación
+      if (transportationItem) {
+        setFormData(prev => ({
+          ...prev,
+          transportation: Number(transportationItem.amount) || 0
+        }))
+      }
+
+      if (mealAllowanceItem) {
+        setFormData(prev => ({
+          ...prev,
+          meal_allowance: Number(mealAllowanceItem.amount) || 0
+        }))
+      }
+
+      alert(`Datos copiados de la última liquidación:\n- ${bonusItems.length} bono(s) imponible(s)\n- ${nonTaxableItems.length} haber(es) no imponible(s)\n- Movilización: ${transportationItem ? formatNumberForInput(Number(transportationItem.amount) || 0) : 'No encontrada'}\n- Colación: ${mealAllowanceItem ? formatNumberForInput(Number(mealAllowanceItem.amount) || 0) : 'No encontrada'}`)
+    } catch (error: any) {
+      console.error('Error al copiar última liquidación:', error)
+      alert('Error al copiar última liquidación: ' + error.message)
+    } finally {
+      setCopyingLastPayroll(false)
     }
   }
 
@@ -1343,6 +1434,27 @@ export default function NewPayrollPage() {
                   </option>
                 ))}
               </select>
+              {selectedEmployee && (
+                <button
+                  type="button"
+                  onClick={copyLastPayroll}
+                  disabled={copyingLastPayroll}
+                  style={{
+                    marginTop: '8px',
+                    padding: '8px 16px',
+                    background: copyingLastPayroll ? '#9ca3af' : '#3b82f6',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: copyingLastPayroll ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    width: '100%'
+                  }}
+                >
+                  {copyingLastPayroll ? 'Copiando...' : '📋 Copiar última liquidación'}
+                </button>
+              )}
             </div>
           </div>
           <div className="form-row">
