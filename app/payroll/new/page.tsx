@@ -536,15 +536,16 @@ export default function NewPayrollPage() {
     setPermissionDaysWithoutPay(permissionDaysWithoutPay)
     setPermissionsToApply(permissionsToApply)
 
-    // Obtener préstamos activos del trabajador con sus cuotas pendientes
+    // Obtener TODOS los préstamos activos del trabajador
     const { data: activeLoans } = await supabase
       .from('loans')
-      .select('id, installment_amount, remaining_amount, status, installments, paid_installments')
+      .select('id, installment_amount, remaining_amount, status, installments, paid_installments, loan_date, loan_number')
       .eq('employee_id', selectedEmployee.id)
       .eq('status', 'active')
       .gt('remaining_amount', 0)
+      .order('loan_date', { ascending: true })
 
-    // Obtener cuotas pendientes del período actual
+    // Obtener cuotas pendientes del período actual (si existen)
     const { data: pendingInstallments } = await supabase
       .from('loan_installments')
       .select('*, loans (*)')
@@ -562,69 +563,127 @@ export default function NewPayrollPage() {
     const loansToPay: any[] = []
     const installmentsToUpdate: any[] = []
 
+    // Crear un mapa de préstamos que ya tienen cuotas en loan_installments
+    const loansWithInstallments = new Map<string, any>()
     if (pendingInstallments && pendingInstallments.length > 0) {
-      let remainingDiscountCapacity = maxVoluntaryDiscount
-
       for (const installment of pendingInstallments) {
         const loan = installment.loans
-        if (!loan) continue
-
-        const expectedAmount = Number(installment.amount_expected) || loan.installment_amount
-        const allowedAmount = Math.min(expectedAmount, remainingDiscountCapacity)
-        const deferredAmount = expectedAmount - allowedAmount
-
-        if (allowedAmount > 0) {
-          totalLoansAmount += allowedAmount
-          loansToPay.push({
-            ...loan,
-            installmentId: installment.id,
-            installmentNumber: installment.installment_number,
-            expectedAmount,
-            allowedAmount,
-            deferredAmount,
-          })
-
-          // Registrar actualización de cuota
-          installmentsToUpdate.push({
-            id: installment.id,
-            amount_applied: allowedAmount,
-            amount_deferred: deferredAmount,
-            status: deferredAmount > 0 ? 'partial' : 'paid',
-          })
-
-          remainingDiscountCapacity -= allowedAmount
-        } else {
-          // No hay capacidad para descontar, todo se difiere
-          installmentsToUpdate.push({
-            id: installment.id,
-            amount_applied: 0,
-            amount_deferred: expectedAmount,
-            status: 'deferred',
-          })
+        if (loan) {
+          loansWithInstallments.set(loan.id, installment)
         }
       }
-    } else if (activeLoans) {
-      // Fallback: si no hay cuotas en loan_installments, usar lógica antigua
+    }
+
+    // Procesar TODOS los préstamos activos
+    if (activeLoans && activeLoans.length > 0) {
+      let remainingDiscountCapacity = maxVoluntaryDiscount
+
       for (const loan of activeLoans) {
         const remainingInstallments = loan.installments - loan.paid_installments
-        if (remainingInstallments > 0) {
-          const expectedAmount = loan.installment_amount
-          const allowedAmount = Math.min(expectedAmount, maxVoluntaryDiscount - totalLoansAmount)
+        
+        // Si no hay cuotas pendientes, saltar este préstamo
+        if (remainingInstallments <= 0) continue
+
+        // Verificar si este préstamo tiene una cuota en loan_installments para este período
+        const installmentInTable = loansWithInstallments.get(loan.id)
+        
+        if (installmentInTable) {
+          // Usar la cuota de loan_installments
+          const expectedAmount = Number(installmentInTable.amount_expected) || loan.installment_amount
+          const allowedAmount = Math.min(expectedAmount, remainingDiscountCapacity)
           const deferredAmount = expectedAmount - allowedAmount
 
           if (allowedAmount > 0) {
             totalLoansAmount += allowedAmount
             loansToPay.push({
               ...loan,
-              installmentNumber: loan.paid_installments + 1,
+              installmentId: installmentInTable.id,
+              installmentNumber: installmentInTable.installment_number,
               expectedAmount,
               allowedAmount,
               deferredAmount,
             })
+
+            // Registrar actualización de cuota
+            installmentsToUpdate.push({
+              id: installmentInTable.id,
+              amount_applied: allowedAmount,
+              amount_deferred: deferredAmount,
+              status: deferredAmount > 0 ? 'partial' : 'paid',
+            })
+
+            remainingDiscountCapacity -= allowedAmount
+          } else {
+            // No hay capacidad para descontar, todo se difiere
+            installmentsToUpdate.push({
+              id: installmentInTable.id,
+              amount_applied: 0,
+              amount_deferred: expectedAmount,
+              status: 'deferred',
+            })
+          }
+        } else {
+          // No tiene cuota en loan_installments, calcular si corresponde descontar en este período
+          // Calcular el mes de inicio del préstamo
+          const loanDate = new Date(loan.loan_date + 'T00:00:00')
+          const loanMonth = loanDate.getMonth() + 1
+          const loanYear = loanDate.getFullYear()
+          
+          // Calcular cuántos meses han pasado desde el préstamo hasta el período actual
+          const monthsDiff = (formData.year - loanYear) * 12 + (formData.month - loanMonth)
+          
+          // La primera cuota se descuenta en el mismo mes del préstamo o en el mes siguiente
+          // Si el préstamo es en enero y estamos liquidando enero, la primera cuota se descuenta en enero
+          // Si el préstamo es en enero y estamos liquidando febrero, la segunda cuota se descuenta en febrero
+          
+          // Si el préstamo es del mismo mes o anterior, calcular cuál cuota corresponde
+          // monthsDiff = 0 → mismo mes → primera cuota
+          // monthsDiff = 1 → mes siguiente → segunda cuota
+          // monthsDiff = 2 → dos meses después → tercera cuota
+          if (monthsDiff >= 0) {
+            // La cuota número (monthsDiff + 1) corresponde a este período
+            // Ejemplo: Préstamo en enero, liquidando enero → monthsDiff = 0 → cuota 1
+            // Ejemplo: Préstamo en enero, liquidando febrero → monthsDiff = 1 → cuota 2
+            const expectedInstallmentNumber = monthsDiff + 1
+            
+            // Verificar que esta cuota no haya sido pagada ya y que esté dentro del rango de cuotas
+            if (expectedInstallmentNumber <= loan.installments && expectedInstallmentNumber > loan.paid_installments) {
+              const expectedAmount = loan.installment_amount
+              const allowedAmount = Math.min(expectedAmount, remainingDiscountCapacity)
+              const deferredAmount = expectedAmount - allowedAmount
+
+              if (allowedAmount > 0) {
+                totalLoansAmount += allowedAmount
+                loansToPay.push({
+                  ...loan,
+                  installmentNumber: expectedInstallmentNumber,
+                  expectedAmount,
+                  allowedAmount,
+                  deferredAmount,
+                })
+
+                remainingDiscountCapacity -= allowedAmount
+              }
+            }
           }
         }
       }
     }
+
+    // Debug: verificar préstamos procesados
+    console.log('🔍 [PRÉSTAMOS DEBUG]', {
+      activeLoans_count: activeLoans?.length || 0,
+      pendingInstallments_count: pendingInstallments?.length || 0,
+      loansWithInstallments_count: loansWithInstallments.size,
+      loansToPay_count: loansToPay.length,
+      loansToPay: loansToPay.map(l => ({
+        loan_id: l.id,
+        loan_number: l.loan_number,
+        installment_number: l.installmentNumber,
+        expected_amount: l.expectedAmount,
+        allowed_amount: l.allowedAmount
+      }))
+    })
 
     // Guardar información de cuotas a actualizar
     setInstallmentsToUpdate(installmentsToUpdate)
