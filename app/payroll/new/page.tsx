@@ -576,9 +576,9 @@ export default function NewPayrollPage() {
     // IMPORTANTE: Las vacaciones se descuentan de los días trabajados
     // Las vacaciones se pagan como remuneración íntegra (concepto separado)
     // Ejemplo: Si tiene 30 días de trabajo y 10 días de vacaciones:
-    // - Días trabajados efectivos = 30 - 10 = 20 días
+    // - Días trabajados efectivos = 30 - 10 = 20 días (para sueldo base)
     // - Vacaciones = (sueldo base / 30) × 10 días (concepto separado)
-    // - Total = sueldo base proporcional (20 días) + vacaciones (10 días) = sueldo base completo
+    // - Total = sueldo base (20 días) + vacaciones (10 días) = sueldo base completo
     const effectiveDaysWorked = Math.max(0, formData.days_worked - leaveDays - permissionDaysWithoutPay - vacationDays)
     setMedicalLeaveDays(leaveDays)
     setVacationDays(vacationDays)
@@ -897,7 +897,7 @@ export default function NewPayrollPage() {
         afcApplicable: selectedEmployee.afc_applicable !== false, // Por defecto true
         bonuses: totalBonuses,
         overtime: overtimeAmount,
-        vacation: totalVacationAmount, // Vacaciones como remuneración íntegra (concepto separado)
+        vacation: totalVacationAmount, // Vacaciones como remuneración íntegra (concepto separado) - usar variable local
         otherTaxableEarnings: formData.other_taxable_earnings,
         transportation: Number(formData.transportation) || 0,
         mealAllowance: Number(formData.meal_allowance) || 0,
@@ -1149,6 +1149,7 @@ export default function NewPayrollPage() {
             const parts = []
             if (medicalLeaveDays > 0) parts.push(`${medicalLeaveDays} días licencia médica`)
             if (permissionDaysWithoutPay > 0) parts.push(`${permissionDaysWithoutPay} días permiso sin goce`)
+            if (vacationDays > 0) parts.push(`${vacationDays} días vacaciones`)
             if (parts.length > 0) {
               return `Sueldo Base Días Trabajados (${effectiveDaysWorked} días - ${parts.join(', ')})`
             }
@@ -1156,6 +1157,13 @@ export default function NewPayrollPage() {
           })(),
           amount: calculation.taxableEarnings.baseSalary 
         },
+        // Vacaciones como concepto separado (remuneración íntegra)
+        ...(vacationDays > 0 && calculation.taxableEarnings.vacation > 0 ? [{
+          type: 'taxable_earning' as const,
+          category: 'vacaciones',
+          description: `Vacaciones (${vacationDays} día${vacationDays > 1 ? 's' : ''})`,
+          amount: calculation.taxableEarnings.vacation
+        }] : []),
         { type: 'taxable_earning', category: 'gratificacion', description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
         // Bonos individuales
         ...bonuses.filter(b => b.name && b.amount > 0).map(bonus => ({
@@ -1165,8 +1173,6 @@ export default function NewPayrollPage() {
           amount: bonus.amount,
         })),
         { type: 'taxable_earning', category: 'horas_extras', description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`, amount: calculation.taxableEarnings.overtime },
-        // NOTA: Las vacaciones NO se agregan como item separado porque ya están incluidas en el sueldo base proporcional (daysWorked)
-        // Las vacaciones se pagan como días trabajados normales según ley chilena (remuneración íntegra)
         // Otros haberes imponibles
         ...(calculation.taxableEarnings.otherTaxableEarnings && calculation.taxableEarnings.otherTaxableEarnings > 0 ? [{
           type: 'taxable_earning' as const,
