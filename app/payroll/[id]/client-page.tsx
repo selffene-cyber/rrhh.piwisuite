@@ -9,7 +9,13 @@ import { useRouter, usePathname } from 'next/navigation'
 import { pdf } from '@react-pdf/renderer'
 import { PayrollDocument } from '@/components/PayrollPDF'
 import React from 'react'
-import { FaRedo } from 'react-icons/fa'
+import dynamic from 'next/dynamic'
+
+// Importación dinámica de react-icons para evitar problemas en Server Components
+const FaRedo = dynamic(() => import('react-icons/fa').then(mod => mod.FaRedo), {
+  ssr: false,
+  loading: () => <span style={{ display: 'inline-block', width: '14px', height: '14px' }}>↻</span>
+})
 
 export default function PayrollDetailClient({ initialSlip, company, vacations, advances, loanPayments }: { initialSlip: any, company: any, vacations?: any[] | null, advances?: any[], loanPayments?: any[] }) {
   const router = useRouter()
