@@ -20,9 +20,15 @@ export type PayrollCalculationInput = {
   baseSalary: number
   daysWorked: number
   daysLeave: number
-  afp: string
-  healthSystem: string
+  afp?: string | null // Opcional para regímenes especiales (DIPRECA, CAPREDENA, etc.)
+  healthSystem?: string | null // Opcional para regímenes especiales
   healthPlanPercentage?: number // Monto del plan ISAPRE en UF (Unidades de Fomento). Se multiplicará por el valor de UF del día al calcular la liquidación.
+  // Campos para regímenes especiales
+  previsionalRegime?: 'AFP' | 'OTRO_REGIMEN' | null
+  manualPensionRate?: number | null // Porcentaje de cotización previsional manual
+  manualHealthRate?: number | null // Porcentaje de cotización de salud manual
+  manualBaseType?: 'imponible' | 'sueldo_base' | null // Base de cálculo para régimen especial
+  afcApplicable?: boolean // Si aplica AFC (Seguro de Cesantía)
   // Haberes imponibles adicionales
   bonuses?: number
   overtime?: number
