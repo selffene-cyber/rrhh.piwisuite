@@ -563,20 +563,50 @@ export default function NewPayrollPage() {
     // Obtener TODOS los préstamos activos del trabajador
     const { data: activeLoans } = await supabase
       .from('loans')
-      .select('id, installment_amount, remaining_amount, status, installments, paid_installments, loan_date, loan_number')
+      .select('id, installment_amount, remaining_amount, status, installments, paid_installments, loan_date, loan_number, amount, total_amount')
       .eq('employee_id', selectedEmployee.id)
       .eq('status', 'active')
       .gt('remaining_amount', 0)
       .order('loan_date', { ascending: true })
 
+    // Calcular paid_installments real basándome en loan_payments (solo liquidaciones emitidas)
+    if (activeLoans && activeLoans.length > 0) {
+      for (const loan of activeLoans) {
+        // Obtener pagos de liquidaciones emitidas (no borradores)
+        const { data: payments } = await supabase
+          .from('loan_payments')
+          .select('id, payroll_slip_id, payroll_slips!inner(id, status)')
+          .eq('loan_id', loan.id)
+          .eq('payroll_slips.status', 'issued')
+        
+        const actualPaidInstallments = payments?.length || 0
+        const loanAmount = loan.total_amount || loan.amount || 0
+        const totalPaid = actualPaidInstallments * loan.installment_amount
+        const calculatedRemainingAmount = Math.max(0, loanAmount - totalPaid)
+        
+        // Si el valor almacenado es diferente, corregirlo en memoria (no en BD aún)
+        if (loan.paid_installments !== actualPaidInstallments) {
+          console.log(`⚠️ [CORRECCIÓN] Préstamo ${loan.loan_number}: paid_installments almacenado (${loan.paid_installments}) != real (${actualPaidInstallments})`)
+          loan.paid_installments = actualPaidInstallments
+          loan.remaining_amount = calculatedRemainingAmount
+        }
+      }
+    }
+
+    // Obtener los IDs de los préstamos activos
+    const activeLoanIds = activeLoans?.map((loan: any) => loan.id) || []
+
     // Obtener cuotas pendientes del período actual (si existen)
-    const { data: pendingInstallments } = await supabase
-      .from('loan_installments')
-      .select('*, loans (*)')
-      .eq('loans.employee_id', selectedEmployee.id)
-      .eq('due_month', formData.month)
-      .eq('due_year', formData.year)
-      .in('status', ['pending', 'partial'])
+    // Filtrar por los IDs de préstamos activos del empleado
+    const { data: pendingInstallments } = activeLoanIds.length > 0
+      ? await supabase
+          .from('loan_installments')
+          .select('*, loans (*)')
+          .in('loan_id', activeLoanIds)
+          .eq('due_month', formData.month)
+          .eq('due_year', formData.year)
+          .in('status', ['pending', 'partial'])
+      : { data: null }
 
     // Calcular límite legal de descuentos voluntarios
     const remunerationDevengada = Math.ceil((selectedEmployee.base_salary / 30) * effectiveDaysWorked)
@@ -866,10 +896,26 @@ export default function NewPayrollPage() {
 
     // Guardar información de préstamos, anticipos y permisos para usar al guardar
     setLoansToPay(loansToPay)
+    
+    // Calcular total esperado de otros descuentos para mostrar en la UI
+    // Esto incluye todos los expectedAmount (no solo allowedAmount) + préstamos manuales + anticipos
+    const totalExpectedLoans = loansToPay.reduce((sum: number, loan: any) => sum + (loan.expectedAmount || loan.installment_amount || 0), 0)
+    const totalExpectedOtherDeductions = totalExpectedLoans + formData.loans + totalAdvancesAmount
+    
+    // Calcular líquido a pagar usando el total esperado de descuentos (sin límite del 15%)
+    // Total Haberes - Total Descuentos (esperados)
+    const totalEarnings = result.taxableEarnings.total + result.nonTaxableEarnings.total
+    const totalExpectedDeductions = result.legalDeductions.total + totalExpectedOtherDeductions
+    const expectedNetPay = Math.max(0, Math.ceil(totalEarnings - totalExpectedDeductions))
+    
     setCalculation({ 
       ...result, 
       periodAdvances: periodAdvances || [],
       periodPermissions: permissionsToApply,
+      // Agregar total esperado para mostrar en la UI
+      totalExpectedOtherDeductions,
+      // Agregar líquido a pagar esperado (sin límite del 15%)
+      expectedNetPay,
     })
   }
 
@@ -968,8 +1014,10 @@ export default function NewPayrollPage() {
           total_earnings: calculation.taxableEarnings.total + calculation.nonTaxableEarnings.total,
           total_legal_deductions: calculation.legalDeductions.total,
           total_other_deductions: calculation.otherDeductions.total,
-          total_deductions: calculation.legalDeductions.total + calculation.otherDeductions.total,
-          net_pay: calculation.netPay,
+          // IMPORTANTE: total_deductions y net_pay deben usar el total esperado (sin límite del 15%)
+          total_deductions: calculation.legalDeductions.total + (calculation.totalExpectedOtherDeductions || calculation.otherDeductions.total),
+          // IMPORTANTE: net_pay debe ser exactamente Total Haberes - Total Descuentos (esperados, sin límite del 15%)
+          net_pay: calculation.expectedNetPay || Math.max(0, Math.ceil((calculation.taxableEarnings.total + calculation.nonTaxableEarnings.total) - (calculation.legalDeductions.total + (calculation.totalExpectedOtherDeductions || calculation.otherDeductions.total)))),
           status: 'draft',
         })
         .select()
@@ -1085,7 +1133,8 @@ export default function NewPayrollPage() {
           amount: bonus.amount,
         })),
         { type: 'taxable_earning', category: 'horas_extras', description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`, amount: calculation.taxableEarnings.overtime },
-        { type: 'taxable_earning', category: 'vacaciones', description: `Vacaciones (${vacationDays} día${vacationDays !== 1 ? 's' : ''})`, amount: calculation.taxableEarnings.vacation },
+        // NOTA: Las vacaciones NO se agregan como item separado porque ya están incluidas en el sueldo base proporcional (daysWorked)
+        // Las vacaciones se pagan como días trabajados normales según ley chilena (remuneración íntegra)
         // Otros haberes imponibles
         ...(calculation.taxableEarnings.otherTaxableEarnings && calculation.taxableEarnings.otherTaxableEarnings > 0 ? [{
           type: 'taxable_earning' as const,
@@ -1144,40 +1193,73 @@ export default function NewPayrollPage() {
 
       if (itemsError) throw itemsError
 
-      // Registrar pagos de préstamos
-      for (const loan of loansToPay) {
-        const { error: paymentError } = await supabase
-          .from('loan_payments')
-          .insert({
-            loan_id: loan.id,
-            payroll_slip_id: slip.id,
-            installment_number: loan.installmentNumber,
-            amount: loan.installment_amount,
-            payment_date: new Date().toISOString().split('T')[0],
-          })
+      // IMPORTANTE: Solo registrar pagos y actualizar préstamos si la liquidación NO está en borrador
+      // Si está en borrador, solo se registran los loan_payments pero NO se actualiza paid_installments
+      if (slip.status !== 'draft') {
+        // Registrar pagos de préstamos
+        for (const loan of loansToPay) {
+          const { error: paymentError } = await supabase
+            .from('loan_payments')
+            .insert({
+              loan_id: loan.id,
+              payroll_slip_id: slip.id,
+              installment_number: loan.installmentNumber,
+              amount: loan.allowedAmount || loan.installment_amount,
+              payment_date: new Date().toISOString().split('T')[0],
+            })
 
-        if (paymentError) {
-          console.error('Error al registrar pago de préstamo:', paymentError)
-          // No lanzamos error, solo lo registramos
+          if (paymentError) {
+            console.error('Error al registrar pago de préstamo:', paymentError)
+            // No lanzamos error, solo lo registramos
+            continue
+          }
+
+          // Calcular paid_installments real contando pagos de liquidaciones emitidas
+          const { data: issuedPayments } = await supabase
+            .from('loan_payments')
+            .select('id, payroll_slip_id, payroll_slips!inner(id, status)')
+            .eq('loan_id', loan.id)
+            .eq('payroll_slips.status', 'issued')
+
+          const actualPaidInstallments = issuedPayments?.length || 0
+          
+          // Calcular remaining_amount basándome en pagos reales
+          const loanAmount = loan.total_amount || loan.amount || 0
+          const totalPaid = actualPaidInstallments * loan.installment_amount
+          const newRemainingAmount = Math.max(0, loanAmount - totalPaid)
+          const newStatus = newRemainingAmount <= 0 ? 'paid' : 'active'
+
+          const { error: loanUpdateError } = await supabase
+            .from('loans')
+            .update({
+              paid_installments: actualPaidInstallments,
+              remaining_amount: newRemainingAmount,
+              status: newStatus,
+              paid_at: newStatus === 'paid' ? new Date().toISOString() : null,
+            })
+            .eq('id', loan.id)
+
+          if (loanUpdateError) {
+            console.error('Error al actualizar préstamo:', loanUpdateError)
+          }
         }
+      } else {
+        // Si está en borrador, solo registrar los loan_payments (sin actualizar el préstamo)
+        // Esto permite que aparezcan en el historial pero no afecta el estado del préstamo
+        for (const loan of loansToPay) {
+          const { error: paymentError } = await supabase
+            .from('loan_payments')
+            .insert({
+              loan_id: loan.id,
+              payroll_slip_id: slip.id,
+              installment_number: loan.installmentNumber,
+              amount: loan.allowedAmount || loan.installment_amount,
+              payment_date: new Date().toISOString().split('T')[0],
+            })
 
-        // Actualizar préstamo
-        const newPaidInstallments = loan.paid_installments + 1
-        const newRemainingAmount = loan.remaining_amount - loan.installment_amount
-        const newStatus = newRemainingAmount <= 0 ? 'paid' : 'active'
-
-        const { error: loanUpdateError } = await supabase
-          .from('loans')
-          .update({
-            paid_installments: newPaidInstallments,
-            remaining_amount: Math.max(0, newRemainingAmount),
-            status: newStatus,
-            paid_at: newStatus === 'paid' ? new Date().toISOString() : null,
-          })
-          .eq('id', loan.id)
-
-        if (loanUpdateError) {
-          console.error('Error al actualizar préstamo:', loanUpdateError)
+          if (paymentError) {
+            console.error('Error al registrar pago de préstamo (borrador):', paymentError)
+          }
         }
       }
 
@@ -1260,11 +1342,24 @@ export default function NewPayrollPage() {
               {(() => {
                 const effectiveDays = Math.max(0, formData.days_worked - medicalLeaveDays - permissionDaysWithoutPay)
                 if (effectiveDays !== formData.days_worked) {
+                  const parts: string[] = []
+                  if (permissionDaysWithoutPay > 0) {
+                    parts.push(`${permissionDaysWithoutPay} día${permissionDaysWithoutPay > 1 ? 's' : ''} de permiso${permissionDaysWithoutPay > 1 ? 's' : ''} sin goce`)
+                  }
+                  if (medicalLeaveDays > 0) {
+                    parts.push(`${medicalLeaveDays} día${medicalLeaveDays > 1 ? 's' : ''} de licencia${medicalLeaveDays > 1 ? 's' : ''} médica`)
+                  }
                   return (
                     <small style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
-                      Días efectivos a calcular: <strong>{effectiveDays}</strong> 
-                      {permissionDaysWithoutPay > 0 && ` (${formData.days_worked} - ${permissionDaysWithoutPay} días permiso${permissionDaysWithoutPay > 1 ? 's' : ''})`}
-                      {medicalLeaveDays > 0 && ` ${permissionDaysWithoutPay > 0 ? '-' : '('}${medicalLeaveDays} días licencia${medicalLeaveDays > 1 ? 's' : ''}${permissionDaysWithoutPay > 0 ? '' : ')'}`}
+                      ✅ <strong>Días efectivos a calcular: {effectiveDays}</strong> 
+                      <br />
+                      <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                        (El sistema descuenta automáticamente: {parts.join(' y ')})
+                      </span>
+                      <br />
+                      <span style={{ fontSize: '10px', color: '#9ca3af', fontStyle: 'italic' }}>
+                        La liquidación se calculará por {effectiveDays} días, no por {formData.days_worked} días.
+                      </span>
                     </small>
                   )
                 }
@@ -1878,12 +1973,14 @@ export default function NewPayrollPage() {
                     </tr>
                     <tr>
                       <td>Otros Descuentos:</td>
-                      <td style={{ textAlign: 'right' }}>${calculation.otherDeductions.total.toLocaleString('es-CL')}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        ${(calculation.totalExpectedOtherDeductions || calculation.otherDeductions.total).toLocaleString('es-CL')}
+                      </td>
                     </tr>
                     <tr style={{ fontWeight: 'bold' }}>
                       <td>Total Descuentos:</td>
                       <td style={{ textAlign: 'right' }}>
-                        ${(calculation.legalDeductions.total + calculation.otherDeductions.total).toLocaleString('es-CL')}
+                        ${(calculation.legalDeductions.total + (calculation.totalExpectedOtherDeductions || calculation.otherDeductions.total)).toLocaleString('es-CL')}
                       </td>
                     </tr>
                   </tbody>
@@ -1893,7 +1990,7 @@ export default function NewPayrollPage() {
             <div style={{ marginTop: '24px', padding: '16px', background: '#f9fafb', border: '1px solid #e5e7eb' }}>
               <h3 style={{ marginBottom: '8px' }}>Líquido a Pagar:</h3>
               <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb' }}>
-                ${calculation.netPay.toLocaleString('es-CL')}
+                ${(calculation.expectedNetPay || calculation.netPay).toLocaleString('es-CL')}
               </p>
             </div>
           </div>

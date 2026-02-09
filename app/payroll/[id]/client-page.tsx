@@ -88,6 +88,43 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
   const nonTaxableItems = slip.payroll_items?.filter((item: any) => item.type === 'non_taxable_earning') || []
   const legalDeductions = slip.payroll_items?.filter((item: any) => item.type === 'legal_deduction') || []
   const otherDeductions = slip.payroll_items?.filter((item: any) => item.type === 'other_deduction') || []
+  
+  // Calcular total de otros descuentos correctamente (incluyendo préstamos y anticipos)
+  const otherDeductionsFromItems = otherDeductions
+    .filter((item: any) => item.category !== 'prestamo' && item.category !== 'anticipo' && item.category !== 'otros_prestamos')
+    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  
+  // Préstamos con cuotas (desde loan_payments)
+  // IMPORTANTE: Usar installment_amount del préstamo original (monto esperado autorizado)
+  // en lugar de lp.amount que puede estar limitado por el 15%
+  const loansTotal = (currentLoanPayments || []).reduce((sum: number, lp: any) => {
+    const loan = lp.loans
+    // Usar el installment_amount del préstamo (monto esperado autorizado) si está disponible
+    // Si no, usar el amount guardado como fallback
+    const expectedAmount = loan?.installment_amount || lp.amount || 0
+    return sum + Number(expectedAmount)
+  }, 0)
+  
+  // Préstamos manuales (desde payroll_items con category 'otros_prestamos')
+  const otherLoansTotal = otherDeductions
+    .filter((item: any) => item.category === 'otros_prestamos')
+    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  
+  // Préstamos con cuotas desde payroll_items (por compatibilidad)
+  const loansFromItems = otherDeductions
+    .filter((item: any) => item.category === 'prestamo')
+    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  
+  const advancesTotal = (currentAdvances || []).reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
+  
+  // Total de préstamos (con cuotas + manuales)
+  const totalLoans = loansTotal + loansFromItems + otherLoansTotal
+  
+  // Total de otros descuentos (otros descuentos + préstamos + anticipos)
+  const calculatedTotalOtherDeductions = otherDeductionsFromItems + totalLoans + advancesTotal
+  
+  // Calcular líquido a pagar dinámicamente (Total Haberes - Total Descuentos)
+  const calculatedNetPay = Math.max(0, Number(slip.total_earnings || 0) - Number(slip.total_legal_deductions || 0) - calculatedTotalOtherDeductions)
 
   const handleIssue = async () => {
     if (!confirm('¿Estás seguro de que deseas emitir esta liquidación? Una vez emitida, no podrá ser editada.')) {
@@ -592,18 +629,25 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
                     <td colSpan={2} style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                       <details style={{ cursor: 'pointer' }}>
                         <summary style={{ fontWeight: '600', padding: '4px 0' }}>
-                          Préstamos ${currentLoanPayments.reduce((sum, lp) => sum + Number(lp.amount), 0).toLocaleString('es-CL')}
+                          Préstamos ${loansTotal.toLocaleString('es-CL')}
                         </summary>
                         <div style={{ marginTop: '8px', paddingLeft: '16px' }}>
                           {currentLoanPayments.map((loanPayment) => {
                             const loan = loanPayment.loans
+                            // Usar installment_amount del préstamo (monto esperado autorizado) en lugar de amount limitado
+                            const expectedAmount = loan?.installment_amount || loanPayment.amount || 0
+                            const actualAmount = loanPayment.amount || 0
+                            const hasDifference = expectedAmount !== actualAmount
                             return (
                               <div key={loanPayment.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#6b7280' }}>
                                 <span>
                                   {loan?.loan_number || 'PT-XX'} - Cuota {loanPayment.installment_number} / {loan?.installments || 0}
+                                  <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: '8px' }}>
+                                    (Autorizado: ${Number(expectedAmount).toLocaleString('es-CL')})
+                                  </span>
                                 </span>
                                 <span style={{ fontWeight: '600' }}>
-                                  ${Number(loanPayment.amount).toLocaleString('es-CL')}
+                                  ${Number(expectedAmount).toLocaleString('es-CL')}
                                 </span>
                               </div>
                             )
@@ -621,13 +665,13 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
               )}
               <tr style={{ fontWeight: 'bold', borderTop: '2px solid #111827' }}>
                 <td>Total Otros Descuentos</td>
-                <td style={{ textAlign: 'right' }}>${slip.total_other_deductions.toLocaleString('es-CL')}</td>
+                <td style={{ textAlign: 'right' }}>${calculatedTotalOtherDeductions.toLocaleString('es-CL')}</td>
               </tr>
             </tbody>
           </table>
 
           <div style={{ marginTop: '16px', padding: '12px', background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-            <strong>Total Descuentos: ${slip.total_deductions.toLocaleString('es-CL')}</strong>
+            <strong>Total Descuentos: ${(Number(slip.total_legal_deductions || 0) + calculatedTotalOtherDeductions).toLocaleString('es-CL')}</strong>
           </div>
         </div>
       </div>
@@ -636,10 +680,10 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
         <div style={{ padding: '24px', background: '#eff6ff', border: '2px solid #2563eb' }}>
           <h2 style={{ marginBottom: '8px' }}>Líquido a Pagar</h2>
           <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#2563eb' }}>
-            ${slip.net_pay.toLocaleString('es-CL')}
+            ${calculatedNetPay.toLocaleString('es-CL')}
           </p>
           <p style={{ marginTop: '8px', color: '#1e40af' }}>
-            SON: {numberToWords(Math.round(slip.net_pay))} PESOS
+            SON: {numberToWords(Math.round(calculatedNetPay))} PESOS
           </p>
         </div>
       </div>
