@@ -648,21 +648,49 @@ export default function NewPayrollPage() {
           const loanYear = loanDate.getFullYear()
           
           // Calcular cuántos meses han pasado desde el préstamo hasta el período actual
+          // Si el préstamo es en enero y estamos liquidando enero → monthsDiff = 0 → primera cuota
+          // Si el préstamo es en enero y estamos liquidando febrero → monthsDiff = 1 → segunda cuota
           const monthsDiff = (formData.year - loanYear) * 12 + (formData.month - loanMonth)
           
-          // La primera cuota se descuenta en el mismo mes del préstamo o en el mes siguiente
+          // La primera cuota se descuenta en el mismo mes del préstamo
           // Si el préstamo es en enero y estamos liquidando enero, la primera cuota se descuenta en enero
           // Si el préstamo es en enero y estamos liquidando febrero, la segunda cuota se descuenta en febrero
           
-          // Si el préstamo es del mismo mes o anterior, calcular cuál cuota corresponde
-          // monthsDiff = 0 → mismo mes → primera cuota
-          // monthsDiff = 1 → mes siguiente → segunda cuota
-          // monthsDiff = 2 → dos meses después → tercera cuota
+          // Debug para este préstamo específico
+          console.log('🔍 [PRÉSTAMO DEBUG]', {
+            loan_id: loan.id,
+            loan_number: loan.loan_number,
+            loan_date: loan.loan_date,
+            loan_month: loanMonth,
+            loan_year: loanYear,
+            period_month: formData.month,
+            period_year: formData.year,
+            monthsDiff,
+            installments: loan.installments,
+            paid_installments: loan.paid_installments,
+            remaining_installments: remainingInstallments
+          })
+          
+          // IMPORTANTE: Si el préstamo es del mismo mes o anterior (monthsDiff >= 0), calcular cuál cuota corresponde
+          // monthsDiff = 0 → mismo mes → primera cuota (cuota 1)
+          // monthsDiff = 1 → mes siguiente → segunda cuota (cuota 2)
+          // monthsDiff = 2 → dos meses después → tercera cuota (cuota 3)
           if (monthsDiff >= 0) {
             // La cuota número (monthsDiff + 1) corresponde a este período
             // Ejemplo: Préstamo en enero, liquidando enero → monthsDiff = 0 → cuota 1
             // Ejemplo: Préstamo en enero, liquidando febrero → monthsDiff = 1 → cuota 2
             const expectedInstallmentNumber = monthsDiff + 1
+            
+            console.log('🔍 [CUOTA CALCULADA]', {
+              loan_id: loan.id,
+              loan_number: loan.loan_number,
+              expectedInstallmentNumber,
+              installments_total: loan.installments,
+              paid_installments: loan.paid_installments,
+              condition_1: expectedInstallmentNumber <= loan.installments,
+              condition_2: expectedInstallmentNumber > loan.paid_installments,
+              will_include: expectedInstallmentNumber <= loan.installments && expectedInstallmentNumber > loan.paid_installments
+            })
             
             // Verificar que esta cuota no haya sido pagada ya y que esté dentro del rango de cuotas
             if (expectedInstallmentNumber <= loan.installments && expectedInstallmentNumber > loan.paid_installments) {
@@ -670,19 +698,48 @@ export default function NewPayrollPage() {
               const allowedAmount = Math.min(expectedAmount, remainingDiscountCapacity)
               const deferredAmount = expectedAmount - allowedAmount
 
-              if (allowedAmount > 0) {
-                totalLoansAmount += allowedAmount
-                loansToPay.push({
-                  ...loan,
-                  installmentNumber: expectedInstallmentNumber,
-                  expectedAmount,
-                  allowedAmount,
-                  deferredAmount,
-                })
+              console.log('✅ [PRÉSTAMO INCLUIDO]', {
+                loan_id: loan.id,
+                loan_number: loan.loan_number,
+                installment_number: expectedInstallmentNumber,
+                expected_amount: expectedAmount,
+                allowed_amount: allowedAmount,
+                deferred_amount: deferredAmount,
+                remaining_capacity: remainingDiscountCapacity
+              })
 
+              // IMPORTANTE: Incluir el préstamo incluso si allowedAmount es 0 (se difiere todo)
+              // Esto permite que aparezca en la UI aunque no se pueda descontar por límite legal
+              totalLoansAmount += allowedAmount
+              loansToPay.push({
+                ...loan,
+                installmentNumber: expectedInstallmentNumber,
+                expectedAmount,
+                allowedAmount,
+                deferredAmount,
+              })
+
+              if (allowedAmount > 0) {
                 remainingDiscountCapacity -= allowedAmount
               }
+            } else {
+              console.log('❌ [PRÉSTAMO EXCLUIDO]', {
+                loan_id: loan.id,
+                loan_number: loan.loan_number,
+                reason: expectedInstallmentNumber <= loan.installments 
+                  ? `Cuota ${expectedInstallmentNumber} ya pagada (paid_installments: ${loan.paid_installments})`
+                  : `Cuota ${expectedInstallmentNumber} fuera de rango (total: ${loan.installments})`
+              })
             }
+          } else {
+            console.log('❌ [PRÉSTAMO FUTURO]', {
+              loan_id: loan.id,
+              loan_number: loan.loan_number,
+              loan_date: loan.loan_date,
+              period: `${formData.month}/${formData.year}`,
+              monthsDiff,
+              reason: 'Préstamo es del futuro, no corresponde descontar aún'
+            })
           }
         }
       }
