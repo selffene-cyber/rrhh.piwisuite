@@ -171,11 +171,21 @@ function parseChileanNumber(str: string | undefined): number {
   return parseFloat(str.replace(/\./g, '').replace(',', '.'))
 }
 
-export function getAFPRate(afpName: string, indicators: PreviredIndicators | null): {
+export function getAFPRate(afpName: string | null | undefined, indicators: PreviredIndicators | null): {
   trabajador: number
   empleador: number
   total: number
 } {
+  // Si afpName es null, undefined o vacío, retornar valores por defecto (PROVIDA)
+  // Esto puede ocurrir con trabajadores de regímenes especiales (DIPRECA, CAPREDENA, etc.)
+  if (!afpName || afpName.trim() === '') {
+    return {
+      trabajador: 11.45, // Valor por defecto PROVIDA
+      empleador: 0.1,
+      total: 11.55,
+    }
+  }
+  
   const afpUpper = afpName.toUpperCase()
   
   // Mapeo de nombres de AFP a campos de la API

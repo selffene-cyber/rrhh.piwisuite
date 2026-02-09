@@ -157,7 +157,7 @@ export default function NewPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type, status, termination_date')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type, status, termination_date, previsional_regime, other_regime_type, manual_pension_rate, manual_health_rate, manual_employer_rate, manual_base_type, manual_regime_label, afc_applicable')
         .in('status', ['active', 'licencia_medica', 'renuncia', 'despido']) // Incluir renuncia/despido para validar después
         .eq('company_id', companyId)
         .order('full_name')
@@ -884,9 +884,15 @@ export default function NewPayrollPage() {
         baseSalary: selectedEmployee.base_salary,
         daysWorked: effectiveDaysWorked, // Usar días efectivos (descontando licencia)
         daysLeave: medicalLeaveDays,
-        afp: selectedEmployee.afp,
-        healthSystem: selectedEmployee.health_system,
+        afp: selectedEmployee.afp || null,
+        healthSystem: selectedEmployee.health_system || null,
         healthPlanPercentage: selectedEmployee.health_plan_percentage || 0, // Porcentaje adicional del plan ISAPRE
+        // Campos para regímenes especiales
+        previsionalRegime: selectedEmployee.previsional_regime || 'AFP',
+        manualPensionRate: selectedEmployee.manual_pension_rate || null,
+        manualHealthRate: selectedEmployee.manual_health_rate || null,
+        manualBaseType: selectedEmployee.manual_base_type || null,
+        afcApplicable: selectedEmployee.afc_applicable !== false, // Por defecto true
         bonuses: totalBonuses,
         overtime: overtimeAmount,
         vacation: 0, // Las vacaciones NO son un concepto adicional, se pagan como días trabajados normales

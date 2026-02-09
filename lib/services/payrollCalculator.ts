@@ -144,14 +144,40 @@ export async function calculatePayroll(
 
   // Descuentos legales
 
-  // Obtener tasas de AFP según indicadores de Previred
-  const afpRates = getAFPRate(afp, indicators || null)
-  // El trabajador paga el porcentaje de "trabajador" (ej: 11.44% para PROVIDA)
-  // Este porcentaje incluye el 10% base + adicionales específicos de cada AFP
-  const afpTotal = Math.ceil(taxableBase * (afpRates.trabajador / 100))
-  // Separar en 10% base y adicional (redondear hacia arriba)
-  const afp10 = Math.ceil(taxableBase * 0.10) // 10% base
-  const afpAdditional = Math.ceil(afpTotal - afp10) // Diferencia (adicional específico de cada AFP)
+  // Verificar si el trabajador tiene régimen especial (DIPRECA, CAPREDENA, etc.)
+  const previsionalRegime = (input as any).previsionalRegime || 'AFP'
+  const isSpecialRegime = previsionalRegime === 'OTRO_REGIMEN'
+  
+  let afpTotal = 0
+  let afp10 = 0
+  let afpAdditional = 0
+  
+  if (isSpecialRegime) {
+    // Régimen especial: usar tasas manuales
+    const manualPensionRate = (input as any).manualPensionRate || 0
+    const manualBaseType = (input as any).manualBaseType || 'imponible'
+    
+    // Determinar base de cálculo
+    const pensionBase = manualBaseType === 'sueldo_base' 
+      ? baseSalaryProportional 
+      : taxableBase
+    
+    // Calcular descuento previsional manual
+    afpTotal = Math.ceil(pensionBase * (manualPensionRate / 100))
+    // Para regímenes especiales, no separamos en 10% y adicional
+    afp10 = afpTotal
+    afpAdditional = 0
+  } else {
+    // Régimen AFP: usar cálculo normal con Previred
+    // Obtener tasas de AFP según indicadores de Previred
+    const afpRates = getAFPRate(afp || null, indicators || null)
+    // El trabajador paga el porcentaje de "trabajador" (ej: 11.44% para PROVIDA)
+    // Este porcentaje incluye el 10% base + adicionales específicos de cada AFP
+    afpTotal = Math.ceil(taxableBase * (afpRates.trabajador / 100))
+    // Separar en 10% base y adicional (redondear hacia arriba)
+    afp10 = Math.ceil(taxableBase * 0.10) // 10% base
+    afpAdditional = Math.ceil(afpTotal - afp10) // Diferencia (adicional específico de cada AFP)
+  }
 
   // Salud: según indicadores de Previred
   // FONASA: 7% del trabajador sobre la base imponible
@@ -166,7 +192,19 @@ export async function calculatePayroll(
   }
   
   let health = 0
-  if (healthSystem === 'FONASA') {
+  
+  if (isSpecialRegime) {
+    // Régimen especial: usar tasa manual de salud
+    const manualHealthRate = (input as any).manualHealthRate || 0
+    const manualBaseType = (input as any).manualBaseType || 'imponible'
+    
+    // Determinar base de cálculo
+    const healthBase = manualBaseType === 'sueldo_base' 
+      ? baseSalaryProportional 
+      : taxableBase
+    
+    health = Math.ceil(healthBase * (manualHealthRate / 100))
+  } else if (healthSystem === 'FONASA') {
     // FONASA: 7% del trabajador sobre la base imponible (redondear hacia arriba)
     health = Math.ceil(taxableBase * 0.07)
   } else if (healthSystem === 'ISAPRE') {
@@ -190,9 +228,13 @@ export async function calculatePayroll(
     })
   }
 
-  // Seguro de cesantía: según indicadores de Previred (redondear hacia arriba)
-  const unemploymentRate = getUnemploymentInsuranceRate(indicators || null)
-  const unemploymentInsurance = Math.ceil(taxableBase * (unemploymentRate / 100))
+  // Seguro de cesantía: solo para trabajadores con AFP (no aplica a regímenes especiales)
+  let unemploymentInsurance = 0
+  const afcApplicable = (input as any).afcApplicable !== false // Por defecto true, solo false si explícitamente se indica
+  if (!isSpecialRegime && afcApplicable) {
+    const unemploymentRate = getUnemploymentInsuranceRate(indicators || null)
+    unemploymentInsurance = Math.ceil(taxableBase * (unemploymentRate / 100))
+  }
 
   // Impuesto único (usar tramos desde base de datos si están disponibles)
   let uniqueTax = 0
