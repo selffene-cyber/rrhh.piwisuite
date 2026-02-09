@@ -54,6 +54,7 @@ export default function BulkPayrollPage() {
     'Bono de Permanencia',
     'Bono de Retención',
     'Bono de Riesgo',
+    'Bono Vacaciones',
   ]
 
   useEffect(() => {

@@ -1551,6 +1551,7 @@ export default function NewPayrollPage() {
                     <option value="Bono de Permanencia">Bono de Permanencia</option>
                     <option value="Bono de Retención">Bono de Retención</option>
                     <option value="Bono de Riesgo">Bono de Riesgo</option>
+                    <option value="Bono Vacaciones">Bono Vacaciones</option>
                   </select>
                 </div>
                 <div className="form-group" style={{ flex: '1' }}>
