@@ -53,5 +53,6 @@ Si entras a la app sin configurar Supabase, verás una guía en `http://localhos
 - ✅ Cálculo automático de haberes y descuentos
 - ✅ Exportación a PDF
 - ✅ Historial de liquidaciones
+- ✅ Botón "Copiar última liquidación" para agilizar creación de nuevas liquidaciones
 
 
