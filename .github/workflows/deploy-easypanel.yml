@@ -9,6 +9,9 @@ on:
       - '.gitignore'
       - 'README.md'
 
+# Workflow configurado para deploy automático a EasyPanel
+# Se activa automáticamente en cada push a main
+
 jobs:
   deploy:
     name: Deploy to EasyPanel
