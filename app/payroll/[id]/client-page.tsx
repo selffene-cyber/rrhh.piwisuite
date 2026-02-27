@@ -152,6 +152,72 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
         throw error
       }
 
+      // IMPORTANTE: Actualizar préstamos cuando se emite la liquidación
+      // Si la liquidación estaba en 'draft', los loan_payments existen pero paid_installments no se actualizó
+      // Al emitir, debemos recalcular paid_installments basándonos en pagos de liquidaciones emitidas
+      const { data: loanPaymentsData, error: loanPaymentsError } = await supabase
+        .from('loan_payments')
+        .select('loan_id')
+        .eq('payroll_slip_id', slip.id)
+
+      if (!loanPaymentsError && loanPaymentsData && loanPaymentsData.length > 0) {
+        // Obtener IDs únicos de préstamos
+        const uniqueLoanIds = [...new Set(loanPaymentsData.map((lp: any) => lp.loan_id))]
+
+        // Para cada préstamo, recalcular paid_installments
+        for (const loanId of uniqueLoanIds) {
+          // Contar pagos reales de liquidaciones emitidas (no borradores)
+          const { data: issuedPayments, error: countError } = await supabase
+            .from('loan_payments')
+            .select('id, payroll_slip_id, payroll_slips!inner(id, status)')
+            .eq('loan_id', loanId)
+            .eq('payroll_slips.status', 'issued')
+
+          if (countError) {
+            console.error(`Error al contar pagos del préstamo ${loanId}:`, countError)
+            continue
+          }
+
+          const actualPaidInstallments = issuedPayments?.length || 0
+
+          // Obtener datos del préstamo para calcular remaining_amount
+          const { data: loanData, error: loanError } = await supabase
+            .from('loans')
+            .select('total_amount, amount, installment_amount')
+            .eq('id', loanId)
+            .single()
+
+          if (loanError || !loanData) {
+            console.error(`Error al obtener datos del préstamo ${loanId}:`, loanError)
+            continue
+          }
+
+          // Calcular remaining_amount basándome en pagos reales
+          const loanAmount = loanData.total_amount || loanData.amount || 0
+          const totalPaid = actualPaidInstallments * (loanData.installment_amount || 0)
+          const newRemainingAmount = Math.max(0, loanAmount - totalPaid)
+          const newStatus = newRemainingAmount <= 0 ? 'paid' : 'active'
+
+          // Actualizar el préstamo
+          const { error: loanUpdateError } = await supabase
+            .from('loans')
+            .update({
+              paid_installments: actualPaidInstallments,
+              remaining_amount: newRemainingAmount,
+              status: newStatus,
+              paid_at: newStatus === 'paid' ? new Date().toISOString() : null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', loanId)
+
+          if (loanUpdateError) {
+            console.error(`Error al actualizar préstamo ${loanId}:`, loanUpdateError)
+          } else {
+            console.log(`✅ Préstamo ${loanId} actualizado: ${actualPaidInstallments} cuotas pagadas, ${newRemainingAmount} restante`)
+          }
+        }
+      }
+
       // Registrar evento de auditoría
       try {
         await fetch('/api/audit/log', {
