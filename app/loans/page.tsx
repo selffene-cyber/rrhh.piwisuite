@@ -81,6 +81,34 @@ export default function LoansManagementPage() {
 
       if (error) throw error
       
+      // Calcular paid_installments real basándose en loan_payments de liquidaciones emitidas
+      // Esto asegura que siempre muestre el valor correcto, incluso si la BD está desactualizada
+      if (loansData && loansData.length > 0) {
+        for (const loan of loansData) {
+          // Obtener pagos de liquidaciones emitidas (no borradores)
+          const { data: payments } = await supabase
+            .from('loan_payments')
+            .select('id, payroll_slip_id, payroll_slips!inner(id, status)')
+            .eq('loan_id', loan.id)
+            .eq('payroll_slips.status', 'issued')
+          
+          const actualPaidInstallments = payments?.length || 0
+          
+          // Actualizar el valor en memoria para mostrar
+          loan.paid_installments = actualPaidInstallments
+          
+          // Recalcular remaining_amount basándose en pagos reales
+          const loanAmount = loan.total_amount || loan.amount || 0
+          const totalPaid = actualPaidInstallments * loan.installment_amount
+          loan.remaining_amount = Math.max(0, loanAmount - totalPaid)
+          
+          // Actualizar status si es necesario
+          if (loan.remaining_amount <= 0 && loan.status === 'active') {
+            loan.status = 'paid'
+          }
+        }
+      }
+      
       setLoans(loansData || [])
 
       // Calcular estadísticas

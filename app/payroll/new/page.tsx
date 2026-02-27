@@ -679,7 +679,7 @@ export default function NewPayrollPage() {
     // Obtener TODOS los préstamos activos del trabajador
     const { data: activeLoans } = await supabase
       .from('loans')
-      .select('id, installment_amount, remaining_amount, status, installments, paid_installments, loan_date, loan_number, amount, total_amount')
+      .select('id, installment_amount, remaining_amount, status, installments, paid_installments, loan_date, loan_number, amount, total_amount, exceeds_legal_limit, authorization_signed')
       .eq('employee_id', selectedEmployee.id)
       .eq('status', 'active')
       .gt('remaining_amount', 0)
@@ -748,11 +748,43 @@ export default function NewPayrollPage() {
     if (activeLoans && activeLoans.length > 0) {
       let remainingDiscountCapacity = maxVoluntaryDiscount
 
+      console.log('🔍 [INICIO PROCESAMIENTO PRÉSTAMOS]', {
+        total_loans: activeLoans.length,
+        max_voluntary_discount: maxVoluntaryDiscount,
+        period: `${formData.month}/${formData.year}`,
+        loans: activeLoans.map((l: any) => ({
+          loan_number: l.loan_number,
+          loan_date: l.loan_date,
+          installments: l.installments,
+          paid_installments: l.paid_installments,
+          remaining_installments: l.installments - l.paid_installments,
+          exceeds_legal_limit: l.exceeds_legal_limit,
+          authorization_signed: l.authorization_signed
+        }))
+      })
+
       for (const loan of activeLoans) {
         const remainingInstallments = loan.installments - loan.paid_installments
         
+        console.log('🔍 [PROCESANDO PRÉSTAMO]', {
+          loan_id: loan.id,
+          loan_number: loan.loan_number,
+          loan_date: loan.loan_date,
+          installments: loan.installments,
+          paid_installments: loan.paid_installments,
+          remaining_installments: remainingInstallments,
+          exceeds_legal_limit: loan.exceeds_legal_limit,
+          authorization_signed: loan.authorization_signed
+        })
+        
         // Si no hay cuotas pendientes, saltar este préstamo
-        if (remainingInstallments <= 0) continue
+        if (remainingInstallments <= 0) {
+          console.log('❌ [PRÉSTAMO SIN CUOTAS PENDIENTES]', {
+            loan_number: loan.loan_number,
+            reason: `No hay cuotas pendientes (${loan.installments} total, ${loan.paid_installments} pagadas)`
+          })
+          continue
+        }
 
         // Verificar si este préstamo tiene una cuota en loan_installments para este período
         const installmentInTable = loansWithInstallments.get(loan.id)
@@ -760,37 +792,52 @@ export default function NewPayrollPage() {
         if (installmentInTable) {
           // Usar la cuota de loan_installments
           const expectedAmount = Number(installmentInTable.amount_expected) || loan.installment_amount
-          const allowedAmount = Math.min(expectedAmount, remainingDiscountCapacity)
+          
+          // IMPORTANTE: Calcular el número de cuota correcto basándose en paid_installments
+          // La próxima cuota siempre es paid_installments + 1
+          // Esto asegura que siempre sea correcto, incluso si installment_number en loan_installments está mal
+          const correctInstallmentNumber = loan.paid_installments + 1
+          
+          console.log('🔍 [PRÉSTAMO CON INSTALLMENT EN TABLA]', {
+            loan_id: loan.id,
+            loan_number: loan.loan_number,
+            installment_number_en_tabla: installmentInTable.installment_number,
+            paid_installments: loan.paid_installments,
+            correct_installment_number: correctInstallmentNumber,
+            usando: correctInstallmentNumber
+          })
+          
+          // Si el préstamo tiene autorización para exceder el 15%, ignorar el límite
+          const hasAuthorization = loan.exceeds_legal_limit === true && loan.authorization_signed === true
+          const allowedAmount = hasAuthorization 
+            ? expectedAmount  // Si tiene autorización, permitir el monto completo
+            : Math.min(expectedAmount, remainingDiscountCapacity)
           const deferredAmount = expectedAmount - allowedAmount
 
-          if (allowedAmount > 0) {
-            totalLoansAmount += allowedAmount
-            loansToPay.push({
-              ...loan,
-              installmentId: installmentInTable.id,
-              installmentNumber: installmentInTable.installment_number,
-              expectedAmount,
-              allowedAmount,
-              deferredAmount,
-            })
+          // IMPORTANTE: Incluir el préstamo incluso si allowedAmount es 0 (se difiere todo)
+          // Esto permite que aparezca en la UI aunque no se pueda descontar por límite legal
+          totalLoansAmount += allowedAmount
+          loansToPay.push({
+            ...loan,
+            installmentId: installmentInTable.id,
+            installmentNumber: correctInstallmentNumber, // Usar el número de cuota correcto
+            expectedAmount,
+            allowedAmount,
+            deferredAmount,
+          })
 
-            // Registrar actualización de cuota
-            installmentsToUpdate.push({
-              id: installmentInTable.id,
-              amount_applied: allowedAmount,
-              amount_deferred: deferredAmount,
-              status: deferredAmount > 0 ? 'partial' : 'paid',
-            })
+          // Registrar actualización de cuota
+          installmentsToUpdate.push({
+            id: installmentInTable.id,
+            amount_applied: allowedAmount,
+            amount_deferred: deferredAmount,
+            status: deferredAmount > 0 ? 'partial' : 'paid',
+          })
 
+          // Solo restar de remainingDiscountCapacity si no tiene autorización
+          // Si tiene autorización, no consume el límite del 15%
+          if (!hasAuthorization && allowedAmount > 0) {
             remainingDiscountCapacity -= allowedAmount
-          } else {
-            // No hay capacidad para descontar, todo se difiere
-            installmentsToUpdate.push({
-              id: installmentInTable.id,
-              amount_applied: 0,
-              amount_deferred: expectedAmount,
-              status: 'deferred',
-            })
           }
         } else {
           // No tiene cuota en loan_installments, calcular si corresponde descontar en este período
@@ -824,21 +871,25 @@ export default function NewPayrollPage() {
           })
           
           // IMPORTANTE: Si el préstamo es del mismo mes o anterior (monthsDiff >= 0), calcular cuál cuota corresponde
-          // monthsDiff = 0 → mismo mes → primera cuota (cuota 1)
-          // monthsDiff = 1 → mes siguiente → segunda cuota (cuota 2)
-          // monthsDiff = 2 → dos meses después → tercera cuota (cuota 3)
+          // La cuota esperada debe ser la siguiente después de las ya pagadas
+          // Ejemplo: Si paid_installments = 1, la próxima cuota es la 2
+          // Ejemplo: Si paid_installments = 0, la próxima cuota es la 1
           if (monthsDiff >= 0) {
-            // La cuota número (monthsDiff + 1) corresponde a este período
-            // Ejemplo: Préstamo en enero, liquidando enero → monthsDiff = 0 → cuota 1
-            // Ejemplo: Préstamo en enero, liquidando febrero → monthsDiff = 1 → cuota 2
-            const expectedInstallmentNumber = monthsDiff + 1
+            // Calcular la cuota esperada basándose en monthsDiff + 1
+            // Pero también verificar que sea mayor que paid_installments
+            const calculatedInstallmentNumber = monthsDiff + 1
+            // La cuota esperada debe ser la mayor entre la calculada y (paid_installments + 1)
+            // Esto asegura que siempre sea la siguiente cuota después de las pagadas
+            const expectedInstallmentNumber = Math.max(calculatedInstallmentNumber, loan.paid_installments + 1)
             
             console.log('🔍 [CUOTA CALCULADA]', {
               loan_id: loan.id,
               loan_number: loan.loan_number,
+              monthsDiff,
+              calculatedInstallmentNumber: monthsDiff + 1,
+              paid_installments: loan.paid_installments,
               expectedInstallmentNumber,
               installments_total: loan.installments,
-              paid_installments: loan.paid_installments,
               condition_1: expectedInstallmentNumber <= loan.installments,
               condition_2: expectedInstallmentNumber > loan.paid_installments,
               will_include: expectedInstallmentNumber <= loan.installments && expectedInstallmentNumber > loan.paid_installments
@@ -847,7 +898,12 @@ export default function NewPayrollPage() {
             // Verificar que esta cuota no haya sido pagada ya y que esté dentro del rango de cuotas
             if (expectedInstallmentNumber <= loan.installments && expectedInstallmentNumber > loan.paid_installments) {
               const expectedAmount = loan.installment_amount
-              const allowedAmount = Math.min(expectedAmount, remainingDiscountCapacity)
+              
+              // Si el préstamo tiene autorización para exceder el 15%, ignorar el límite
+              const hasAuthorization = loan.exceeds_legal_limit === true && loan.authorization_signed === true
+              const allowedAmount = hasAuthorization 
+                ? expectedAmount  // Si tiene autorización, permitir el monto completo
+                : Math.min(expectedAmount, remainingDiscountCapacity)
               const deferredAmount = expectedAmount - allowedAmount
 
               console.log('✅ [PRÉSTAMO INCLUIDO]', {
@@ -857,7 +913,10 @@ export default function NewPayrollPage() {
                 expected_amount: expectedAmount,
                 allowed_amount: allowedAmount,
                 deferred_amount: deferredAmount,
-                remaining_capacity: remainingDiscountCapacity
+                remaining_capacity: remainingDiscountCapacity,
+                has_authorization: hasAuthorization,
+                exceeds_legal_limit: loan.exceeds_legal_limit,
+                authorization_signed: loan.authorization_signed
               })
 
               // IMPORTANTE: Incluir el préstamo incluso si allowedAmount es 0 (se difiere todo)
@@ -871,7 +930,9 @@ export default function NewPayrollPage() {
                 deferredAmount,
               })
 
-              if (allowedAmount > 0) {
+              // Solo restar de remainingDiscountCapacity si no tiene autorización
+              // Si tiene autorización, no consume el límite del 15%
+              if (!hasAuthorization && allowedAmount > 0) {
                 remainingDiscountCapacity -= allowedAmount
               }
             } else {
