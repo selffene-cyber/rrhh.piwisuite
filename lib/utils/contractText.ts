@@ -1,5 +1,62 @@
 import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 
+export interface ContractClause {
+  num: number
+  title: string
+  label: string
+  text: string
+}
+
+const SPANISH_ORDINALS: { [key: number]: string } = {
+  1: 'PRIMERO',
+  2: 'SEGUNDO',
+  3: 'TERCERO',
+  4: 'CUARTO',
+  5: 'QUINTO',
+  6: 'SEXTO',
+  7: 'SÉPTIMO',
+  8: 'OCTAVO',
+  9: 'NOVENO',
+  10: 'DÉCIMO',
+  11: 'DÉCIMO PRIMERO',
+  12: 'DÉCIMO SEGUNDO',
+  13: 'DÉCIMO TERCERO',
+  14: 'DÉCIMO CUARTO',
+  15: 'DÉCIMO QUINTO',
+  16: 'DÉCIMO SEXTO',
+  17: 'DÉCIMO SÉPTIMO',
+  18: 'DÉCIMO OCTAVO',
+  19: 'DÉCIMO NOVENO',
+  20: 'VIGÉSIMO',
+}
+
+export function numberToSpanishOrdinal(n: number): string {
+  if (SPANISH_ORDINALS[n]) return SPANISH_ORDINALS[n]
+  if (n > 20 && n < 30) return `VIGÉSIMO ${SPANISH_ORDINALS[n - 20] || (n - 20).toString()}`
+  if (n >= 30 && n < 40) return `TRIGÉSIMO ${SPANISH_ORDINALS[n - 30] || (n - 30).toString()}`
+  return n.toString()
+}
+
+export function getDefaultClauseLabels(): { [key: number]: string } {
+  return {
+    1: 'Cargo y Funciones',
+    2: 'Jornada de Trabajo',
+    3: 'Trabajo Extraordinario',
+    4: 'Remuneraciones',
+    5: 'Descuentos Legales',
+    6: 'Obligaciones Esenciales',
+    7: 'Atrasos',
+    8: 'Reglamento Interno',
+    9: 'Ropa de Trabajo',
+    10: 'Vehículos',
+    11: 'Negociación Colectiva',
+    12: 'Seguridad',
+    13: 'Duración',
+    14: 'Ejemplares',
+    15: 'Previsional',
+  }
+}
+
 // Meses en español
 const MONTHS_SPANISH = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -70,7 +127,36 @@ export function formatMaritalStatus(status: string | null): string {
 }
 
 // Generar texto completo del contrato en formato legal chileno
+// Si contract.clauses existe (JSONB guardado en DB), usa esos textos;
+// si no, genera automáticamente (compatibilidad con contratos existentes)
 export function generateContractText(contract: any, employee: any, company: any): string {
+  if (contract.clauses && Array.isArray(contract.clauses) && contract.clauses.length > 0) {
+    return generateContractTextFromSavedClauses(contract, employee, company)
+  }
+  return generateContractTextFromScratch(contract, employee, company)
+}
+
+export function generateContractTextFromSavedClauses(contract: any, employee: any, company: any): string {
+  const contractDate = formatDateLegal(contract.start_date)
+  const birthDate = formatBirthDate(employee.birth_date || '')
+  const nationality = employee.nationality || 'Chilena'
+  const maritalStatus = formatMaritalStatus(employee.marital_status)
+  const genderPrefix = getGenderPrefix(employee.full_name)
+
+  let text = `En ${company?.city || 'Santiago'}, a ${contractDate}, entre *${company?.name || 'EMPRESA'}*, R.U.T ${company?.rut || 'N/A'}, representado legalmente por ${company?.employer_name || 'REPRESENTANTE LEGAL'}, cédula de identidad ${company?.rut || 'N/A'}, ambos con domicilio en ${company?.address || 'N/A'}${company?.city ? `, comuna de ${company.city}` : ''}, en adelante el "Empleador" y ${genderPrefix}: *${employee?.full_name || 'N/A'}*, con Rut: ${employee?.rut || 'N/A'}, de nacionalidad ${nationality}. ${birthDate ? `Con fecha de nacimiento el ${birthDate}, ` : ''}domiciliado(a) en ${employee?.address || 'N/A'}, de estado civil ${maritalStatus}, en adelante "Trabajador". Se ha convenido el siguiente CONTRATO DE TRABAJO, para cuyo efecto, las partes convienen denominarse respectivamente *EMPLEADOR* Y *TRABAJADOR*.\n\n`
+
+  const clauses: ContractClause[] = contract.clauses
+  for (const clause of clauses) {
+    const labelPart = clause.label ? ` ${clause.label}` : ''
+    text += `${clause.title}:${labelPart}  ${clause.text}\n\n`
+  }
+
+  text += `Para constancia, se firma el presente contrato en dos ejemplares del mismo tenor y fecha, quedando uno en poder de cada parte.`
+
+  return text
+}
+
+function generateContractTextFromScratch(contract: any, employee: any, company: any): string {
   const contractDate = formatDateLegal(contract.start_date)
   const birthDate = formatBirthDate(employee.birth_date || '')
   const nationality = employee.nationality || 'Chilena'

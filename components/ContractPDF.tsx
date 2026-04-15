@@ -82,7 +82,10 @@ const styles = StyleSheet.create({
   clauseTitle: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
-    textTransform: 'uppercase',
+  },
+  clauseLabel: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
   },
   signatureSection: {
     marginTop: 40,
@@ -167,10 +170,33 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
             <View>
               {paragraphs.map((paragraph, index) => {
                 // Detectar si es un título de cláusula (PRIMERO:, SEGUNDO:, etc.)
-                const clauseMatch = paragraph.match(/^((?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO|DÉCIMO PRIMERO|DÉCIMO SEGUNDO|DÉCIMO TERCERO|DÉCIMO CUARTO|DÉCIMO QUINTO):)(.*)$/is)
+                const clauseMatch = paragraph.match(/^((?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO|DÉCIMO PRIMERO|DÉCIMO SEGUNDO|DÉCIMO TERCERO|DÉCIMO CUARTO|DÉCIMO QUINTO|DÉCIMO SEXTO|DÉCIMO SÉPTIMO|DÉCIMO OCTAVO|DÉCIMO NOVENO|VIGÉSIMO|VIGÉSIMO PRIMERO|VIGÉSIMO SEGUNDO|VIGÉSIMO TERCERO|VIGÉSIMO CUARTO|VIGÉSIMO QUINTO|TRIGÉSIMO):\s*)([^\s].*?)\s{2,}(.*)$/is)
                 
                 if (clauseMatch) {
-                  const [, title, content] = clauseMatch
+                  const [, title, label, content] = clauseMatch
+                  return (
+                    <Text key={index} style={styles.contractText}>
+                      <Text style={styles.clauseTitle}>{title.trim()}</Text>
+                      {label && label.trim() && (
+                        <>
+                          <Text> </Text>
+                          <Text style={styles.clauseLabel}>{label.trim()}</Text>
+                        </>
+                      )}
+                      {content && content.trim() && (
+                        <>
+                          <Text> </Text>
+                          {renderBoldText(content.trim(), {})}
+                        </>
+                      )}
+                    </Text>
+                  )
+                }
+
+                const clauseMatchNoLabel = paragraph.match(/^((?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO|DÉCIMO PRIMERO|DÉCIMO SEGUNDO|DÉCIMO TERCERO|DÉCIMO CUARTO|DÉCIMO QUINTO|DÉCIMO SEXTO|DÉCIMO SÉPTIMO|DÉCIMO OCTAVO|DÉCIMO NOVENO|VIGÉSIMO|VIGÉSIMO PRIMERO|VIGÉSIMO SEGUNDO|VIGÉSIMO TERCERO|VIGÉSIMO CUARTO|VIGÉSIMO QUINTO|TRIGÉSIMO):)(.*)$/is)
+                
+                if (clauseMatchNoLabel) {
+                  const [, title, content] = clauseMatchNoLabel
                   return (
                     <Text key={index} style={styles.contractText}>
                       <Text style={styles.clauseTitle}>{title.trim()}</Text>

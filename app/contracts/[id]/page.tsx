@@ -356,7 +356,20 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
         )}
       </div>
 
-      {/* Cláusulas */}
+      {/* Cláusulas del Contrato */}
+      {contract.clauses && Array.isArray(contract.clauses) && contract.clauses.length > 0 && (
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <h2>Cláusulas del Contrato</h2>
+          {contract.clauses.map((clause: any, index: number) => (
+            <div key={index} className="form-group">
+              <label>{clause.title}{clause.label ? `: ${clause.label}` : ''}</label>
+              <p style={{ whiteSpace: 'pre-wrap', fontSize: '14px' }}>{clause.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Cláusulas (legacy) */}
       {(contract.confidentiality_clause || 
         contract.authorized_deductions || 
         contract.advances_clause || 

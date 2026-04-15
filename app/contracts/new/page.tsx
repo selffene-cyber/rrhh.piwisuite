@@ -7,6 +7,7 @@ import DateInput from '@/components/DateInput'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { createValidationServices } from '@/lib/services/validationHelpers'
+import { numberToSpanishOrdinal, getDefaultClauseLabels, ContractClause } from '@/lib/utils/contractText'
 
 // Componente ToggleSwitch simple
 const ToggleSwitch = ({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label?: string }) => {
@@ -136,25 +137,11 @@ export default function NewContractPage() {
     advances_clause: '',
     internal_regulations: '',
     additional_clauses: '',
-    // Cláusulas individuales (1-15)
-    clause_1: '', // PRIMERO: Cargo y funciones
-    clause_2: '', // SEGUNDO: Jornada de trabajo
-    clause_3: '', // TERCERO: Trabajo extraordinario
-    clause_4: '', // CUARTO: Remuneraciones
-    clause_5: '', // QUINTO: Descuentos legales
-    clause_6: '', // SEXTO: Obligaciones esenciales
-    clause_7: '', // SÉPTIMO: Atrasos
-    clause_8: '', // OCTAVO: Reglamento interno
-    clause_9: '', // NOVENO: Ropa de trabajo
-    clause_10: '', // DÉCIMO: Vehículos
-    clause_11: '', // DÉCIMO PRIMERO: Negociación colectiva
-    clause_12: '', // DÉCIMO SEGUNDO: Seguridad
-    clause_13: '', // DÉCIMO TERCERO: Duración
-    clause_14: '', // DÉCIMO CUARTO: Ejemplares
-    clause_15: '', // DÉCIMO QUINTO: Previsional
+    clauses: [] as ContractClause[],
   })
 
-  // Función para generar el texto de cada cláusula basándose en los datos del formulario
+  const defaultClauseLabels = getDefaultClauseLabels()
+
   const generateClauseText = (clauseNumber: number): string => {
     const contractDate = formData.start_date ? new Date(formData.start_date + 'T00:00:00').toLocaleDateString('es-CL', { 
       year: 'numeric', 
@@ -295,24 +282,26 @@ export default function NewContractPage() {
     }
   }
 
-  // Inicializar cláusulas cuando cambian los datos relevantes (solo si están vacías)
-  useEffect(() => {
-    if (selectedEmployee && company) {
-      const clauses: any = {}
-      let hasEmptyClause = false
+  const initializeDefaultClauses = () => {
+    if (selectedEmployee && company && formData.clauses.length === 0) {
+      const defaultLabels = getDefaultClauseLabels()
+      const clauses: ContractClause[] = []
       for (let i = 1; i <= 15; i++) {
-        const clauseKey = `clause_${i}` as keyof typeof formData
-        if (!formData[clauseKey] || formData[clauseKey] === '') {
-          clauses[clauseKey] = generateClauseText(i)
-          hasEmptyClause = true
-        }
+        clauses.push({
+          num: i,
+          title: numberToSpanishOrdinal(i),
+          label: defaultLabels[i] || '',
+          text: generateClauseText(i),
+        })
       }
-      if (hasEmptyClause && Object.keys(clauses).length > 0) {
-        setFormData((prev) => ({ ...prev, ...clauses }))
-      }
+      setFormData((prev) => ({ ...prev, clauses }))
     }
+  }
+
+  useEffect(() => {
+    initializeDefaultClauses()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEmployee?.id, company?.id, formData.position, formData.work_location, formData.work_schedule, formData.work_schedule_monday_thursday, formData.work_schedule_friday, formData.work_schedule_type, formData.lunch_break_duration, formData.base_salary, formData.gratuity, formData.gratuity_amount, formData.bonuses.length, formData.payment_method, formData.payment_periodicity, formData.bank_name, formData.account_type, formData.account_number, formData.contract_type, formData.start_date, formData.end_date])
+  }, [selectedEmployee?.id, company?.id])
 
   useEffect(() => {
     if (companyId) {
@@ -520,6 +509,7 @@ export default function NewContractPage() {
         advances_clause: formData.advances_clause || null,
         internal_regulations: formData.internal_regulations || null,
         additional_clauses: formData.additional_clauses || null,
+        clauses: formData.clauses.length > 0 ? formData.clauses : null,
         status: 'draft',
       }
 
@@ -1097,96 +1087,181 @@ export default function NewContractPage() {
         <div className="card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
-              <h2>6. Cláusulas del Contrato</h2>
-              <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '8px', marginBottom: '0' }}>
-                Todas las cláusulas se generan automáticamente basándose en los datos ingresados arriba.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const allClauses: any = {}
-                for (let i = 1; i <= 15; i++) {
-                  allClauses[`clause_${i}`] = generateClauseText(i)
-                }
-                setFormData({ ...formData, ...allClauses })
-                alert('✅ Todas las cláusulas han sido regeneradas')
-              }}
-              style={{ 
-                padding: '10px 20px', 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '6px', 
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: '0 4px 6px rgba(102, 126, 234, 0.3)',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.4)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(102, 126, 234, 0.3)'
-              }}
-            >
-              🔄 Regenerar Todas las Cláusulas
-            </button>
-          </div>
-          
-          {[
-            { num: 1, title: 'PRIMERO', label: 'Cargo y Funciones', key: 'clause_1' },
-            { num: 2, title: 'SEGUNDO', label: 'Jornada de Trabajo', key: 'clause_2' },
-            { num: 3, title: 'TERCERO', label: 'Trabajo Extraordinario', key: 'clause_3' },
-            { num: 4, title: 'CUARTO', label: 'Remuneraciones', key: 'clause_4' },
-            { num: 5, title: 'QUINTO', label: 'Descuentos Legales', key: 'clause_5' },
-            { num: 6, title: 'SEXTO', label: 'Obligaciones Esenciales', key: 'clause_6' },
-            { num: 7, title: 'SÉPTIMO', label: 'Atrasos', key: 'clause_7' },
-            { num: 8, title: 'OCTAVO', label: 'Reglamento Interno', key: 'clause_8' },
-            { num: 9, title: 'NOVENO', label: 'Ropa de Trabajo', key: 'clause_9' },
-            { num: 10, title: 'DÉCIMO', label: 'Vehículos', key: 'clause_10' },
-            { num: 11, title: 'DÉCIMO PRIMERO', label: 'Negociación Colectiva', key: 'clause_11' },
-            { num: 12, title: 'DÉCIMO SEGUNDO', label: 'Seguridad', key: 'clause_12' },
-            { num: 13, title: 'DÉCIMO TERCERO', label: 'Duración', key: 'clause_13' },
-            { num: 14, title: 'DÉCIMO CUARTO', label: 'Ejemplares', key: 'clause_14' },
-            { num: 15, title: 'DÉCIMO QUINTO', label: 'Previsional', key: 'clause_15' },
-          ].map((clause) => (
-            <div key={clause.key} className="form-group" style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ fontWeight: '600', fontSize: '15px' }}>
-                  {clause.title}: {clause.label}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const generatedText = generateClauseText(clause.num)
-                    setFormData({ ...formData, [clause.key]: generatedText })
-                  }}
+              <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                6. Cláusulas del Contrato
+                <span 
+                  title="Puedes usar *asteriscos* para poner texto en negrita en el PDF, ejemplo: *texto en negrita*. Las comillas dobles (&quot;texto&quot;) también pueden usarse para resaltar."
                   style={{ 
-                    padding: '4px 12px', 
-                    background: '#f3f4f6', 
-                    color: '#374151', 
-                    border: '1px solid #d1d5db', 
-                    borderRadius: '4px', 
-                    cursor: 'pointer',
-                    fontSize: '12px'
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    background: '#e5e7eb', 
+                    color: '#6b7280', 
+                    fontSize: '12px', 
+                    fontWeight: 'bold', 
+                    cursor: 'help',
+                    flexShrink: 0
                   }}
                 >
-                  Regenerar
-                </button>
+                  ?
+                </span>
+              </h2>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '8px', marginBottom: '0' }}>
+                Puedes editar el nombre y contenido de cada cláusula. El texto se genera automáticamente según los datos ingresados.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultLabels = getDefaultClauseLabels()
+                  const clauses: ContractClause[] = formData.clauses.map((c) => ({
+                    ...c,
+                    text: generateClauseText(c.num),
+                  }))
+                  setFormData({ ...formData, clauses })
+                  alert('✅ Todas las cláusulas han sido regeneradas')
+                }}
+                style={{ 
+                  padding: '10px 20px', 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  boxShadow: '0 4px 6px rgba(102, 126, 234, 0.3)',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(102, 126, 234, 0.3)'
+                }}
+              >
+                🔄 Regenerar Textos
+              </button>
+            </div>
           </div>
-            <textarea
-                value={formData[clause.key as keyof typeof formData] as string || generateClauseText(clause.num)}
-                onChange={(e) => setFormData({ ...formData, [clause.key]: e.target.value })}
+          
+          {formData.clauses.map((clause, index) => (
+            <div key={clause.num} className="form-group" style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1' }}>
+                  <label style={{ fontWeight: '600', fontSize: '15px', whiteSpace: 'nowrap' }}>
+                    {clause.title}:
+                  </label>
+                  <input
+                    type="text"
+                    value={clause.label}
+                    onChange={(e) => {
+                      const updated = [...formData.clauses]
+                      updated[index] = { ...updated[index], label: e.target.value }
+                      setFormData({ ...formData, clauses: updated })
+                    }}
+                    placeholder="Nombre de la cláusula"
+                    style={{ 
+                      fontWeight: '600', 
+                      fontSize: '15px',
+                      padding: '2px 6px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      minWidth: '200px',
+                      flex: '1',
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = [...formData.clauses]
+                      updated[index] = { ...updated[index], text: generateClauseText(clause.num) }
+                      setFormData({ ...formData, clauses: updated })
+                    }}
+                    style={{ 
+                      padding: '4px 12px', 
+                      background: '#f3f4f6', 
+                      color: '#374151', 
+                      border: '1px solid #d1d5db', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    Regenerar
+                  </button>
+                  {formData.clauses.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = formData.clauses.filter((_, i) => i !== index)
+                        setFormData({ ...formData, clauses: updated })
+                      }}
+                      style={{ 
+                        padding: '4px 12px', 
+                        background: '#fef2f2', 
+                        color: '#991b1b', 
+                        border: '1px solid #fecaca', 
+                        borderRadius: '4px', 
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+              </div>
+              <textarea
+                value={clause.text}
+                onChange={(e) => {
+                  const updated = [...formData.clauses]
+                  updated[index] = { ...updated[index], text: e.target.value }
+                  setFormData({ ...formData, clauses: updated })
+                }}
                 rows={clause.num === 2 || clause.num === 4 || clause.num === 6 ? 8 : clause.num === 10 ? 6 : 4}
                 style={{ width: '100%', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.5' }}
-            />
-          </div>
+              />
+            </div>
           ))}
+          
+          <button
+            type="button"
+            onClick={() => {
+              const nextNum = formData.clauses.length > 0 
+                ? Math.max(...formData.clauses.map(c => c.num)) + 1 
+                : 1
+              const newClause: ContractClause = {
+                num: nextNum,
+                title: numberToSpanishOrdinal(nextNum),
+                label: '',
+                text: '',
+              }
+              setFormData({ ...formData, clauses: [...formData.clauses, newClause] })
+            }}
+            style={{ 
+              padding: '10px 20px', 
+              background: '#10b981', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '6px', 
+              cursor: 'pointer', 
+              fontSize: '14px',
+              fontWeight: '500',
+              marginTop: '8px'
+            }}
+          >
+            + Agregar Cláusula
+          </button>
         </div>
 
         <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
