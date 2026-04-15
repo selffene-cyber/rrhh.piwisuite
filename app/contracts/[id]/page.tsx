@@ -288,8 +288,16 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
         )}
         <div className="form-row">
           <div className="form-group">
+            <label>Régimen de Jornada</label>
+            <p>
+              {contract.schedule_regime === 'excluded_art22' ? 'Excluido Art. 22 inciso 2' :
+               contract.schedule_regime === 'partial' ? 'Jornada Parcial' :
+               'Jornada Ordinaria (Ley 21.561)'}
+            </p>
+          </div>
+          <div className="form-group">
             <label>Horario de Trabajo</label>
-            <p>{contract.work_schedule}</p>
+            <p>{contract.work_schedule || (contract.schedule_regime === 'excluded_art22' ? 'Sin distribución de jornada (Art. 22)' : 'No especificado')}</p>
           </div>
           <div className="form-group">
             <label>Lugar de Trabajo</label>

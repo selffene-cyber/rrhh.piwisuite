@@ -7,6 +7,23 @@ export interface ContractClause {
   text: string
 }
 
+export function generateArt22ClauseText(): string {
+  return `Las partes acuerdan que el trabajador, en atención a la naturaleza de las funciones que desempeña y a las características de su cargo, queda excluido de la limitación de jornada de trabajo, conforme a lo dispuesto en el artículo 22 inciso segundo del Código del Trabajo. En consecuencia, el trabajador no se encuentra sometido a los límites de jornada establecidos en la ley, distribuyendo su horario de trabajo de acuerdo a las necesidades del servicio y su propia organización funcional.\n\nEl trabajador se obliga a cumplir con la jornada necesaria para el desempeño de sus funciones, sin perjuicio de los descansos legales a que tiene derecho. En atención a lo anterior, no corresponderá el pago ni registro de horas extraordinarias.\n\nSin embargo, el empleador no podrá exigir del trabajador una dedicación que menoscabe su derecho a la vida personal y familiar, debiendo respetar los descansos diarios y semanales establecidos en la legislación vigente.\n\nEl trabajador deberá registrar su asistencia conforme a los mecanismos que determine el empleador, los que tendrán carácter informativo y no de control de cumplimiento de jornada.`
+}
+
+export const OPERATIVE_POSITION_KEYWORDS = [
+  'operario', 'ayudante', 'chofer', 'conductor', 'jornal', 'peón', 'peon',
+  'auxiliar', 'bodeguero', 'cajero', 'vendedor', 'reponedor', 'guardia',
+  'vigilante', 'aseador', 'limpiador', 'gañan', 'jornalero', 'obrero',
+  'carpintero', 'electricista', 'plomero', 'soldador', 'mecánico',
+  'pintor', 'albañil', 'gasfiter', 'cocinero', 'garzón', 'mozo',
+]
+
+export function isPositionLikelyOperative(position: string): boolean {
+  const lower = position.toLowerCase()
+  return OPERATIVE_POSITION_KEYWORDS.some(kw => lower.includes(kw))
+}
+
 const SPANISH_ORDINALS: { [key: number]: string } = {
   1: 'PRIMERO',
   2: 'SEGUNDO',
@@ -187,52 +204,64 @@ function generateContractTextFromScratch(contract: any, employee: any, company: 
     text += `Descripción de principales funciones:\n\n${contract.position_description}\n\n`
   }
 
-  // SEGUNDO: Jornada de trabajo (conforme a Ley 21.561)
-  text += `SEGUNDO: Jornada de trabajo.\n\n`
+  // SEGUNDO: Jornada de trabajo
+  const scheduleRegime = contract.schedule_regime || 'ordinary'
   
-  // Detectar si hay horarios separados (formato: "Lunes a Jueves, ...; Viernes, ...")
-  let scheduleText = contract.work_schedule || 'lunes a viernes, de 08:00 a 18:00 Horas'
-  let startTime = '08:00'
-  let endTime = '18:00'
-  
-  // Extraer horarios del texto
-  const timeMatch = scheduleText.match(/(\d{1,2}:\d{2})\s*a\s*(\d{1,2}:\d{2})/i)
-  if (timeMatch) {
-    startTime = timeMatch[1]
-    endTime = timeMatch[2]
-  }
-  
-  if (scheduleText.includes(';')) {
-    // Horarios separados
-    const [mondayThursday, friday] = scheduleText.split(';').map((s: string) => s.trim())
-    const fridayTimeMatch = friday.match(/(\d{1,2}:\d{2})\s*a\s*(\d{1,2}:\d{2})/i)
-    if (fridayTimeMatch) {
-      scheduleText = `${mondayThursday}, y ${friday}`
-    } else {
-      scheduleText = `${mondayThursday}, y ${friday}`
-    }
-  }
-  
-  text += `El trabajador cumplirá una jornada semanal ordinaria máxima de cuarenta horas, conforme a lo establecido en la Ley N° 21.561, que modifica el Código del Trabajo en materia de jornada laboral. Esta jornada se distribuirá de lunes a viernes, de acuerdo a la siguiente distribución referencial diaria: *${scheduleText}*. El horario de ingreso será a las *${startTime}* horas.\n\n`
-  
-  const lunchMinutes = contract.lunch_break_duration || 60
-  const lunchHours = Math.floor(lunchMinutes / 60)
-  const lunchMinutesRemainder = lunchMinutes % 60
-  let lunchText = ''
-  if (lunchHours > 0 && lunchMinutesRemainder > 0) {
-    lunchText = `${lunchHours} hora${lunchHours > 1 ? 's' : ''} y ${lunchMinutesRemainder} minuto${lunchMinutesRemainder > 1 ? 's' : ''}`
-  } else if (lunchHours > 0) {
-    lunchText = `${lunchHours} hora${lunchHours > 1 ? 's' : ''}`
+  if (scheduleRegime === 'excluded_art22') {
+    text += `SEGUNDO: Jornada de trabajo.\n\n`
+    text += generateArt22ClauseText() + `\n\n`
   } else {
-    lunchText = `${lunchMinutes} minuto${lunchMinutes > 1 ? 's' : ''}`
+    text += `SEGUNDO: Jornada de trabajo.\n\n`
+    
+    // Detectar si hay horarios separados (formato: "Lunes a Jueves, ...; Viernes, ...")
+    let scheduleText = contract.work_schedule || 'lunes a viernes, de 08:00 a 18:00 Horas'
+    let startTime = '08:00'
+    let endTime = '18:00'
+    
+    // Extraer horarios del texto
+    const timeMatch = scheduleText.match(/(\d{1,2}:\d{2})\s*a\s*(\d{1,2}:\d{2})/i)
+    if (timeMatch) {
+      startTime = timeMatch[1]
+      endTime = timeMatch[2]
+    }
+    
+    if (scheduleText.includes(';')) {
+      const [mondayThursday, friday] = scheduleText.split(';').map((s: string) => s.trim())
+      const fridayTimeMatch = friday.match(/(\d{1,2}:\d{2})\s*a\s*(\d{1,2}:\d{2})/i)
+      if (fridayTimeMatch) {
+        scheduleText = `${mondayThursday}, y ${friday}`
+      } else {
+        scheduleText = `${mondayThursday}, y ${friday}`
+      }
+    }
+    
+    if (scheduleRegime === 'partial') {
+      text += `El trabajador cumplirá una jornada parcial, conforme a lo establecido en el artículo 40 bis del Código del Trabajo. Esta jornada se distribuirá de acuerdo a la siguiente distribución referencial diaria: *${scheduleText}*. El horario de ingreso será a las *${startTime}* horas.\n\n`
+    } else {
+      text += `El trabajador cumplirá una jornada semanal ordinaria máxima de cuarenta horas, conforme a lo establecido en la Ley N° 21.561, que modifica el Código del Trabajo en materia de jornada laboral. Esta jornada se distribuirá de lunes a viernes, de acuerdo a la siguiente distribución referencial diaria: *${scheduleText}*. El horario de ingreso será a las *${startTime}* horas.\n\n`
+    }
+    
+    const lunchMinutes = contract.lunch_break_duration || 60
+    const lunchHours = Math.floor(lunchMinutes / 60)
+    const lunchMinutesRemainder = lunchMinutes % 60
+    let lunchText = ''
+    if (lunchHours > 0 && lunchMinutesRemainder > 0) {
+      lunchText = `${lunchHours} hora${lunchHours > 1 ? 's' : ''} y ${lunchMinutesRemainder} minuto${lunchMinutesRemainder > 1 ? 's' : ''}`
+    } else if (lunchHours > 0) {
+      lunchText = `${lunchHours} hora${lunchHours > 1 ? 's' : ''}`
+    } else {
+      lunchText = `${lunchMinutes} minuto${lunchMinutes > 1 ? 's' : ''}`
+    }
+    
+    text += `La jornada de trabajo será interrumpida con un descanso de colación de ${lunchText}, el cual no será imputable a la jornada laboral y será de cargo del Trabajador. Este descanso se otorgará en el horario que el empleador determine, dentro de la jornada de trabajo.\n\n`
+    text += `Sin perjuicio de lo anterior, y cuando las necesidades operacionales de la empresa así lo requieran, la jornada de trabajo podrá modificarse en cuanto a su distribución horaria, siempre que no signifique menoscabo para el trabajador, se respeten los límites legales establecidos en la Ley N° 21.561 y el Código del Trabajo, y se mantenga la jornada semanal máxima de cuarenta horas. Cualquier modificación será comunicada al trabajador con la debida anticipación.\n\n`
   }
-  
-  text += `La jornada de trabajo será interrumpida con un descanso de colación de ${lunchText}, el cual no será imputable a la jornada laboral y será de cargo del Trabajador. Este descanso se otorgará en el horario que el empleador determine, dentro de la jornada de trabajo.\n\n`
-  text += `Sin perjuicio de lo anterior, y cuando las necesidades operacionales de la empresa así lo requieran, la jornada de trabajo podrá modificarse en cuanto a su distribución horaria, siempre que no signifique menoscabo para el trabajador, se respeten los límites legales establecidos en la Ley N° 21.561 y el Código del Trabajo, y se mantenga la jornada semanal máxima de cuarenta horas. Cualquier modificación será comunicada al trabajador con la debida anticipación.\n\n`
 
-  // TERCERO: Trabajo extraordinario
-  text += `TERCERO: Cuando por necesidades de funcionamiento de la Empresa, sea necesario pactar trabajo en tiempo extraordinario, el Empleado que lo acuerde desde luego se obligará a cumplir el horario que al efecto determine el Empleador, dentro de los límites legales. A falta de acuerdo, queda prohibido expresamente al Empleado trabajar sobretiempo o simplemente permanecer en el recinto de la Empresa, después de la hora diaria de salida, salvo en los casos a que se refiere el inciso precedente.\n\n`
-  text += `El tiempo extraordinario trabajado de acuerdo a las estipulaciones precedentes, se remunera con el recargo legal correspondiente y se liquidará y pagará conjuntamente con la remuneración del respectivo período.\n\n`
+  // TERCERO: Trabajo extraordinario (solo para jornada ordinaria o parcial)
+  if (scheduleRegime !== 'excluded_art22') {
+    text += `TERCERO: Cuando por necesidades de funcionamiento de la Empresa, sea necesario pactar trabajo en tiempo extraordinario, el Empleado que lo acuerde desde luego se obligará a cumplir el horario que al efecto determine el Empleador, dentro de los límites legales. A falta de acuerdo, queda prohibido expresamente al Empleado trabajar sobretiempo o simplemente permanecer en el recinto de la Empresa, después de la hora diaria de salida, salvo en los casos a que se refiere el inciso precedente.\n\n`
+    text += `El tiempo extraordinario trabajado de acuerdo a las estipulaciones precedentes, se remunera con el recargo legal correspondiente y se liquidará y pagará conjuntamente con la remuneración del respectivo período.\n\n`
+  }
 
   // CUARTO: Remuneraciones
   text += `CUARTO:\n\n`

@@ -7,7 +7,7 @@ import DateInput from '@/components/DateInput'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { createValidationServices } from '@/lib/services/validationHelpers'
-import { numberToSpanishOrdinal, getDefaultClauseLabels, ContractClause } from '@/lib/utils/contractText'
+import { numberToSpanishOrdinal, getDefaultClauseLabels, ContractClause, generateArt22ClauseText, isPositionLikelyOperative } from '@/lib/utils/contractText'
 
 // Componente ToggleSwitch simple
 const ToggleSwitch = ({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label?: string }) => {
@@ -117,11 +117,12 @@ export default function NewContractPage() {
     end_date: '',
     position: '',
     position_description: '',
-    work_schedule_type: 'unified' as 'unified' | 'separated', // unified: lunes a viernes igual, separated: lunes-jueves y viernes separados
+    work_schedule_type: 'unified' as 'unified' | 'separated',
     work_schedule: 'Lunes a Viernes, 09:00 a 18:00',
     work_schedule_monday_thursday: 'Lunes a Jueves, 09:00 a 18:00',
     work_schedule_friday: 'Viernes, 09:00 a 18:00',
-    lunch_break_duration: '60', // Duración de colación en minutos
+    lunch_break_duration: '60',
+    schedule_regime: 'ordinary' as 'ordinary' | 'partial' | 'excluded_art22',
     work_location: '',
     base_salary: '',
     gratuity: true,
@@ -139,6 +140,8 @@ export default function NewContractPage() {
     additional_clauses: '',
     clauses: [] as ContractClause[],
   })
+
+  const [art22Confirmed, setArt22Confirmed] = useState(false)
 
   const defaultClauseLabels = getDefaultClauseLabels()
 
@@ -159,6 +162,9 @@ export default function NewContractPage() {
         return clause1Text
       
       case 2: // SEGUNDO: Jornada de trabajo
+        if (formData.schedule_regime === 'excluded_art22') {
+          return `Jornada de trabajo.\n\n${generateArt22ClauseText()}`
+        }
         const scheduleText = formData.work_schedule_type === 'unified' 
           ? formData.work_schedule 
           : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`
@@ -175,9 +181,15 @@ export default function NewContractPage() {
         } else {
           lunchText = `${lunchMinutes} minuto${lunchMinutes > 1 ? 's' : ''}`
         }
+        if (formData.schedule_regime === 'partial') {
+          return `Jornada de trabajo.\n\nEl trabajador cumplirá una jornada parcial, conforme a lo establecido en el artículo 40 bis del Código del Trabajo. Esta jornada se distribuirá de acuerdo a la siguiente distribución referencial diaria: ${scheduleText}. El horario de ingreso será a las ${startTime} horas.\n\nLa jornada de trabajo será interrumpida con un descanso de colación de ${lunchText}, el cual no será imputable a la jornada laboral y será de cargo del Trabajador. Este descanso se otorgará en el horario que el empleador determine, dentro de la jornada de trabajo.\n\nSin perjuicio de lo anterior, la jornada de trabajo podrá modificarse en cuanto a su distribución horaria, siempre que no signifique menoscabo para el trabajador y se respeten los límites legales. Cualquier modificación será comunicada al trabajador con la debida anticipación.`
+        }
         return `Jornada de trabajo.\n\nEl trabajador cumplirá una jornada semanal ordinaria máxima de cuarenta horas, conforme a lo establecido en la Ley N° 21.561, que modifica el Código del Trabajo en materia de jornada laboral. Esta jornada se distribuirá de lunes a viernes, de acuerdo a la siguiente distribución referencial diaria: ${scheduleText}. El horario de ingreso será a las ${startTime} horas.\n\nLa jornada de trabajo será interrumpida con un descanso de colación de ${lunchText}, el cual no será imputable a la jornada laboral y será de cargo del Trabajador. Este descanso se otorgará en el horario que el empleador determine, dentro de la jornada de trabajo.\n\nSin perjuicio de lo anterior, y cuando las necesidades operacionales de la empresa así lo requieran, la jornada de trabajo podrá modificarse en cuanto a su distribución horaria, siempre que no signifique menoscabo para el trabajador, se respeten los límites legales establecidos en la Ley N° 21.561 y el Código del Trabajo, y se mantenga la jornada semanal máxima de cuarenta horas. Cualquier modificación será comunicada al trabajador con la debida anticipación.`
       
       case 3: // TERCERO: Trabajo extraordinario
+        if (formData.schedule_regime === 'excluded_art22') {
+          return ''
+        }
         return `Cuando por necesidades de funcionamiento de la Empresa, sea necesario pactar trabajo en tiempo extraordinario, el Empleado que lo acuerde desde luego se obligará a cumplir el horario que al efecto determine el Empleador, dentro de los límites legales. A falta de acuerdo, queda prohibido expresamente al Empleado trabajar sobretiempo o simplemente permanecer en el recinto de la Empresa, después de la hora diaria de salida, salvo en los casos a que se refiere el inciso precedente.\n\nEl tiempo extraordinario trabajado de acuerdo a las estipulaciones precedentes, se remunera con el recargo legal correspondiente y se liquidará y pagará conjuntamente con la remuneración del respectivo período.`
       
       case 4: // CUARTO: Remuneraciones
@@ -464,6 +476,12 @@ export default function NewContractPage() {
         return
       }
 
+      if (formData.schedule_regime === 'excluded_art22' && !art22Confirmed) {
+        alert('Debe confirmar los requisitos legales del Art. 22 inciso 2 antes de guardar el contrato')
+        setSaving(false)
+        return
+      }
+
       const baseSalary = parseFormattedNumber(formData.base_salary)
       if (baseSalary <= 0) {
         alert('El sueldo base debe ser mayor a cero')
@@ -488,11 +506,16 @@ export default function NewContractPage() {
           : null,
         position: formData.position,
         position_description: formData.position_description || null,
-        work_schedule: formData.work_schedule_type === 'unified' 
-          ? formData.work_schedule 
-          : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`,
+        work_schedule: formData.schedule_regime === 'excluded_art22' 
+          ? null 
+          : (formData.work_schedule_type === 'unified' 
+            ? formData.work_schedule 
+            : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`),
         work_location: formData.work_location,
-        lunch_break_duration: parseInt(formData.lunch_break_duration) || 60,
+        lunch_break_duration: formData.schedule_regime === 'excluded_art22' 
+          ? null 
+          : (parseInt(formData.lunch_break_duration) || 60),
+        schedule_regime: formData.schedule_regime,
         base_salary: baseSalary,
         gratuity: formData.gratuity,
         gratuity_amount: formData.gratuity_amount ? parseFormattedNumber(formData.gratuity_amount) : null,
@@ -704,69 +727,265 @@ export default function NewContractPage() {
         {/* Jornada y Lugar de Trabajo */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <h2>4. Jornada y Lugar de Trabajo</h2>
-          <div style={{ 
-            padding: '12px', 
-            backgroundColor: '#f0f9ff', 
-            borderLeft: '4px solid #3b82f6', 
-            marginBottom: '16px',
-            borderRadius: '4px',
-            fontSize: '13px',
-            color: '#1e40af'
-          }}>
-            <strong>Nota:</strong> La jornada de trabajo se rige por la Ley 21.561 (Ley de 40 horas), que establece una jornada ordinaria semanal máxima de 40 horas, distribuidas de lunes a viernes. Esta ley entró en vigencia de forma gradual y debe ser respetada en todos los contratos laborales.
-          </div>
-          <div className="form-group">
-            <label>Tipo de Horario *</label>
+          
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label>Régimen de Jornada *</label>
             <select
-              value={formData.work_schedule_type}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                work_schedule_type: e.target.value as 'unified' | 'separated' 
-              })}
+              value={formData.schedule_regime}
+              onChange={(e) => {
+                const newRegime = e.target.value as 'ordinary' | 'partial' | 'excluded_art22'
+                if (newRegime === 'excluded_art22') {
+                  setArt22Confirmed(false)
+                }
+                setFormData({ ...formData, schedule_regime: newRegime })
+              }}
               required
             >
-              <option value="unified">Lunes a Viernes (mismo horario)</option>
-              <option value="separated">Lunes a Jueves y Viernes (horarios diferentes)</option>
+              <option value="ordinary">Jornada Ordinaria (Ley 21.561 - 40 hrs)</option>
+              <option value="partial">Jornada Parcial</option>
+              <option value="excluded_art22">Excluido Art. 22 inciso 2</option>
             </select>
           </div>
-          
-          {formData.work_schedule_type === 'unified' ? (
-            <div className="form-group">
-              <label>Horario de Trabajo *</label>
-              <input
-                type="text"
-                value={formData.work_schedule}
-                onChange={(e) => setFormData({ ...formData, work_schedule: e.target.value })}
-                placeholder="Ej: Lunes a Viernes, 09:00 a 18:00"
-                required
-              />
-            </div>
-          ) : (
-            <div className="form-row">
-              <div className="form-group">
-                <label>Horario Lunes a Jueves *</label>
-                <input
-                  type="text"
-                  value={formData.work_schedule_monday_thursday}
-                  onChange={(e) => setFormData({ ...formData, work_schedule_monday_thursday: e.target.value })}
-                  placeholder="Ej: Lunes a Jueves, 09:00 a 18:00"
-                  required
-                />
+
+          {formData.schedule_regime === 'excluded_art22' && (
+            <div style={{ 
+              padding: '16px', 
+              backgroundColor: '#fef2f2', 
+              borderLeft: '4px solid #dc2626', 
+              marginBottom: '16px',
+              borderRadius: '4px',
+              fontSize: '13px',
+              color: '#991b1b'
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>
+                ⚠ ADVERTENCIA: Artículo 22 inciso 2
               </div>
-              <div className="form-group">
-                <label>Horario Viernes *</label>
+              <p style={{ margin: '0 0 8px 0' }}>
+                El uso de esta figura es de <strong>CARÁCTER RESTRICTIVO</strong>. Solo aplica a trabajadores que, sin fiscalización superior, ejerzan su cometido funcional de manera autónoma (gerentes, administradores, cargos de confianza con poder de decisión).
+              </p>
+              <p style={{ margin: '0 0 8px 0' }}>
+                ❌ No se registra distribución de jornada<br/>
+                ❌ No aplica cálculo de horas extraordinarias<br/>
+                ❌ No requiere control de asistencia obligatorio
+              </p>
+              <p style={{ margin: '0 0 12px 0', fontStyle: 'italic' }}>
+                La Dirección del Trabajo puede fiscalizar el cumplimiento de los requisitos de hecho.
+              </p>
+              {formData.position && isPositionLikelyOperative(formData.position) && (
+                <div style={{ 
+                  padding: '10px', 
+                  backgroundColor: '#fffbeb', 
+                  borderLeft: '3px solid #f59e0b',
+                  borderRadius: '4px',
+                  marginBottom: '12px'
+                }}>
+                  ⚠ El cargo ingresado (&quot;{formData.position}&quot;) podría no cumplir los requisitos del Art. 22. Verifique que las funciones correspondan a un cargo de confianza o sin supervisión directa.
+                </div>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                 <input
-                  type="text"
-                  value={formData.work_schedule_friday}
-                  onChange={(e) => setFormData({ ...formData, work_schedule_friday: e.target.value })}
-                  placeholder="Ej: Viernes, 09:00 a 13:00"
-                  required
+                  type="checkbox"
+                  checked={art22Confirmed}
+                  onChange={(e) => setArt22Confirmed(e.target.checked)}
                 />
-              </div>
+                <span>He leído y comprendo los requisitos legales del Art. 22 inciso 2</span>
+              </label>
             </div>
           )}
+
+          {formData.schedule_regime !== 'excluded_art22' && (
+            <>
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: '#f0f9ff', 
+                borderLeft: '4px solid #3b82f6', 
+                marginBottom: '16px',
+                borderRadius: '4px',
+                fontSize: '13px',
+                color: '#1e40af'
+              }}>
+                <strong>Nota:</strong> La jornada de trabajo se rige por la Ley 21.561 (Ley de 40 horas), que establece una jornada ordinaria semanal máxima de {formData.schedule_regime === 'partial' ? '30 horas para jornada parcial' : '40 horas, distribuidas de lunes a viernes'}. Esta ley entró en vigencia de forma gradual y debe ser respetada en todos los contratos laborales.
+              </div>
+              <div className="form-group">
+                <label>Tipo de Horario *</label>
+                <select
+                  value={formData.work_schedule_type}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    work_schedule_type: e.target.value as 'unified' | 'separated' 
+                  })}
+                  required
+                >
+                  <option value="unified">Lunes a Viernes (mismo horario)</option>
+                  <option value="separated">Lunes a Jueves y Viernes (horarios diferentes)</option>
+                </select>
+              </div>
+              
+              {formData.work_schedule_type === 'unified' ? (
+                <div className="form-group">
+                  <label>Horario de Trabajo *</label>
+                  <input
+                    type="text"
+                    value={formData.work_schedule}
+                    onChange={(e) => setFormData({ ...formData, work_schedule: e.target.value })}
+                    placeholder="Ej: Lunes a Viernes, 09:00 a 18:00"
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Horario Lunes a Jueves *</label>
+                    <input
+                      type="text"
+                      value={formData.work_schedule_monday_thursday}
+                      onChange={(e) => setFormData({ ...formData, work_schedule_monday_thursday: e.target.value })}
+                      placeholder="Ej: Lunes a Jueves, 09:00 a 18:00"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Horario Viernes *</label>
+                    <input
+                      type="text"
+                      value={formData.work_schedule_friday}
+                      onChange={(e) => setFormData({ ...formData, work_schedule_friday: e.target.value })}
+                      placeholder="Ej: Viernes, 09:00 a 13:00"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div className="form-group">
+                <label>Duración de Colación (minutos) *</label>
+                <input
+                  type="number"
+                  value={formData.lunch_break_duration}
+                  onChange={(e) => setFormData({ ...formData, lunch_break_duration: e.target.value })}
+                  placeholder="Ej: 60"
+                  min="0"
+                  max="120"
+                  required
+                />
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  Tiempo de descanso para colación (no imputable a la jornada laboral)
+                </div>
+              </div>
+
+              {/* Análisis de cumplimiento de Ley 21.561 */}
+              {(() => {
+                const calculateWeeklyHours = () => {
+                  try {
+                    const lunchMinutes = parseInt(formData.lunch_break_duration) || 60
+
+                    if (formData.work_schedule_type === 'unified' && formData.work_schedule) {
+                      const timeMatch = formData.work_schedule.match(/(\d{1,2}):(\d{2})\s*a\s*(\d{1,2}):(\d{2})/i)
+                      if (timeMatch) {
+                        const startHour = parseInt(timeMatch[1])
+                        const startMin = parseInt(timeMatch[2])
+                        const endHour = parseInt(timeMatch[3])
+                        const endMin = parseInt(timeMatch[4])
+                        
+                        const startTotal = startHour * 60 + startMin
+                        const endTotal = endHour * 60 + endMin
+                        const dailyMinutes = endTotal - startTotal - lunchMinutes
+                        const dailyHours = dailyMinutes / 60
+                        return dailyHours * 5
+                      }
+                    } else if (formData.work_schedule_type === 'separated') {
+                      const mondayThursdayMatch = formData.work_schedule_monday_thursday?.match(/(\d{1,2}):(\d{2})\s*a\s*(\d{1,2}):(\d{2})/i)
+                      let mondayThursdayHours = 0
+                      if (mondayThursdayMatch) {
+                        const startHour = parseInt(mondayThursdayMatch[1])
+                        const startMin = parseInt(mondayThursdayMatch[2])
+                        const endHour = parseInt(mondayThursdayMatch[3])
+                        const endMin = parseInt(mondayThursdayMatch[4])
+                        
+                        const startTotal = startHour * 60 + startMin
+                        const endTotal = endHour * 60 + endMin
+                        const dailyMinutes = endTotal - startTotal - lunchMinutes
+                        mondayThursdayHours = (dailyMinutes / 60) * 4
+                      }
+                      
+                      const fridayMatch = formData.work_schedule_friday?.match(/(\d{1,2}):(\d{2})\s*a\s*(\d{1,2}):(\d{2})/i)
+                      let fridayHours = 0
+                      if (fridayMatch) {
+                        const startHour = parseInt(fridayMatch[1])
+                        const startMin = parseInt(fridayMatch[2])
+                        const endHour = parseInt(fridayMatch[3])
+                        const endMin = parseInt(fridayMatch[4])
+                        
+                        const startTotal = startHour * 60 + startMin
+                        const endTotal = endHour * 60 + endMin
+                        const dailyMinutes = endTotal - startTotal - lunchMinutes
+                        fridayHours = dailyMinutes / 60
+                      }
+                      
+                      return mondayThursdayHours + fridayHours
+                    }
+                  } catch (error) {
+                    return null
+                  }
+                  return null
+                }
+
+                const weeklyHours = calculateWeeklyHours()
+                const currentYear = new Date().getFullYear()
+                
+                let maxHours = 45
+                let limitYear = ''
+                if (currentYear >= 2028) {
+                  maxHours = 40
+                  limitYear = '2028'
+                } else if (currentYear >= 2026) {
+                  maxHours = 42
+                  limitYear = '2026'
+                } else if (currentYear >= 2024) {
+                  maxHours = 44
+                  limitYear = '2024'
+                }
+
+                if (weeklyHours !== null && weeklyHours > 0) {
+                  const isCompliant = weeklyHours <= maxHours
+                  const hoursDiff = weeklyHours - maxHours
+                  
+                  return (
+                    <div style={{
+                      marginTop: '16px',
+                      padding: '12px',
+                      backgroundColor: isCompliant ? '#f0fdf4' : '#fef2f2',
+                      borderLeft: `4px solid ${isCompliant ? '#22c55e' : '#ef4444'}`,
+                      borderRadius: '4px'
+                    }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: isCompliant ? '#166534' : '#991b1b' }}>
+                        {isCompliant ? '✓ Cumple con Ley 21.561' : '⚠ Excede límite legal'}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
+                        <strong>Horas semanales calculadas:</strong> {weeklyHours.toFixed(2)} horas
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
+                        <strong>Límite legal ({currentYear >= 2028 ? 'desde 2028' : currentYear >= 2026 ? 'desde 2026' : 'desde 2024'}):</strong> {maxHours} horas/semana
+                      </div>
+                      {!isCompliant && (
+                        <div style={{ fontSize: '13px', color: '#991b1b', marginTop: '8px', fontWeight: 'bold' }}>
+                          ⚠ ADVERTENCIA: Se excede el límite legal en {hoursDiff.toFixed(2)} horas. Esto podría generar responsabilidades legales.
+                        </div>
+                      )}
+                      {isCompliant && weeklyHours < maxHours && (
+                        <div style={{ fontSize: '12px', color: '#166534', marginTop: '4px' }}>
+                          El horario está dentro del límite legal y es menor al máximo permitido.
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                return null
+              })()}
+            </>
+          )}
           
-          <div className="form-group">
+          <div className="form-group" style={{ marginTop: '16px' }}>
             <label>Lugar de Prestación de Servicios *</label>
             <input
               type="text"
@@ -775,136 +994,6 @@ export default function NewContractPage() {
               required
             />
           </div>
-          
-          <div className="form-group">
-            <label>Duración de Colación (minutos) *</label>
-            <input
-              type="number"
-              value={formData.lunch_break_duration}
-              onChange={(e) => setFormData({ ...formData, lunch_break_duration: e.target.value })}
-              placeholder="Ej: 60"
-              min="0"
-              max="120"
-              required
-            />
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-              Tiempo de descanso para colación (no imputable a la jornada laboral)
-            </div>
-          </div>
-
-          {/* Análisis de cumplimiento de Ley 21.561 */}
-          {(() => {
-            const calculateWeeklyHours = () => {
-              try {
-                const lunchMinutes = parseInt(formData.lunch_break_duration) || 60
-
-                if (formData.work_schedule_type === 'unified' && formData.work_schedule) {
-                  // Extraer horarios del texto unificado
-                  const timeMatch = formData.work_schedule.match(/(\d{1,2}):(\d{2})\s*a\s*(\d{1,2}):(\d{2})/i)
-                  if (timeMatch) {
-                    const startHour = parseInt(timeMatch[1])
-                    const startMin = parseInt(timeMatch[2])
-                    const endHour = parseInt(timeMatch[3])
-                    const endMin = parseInt(timeMatch[4])
-                    
-                    const startTotal = startHour * 60 + startMin
-                    const endTotal = endHour * 60 + endMin
-                    const dailyMinutes = endTotal - startTotal - lunchMinutes
-                    const dailyHours = dailyMinutes / 60
-                    return dailyHours * 5 // 5 días laborales
-                  }
-                } else if (formData.work_schedule_type === 'separated') {
-                  // Calcular lunes a jueves
-                  const mondayThursdayMatch = formData.work_schedule_monday_thursday?.match(/(\d{1,2}):(\d{2})\s*a\s*(\d{1,2}):(\d{2})/i)
-                  let mondayThursdayHours = 0
-                  if (mondayThursdayMatch) {
-                    const startHour = parseInt(mondayThursdayMatch[1])
-                    const startMin = parseInt(mondayThursdayMatch[2])
-                    const endHour = parseInt(mondayThursdayMatch[3])
-                    const endMin = parseInt(mondayThursdayMatch[4])
-                    
-                    const startTotal = startHour * 60 + startMin
-                    const endTotal = endHour * 60 + endMin
-                    const dailyMinutes = endTotal - startTotal - lunchMinutes
-                    mondayThursdayHours = (dailyMinutes / 60) * 4 // 4 días
-                  }
-                  
-                  // Calcular viernes
-                  const fridayMatch = formData.work_schedule_friday?.match(/(\d{1,2}):(\d{2})\s*a\s*(\d{1,2}):(\d{2})/i)
-                  let fridayHours = 0
-                  if (fridayMatch) {
-                    const startHour = parseInt(fridayMatch[1])
-                    const startMin = parseInt(fridayMatch[2])
-                    const endHour = parseInt(fridayMatch[3])
-                    const endMin = parseInt(fridayMatch[4])
-                    
-                    const startTotal = startHour * 60 + startMin
-                    const endTotal = endHour * 60 + endMin
-                    const dailyMinutes = endTotal - startTotal - lunchMinutes
-                    fridayHours = dailyMinutes / 60 // 1 día
-                  }
-                  
-                  return mondayThursdayHours + fridayHours
-                }
-              } catch (error) {
-                return null
-              }
-              return null
-            }
-
-            const weeklyHours = calculateWeeklyHours()
-            const currentYear = new Date().getFullYear()
-            
-            // Determinar límite según año
-            let maxHours = 45 // Por defecto (antes de 2024)
-            let limitYear = ''
-            if (currentYear >= 2028) {
-              maxHours = 40
-              limitYear = '2028'
-            } else if (currentYear >= 2026) {
-              maxHours = 42
-              limitYear = '2026'
-            } else if (currentYear >= 2024) {
-              maxHours = 44
-              limitYear = '2024'
-            }
-
-            if (weeklyHours !== null && weeklyHours > 0) {
-              const isCompliant = weeklyHours <= maxHours
-              const hoursDiff = weeklyHours - maxHours
-              
-              return (
-                <div style={{
-                  marginTop: '16px',
-                  padding: '12px',
-                  backgroundColor: isCompliant ? '#f0fdf4' : '#fef2f2',
-                  borderLeft: `4px solid ${isCompliant ? '#22c55e' : '#ef4444'}`,
-                  borderRadius: '4px'
-                }}>
-                  <div style={{ fontWeight: 'bold', marginBottom: '8px', color: isCompliant ? '#166534' : '#991b1b' }}>
-                    {isCompliant ? '✓ Cumple con Ley 21.561' : '⚠ Excede límite legal'}
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
-                    <strong>Horas semanales calculadas:</strong> {weeklyHours.toFixed(2)} horas
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
-                    <strong>Límite legal ({currentYear >= 2028 ? 'desde 2028' : currentYear >= 2026 ? 'desde 2026' : 'desde 2024'}):</strong> {maxHours} horas/semana
-                  </div>
-                  {!isCompliant && (
-                    <div style={{ fontSize: '13px', color: '#991b1b', marginTop: '8px', fontWeight: 'bold' }}>
-                      ⚠ ADVERTENCIA: Se excede el límite legal en {hoursDiff.toFixed(2)} horas. Esto podría generar responsabilidades legales.
-                    </div>
-                  )}
-                  {isCompliant && weeklyHours < maxHours && (
-                    <div style={{ fontSize: '12px', color: '#166534', marginTop: '4px' }}>
-                      El horario está dentro del límite legal y es menor al máximo permitido.
-                    </div>
-                  )}
-                </div>
-              )
-            }
-            return null
-          })()}
         </div>
 
         {/* Remuneraciones */}
