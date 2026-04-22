@@ -5,22 +5,37 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/utils/date'
-import { FaStethoscope, FaEye, FaEdit, FaPlus, FaTrash } from 'react-icons/fa'
+import { FaStethoscope, FaEye, FaPlus, FaTrash, FaTimes } from 'react-icons/fa'
 
-const LEAVE_TYPES: Record<string, string> = {
-  enfermedad_comun: 'Enfermedad Común',
-  accidente_trabajo: 'Accidente del Trabajo',
-  enfermedad_profesional: 'Enfermedad Profesional',
-  maternidad: 'Maternidad',
-  otro: 'Otro',
-}
+const LEAVE_TYPES = [
+  { value: 'enfermedad_comun', label: 'Enfermedad Común' },
+  { value: 'accidente_trabajo', label: 'Accidente del Trabajo' },
+  { value: 'enfermedad_profesional', label: 'Enfermedad Profesional' },
+  { value: 'maternidad', label: 'Maternidad' },
+  { value: 'otro', label: 'Otro' },
+]
+
+const LEAVE_TYPES_MAP: Record<string, string> = Object.fromEntries(LEAVE_TYPES.map(t => [t.value, t.label]))
 
 export default function MedicalLeavesManagementPage() {
   const { company: currentCompany, companyId } = useCurrentCompany()
   const [loading, setLoading] = useState(true)
   const [leaves, setLeaves] = useState<any[]>([])
   const [employees, setEmployees] = useState<Record<string, any>>({})
+  const [employeesList, setEmployeesList] = useState<any[]>([])
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired' | 'upcoming'>('all')
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState({
+    employee_id: '',
+    start_date: '',
+    end_date: '',
+    leave_type: 'enfermedad_comun',
+    days_count: 0,
+    folio_number: '',
+    description: '',
+    is_active: true,
+  })
 
   useEffect(() => {
     if (companyId) {
@@ -48,6 +63,7 @@ export default function MedicalLeavesManagementPage() {
         employeesMap[emp.id] = emp
       })
       setEmployees(employeesMap)
+      setEmployeesList(employeesData)
 
       if (employeeIds.length === 0) {
         setLeaves([])
@@ -124,6 +140,108 @@ export default function MedicalLeavesManagementPage() {
     }
 
     return { label: 'Vencida', color: '#ef4444' }
+  }
+
+  const calculateDays = () => {
+    if (!formData.start_date || !formData.end_date) {
+      setFormData(prev => ({ ...prev, days_count: 0 }))
+      return
+    }
+    const start = new Date(formData.start_date)
+    const end = new Date(formData.end_date)
+    const diffTime = end.getTime() - start.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+    setFormData(prev => ({ ...prev, days_count: diffDays > 0 ? diffDays : 0 }))
+  }
+
+  useEffect(() => {
+    if (formData.start_date && formData.end_date) {
+      calculateDays()
+    }
+  }, [formData.start_date, formData.end_date])
+
+  const handleNewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      if (!formData.employee_id) {
+        alert('Debes seleccionar un trabajador')
+        setSaving(false)
+        return
+      }
+      if (!formData.start_date || !formData.end_date) {
+        alert('Debes ingresar fecha de inicio y término')
+        setSaving(false)
+        return
+      }
+      if (formData.days_count <= 0) {
+        alert('El número de días debe ser mayor a 0')
+        setSaving(false)
+        return
+      }
+
+      const { data: overlapping } = await supabase
+        .from('medical_leaves')
+        .select('id, start_date, end_date')
+        .eq('employee_id', formData.employee_id)
+        .eq('is_active', true)
+        .or(`and(start_date.lte.${formData.end_date},end_date.gte.${formData.start_date})`)
+
+      if (overlapping && overlapping.length > 0) {
+        if (!confirm('Ya existe una licencia médica activa en ese período para este trabajador. ¿Deseas continuar de todas formas?')) {
+          setSaving(false)
+          return
+        }
+      }
+
+      const { error } = await supabase
+        .from('medical_leaves')
+        .insert({
+          employee_id: formData.employee_id,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          leave_type: formData.leave_type,
+          days_count: formData.days_count,
+          folio_number: formData.folio_number || null,
+          description: formData.description || null,
+          is_active: formData.is_active,
+        })
+
+      if (error) throw error
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const startDate = new Date(formData.start_date)
+      const endDate = new Date(formData.end_date)
+      startDate.setHours(0, 0, 0, 0)
+      endDate.setHours(0, 0, 0, 0)
+
+      if (formData.is_active && today >= startDate && today <= endDate) {
+        await supabase
+          .from('employees')
+          .update({ status: 'licencia_medica' })
+          .eq('id', formData.employee_id)
+      }
+
+      alert('Licencia médica registrada correctamente')
+      setShowNewForm(false)
+      setFormData({
+        employee_id: '',
+        start_date: '',
+        end_date: '',
+        leave_type: 'enfermedad_comun',
+        days_count: 0,
+        folio_number: '',
+        description: '',
+        is_active: true,
+      })
+      loadData()
+    } catch (error: any) {
+      alert('Error al registrar licencia: ' + error.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleToggleActive = async (leaveId: string, currentStatus: boolean) => {
@@ -266,9 +384,15 @@ export default function MedicalLeavesManagementPage() {
             </p>
           </div>
         </div>
-        <Link href="/">
-          <button className="secondary">Volver al Dashboard</button>
-        </Link>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button onClick={() => setShowNewForm(!showNewForm)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FaPlus size={12} />
+            Nueva Licencia
+          </button>
+          <Link href="/">
+            <button className="secondary">Volver al Dashboard</button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -289,6 +413,145 @@ export default function MedicalLeavesManagementPage() {
           </div>
         </div>
       </div>
+
+      {showNewForm && (
+        <div className="card" style={{ marginBottom: '24px', border: '2px solid #2563eb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FaPlus size={16} style={{ color: '#2563eb' }} />
+              Nueva Licencia Médica
+            </h2>
+            <button
+              onClick={() => setShowNewForm(false)}
+              className="secondary"
+              style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              <FaTimes size={12} />
+              Cancelar
+            </button>
+          </div>
+          <form onSubmit={handleNewSubmit}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Trabajador *</label>
+                <select
+                  required
+                  value={formData.employee_id}
+                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                >
+                  <option value="">Seleccionar trabajador...</option>
+                  {employeesList.map((emp: any) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} - {emp.rut}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Tipo de Licencia *</label>
+                <select
+                  required
+                  value={formData.leave_type}
+                  onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
+                >
+                  {LEAVE_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Fecha de Inicio *</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Fecha de Término *</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Número de Días</label>
+                <input
+                  type="number"
+                  min="1"
+                  readOnly
+                  value={formData.days_count}
+                  style={{ background: '#f9fafb' }}
+                />
+                <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                  Calculado automáticamente según las fechas
+                </small>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Número de Folio (Opcional)</label>
+                <input
+                  type="text"
+                  value={formData.folio_number}
+                  onChange={(e) => setFormData({ ...formData, folio_number: e.target.value })}
+                  placeholder="Ej: 123456"
+                />
+              </div>
+              <div className="form-group">
+                <label>Estado</label>
+                <select
+                  value={formData.is_active ? 'true' : 'false'}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'true' })}
+                >
+                  <option value="true">Activa</option>
+                  <option value="false">Inactiva</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Descripción (Opcional)</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                placeholder="Observaciones adicionales sobre la licencia"
+              />
+            </div>
+            <div style={{ marginTop: '24px', display: 'flex', gap: '16px' }}>
+              <button type="submit" disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar Licencia'}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setShowNewForm(false)
+                  setFormData({
+                    employee_id: '',
+                    start_date: '',
+                    end_date: '',
+                    leave_type: 'enfermedad_comun',
+                    days_count: 0,
+                    folio_number: '',
+                    description: '',
+                    is_active: true,
+                  })
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Tabla de licencias */}
       {loading ? (
@@ -338,7 +601,7 @@ export default function MedicalLeavesManagementPage() {
                       </td>
                       <td>{employee?.rut || '-'}</td>
                       <td>{employee?.position || '-'}</td>
-                      <td>{LEAVE_TYPES[leave.leave_type] || leave.leave_type}</td>
+                      <td>{LEAVE_TYPES_MAP[leave.leave_type] || leave.leave_type}</td>
                       <td>{formatDate(leave.start_date)}</td>
                       <td>{formatDate(leave.end_date)}</td>
                       <td>{leave.days_count}</td>
