@@ -1,27 +1,31 @@
 'use client'
 
-import { Document, Page, Text, View, StyleSheet, PDFViewer, Image } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, PDFViewer, Image, Font } from '@react-pdf/renderer'
 import { generateContractText, formatDateLegal } from '@/lib/utils/contractText'
 import { formatRut } from '@/lib/utils/rutHelper'
 
-// Función para renderizar texto con partes en negrita marcadas con asteriscos
+Font.register({
+  family: 'NotoSerif',
+  fonts: [
+    { src: '/fonts/NotoSerif-Regular.ttf', fontWeight: 'normal' },
+    { src: '/fonts/NotoSerif-Bold.ttf', fontWeight: 'bold' },
+  ],
+})
+
 function renderBoldText(text: string, baseStyle: any) {
-  // Dividir el texto por asteriscos
   const parts = text.split(/(\*[^*]+\*)/g)
   
   return parts.map((part, index) => {
-    // Si la parte está entre asteriscos, renderizarla en negrita
     if (part.startsWith('*') && part.endsWith('*')) {
-      const boldText = part.slice(1, -1) // Remover los asteriscos
+      const boldText = part.slice(1, -1)
       return (
-        <Text key={index} style={{ ...baseStyle, fontFamily: 'Helvetica-Bold' }}>
+        <Text key={index} style={{ ...baseStyle, fontFamily: 'NotoSerif', fontWeight: 'bold' }}>
           {boldText}
         </Text>
       )
     }
-    // Texto normal
     return (
-      <Text key={index} style={baseStyle}>
+      <Text key={index} style={{ ...baseStyle, fontFamily: 'NotoSerif', fontWeight: 'normal' }}>
         {part}
       </Text>
     )
@@ -30,18 +34,19 @@ function renderBoldText(text: string, baseStyle: any) {
 
 const styles = StyleSheet.create({
   page: {
-    paddingLeft: 85, // 3cm = 85 puntos aproximadamente
-    paddingRight: 85, // 3cm = 85 puntos aproximadamente
-    paddingTop: 90, // Padding superior para evitar superposición con logo y paginador
+    paddingLeft: 85,
+    paddingRight: 85,
+    paddingTop: 90,
     paddingBottom: 40,
-    fontSize: 10,
-    fontFamily: 'Helvetica',
-    lineHeight: 1.5, // Interlineado 1.5
+    fontSize: 11,
+    fontFamily: 'NotoSerif',
+    fontWeight: 'normal',
+    lineHeight: 1.5,
   },
   logoContainer: {
     position: 'absolute',
     top: 20,
-    left: 85, // Ajustado para margen de 3cm
+    left: 85,
     width: 56,
     height: 56,
   },
@@ -53,31 +58,35 @@ const styles = StyleSheet.create({
   pageNumber: {
     position: 'absolute',
     top: 20,
-    right: 85, // Ajustado para margen de 3cm
+    right: 85,
     fontSize: 9,
     color: '#666',
+    fontFamily: 'NotoSerif',
   },
   contractNumber: {
     position: 'absolute',
     top: 35,
-    right: 85, // Ajustado para margen de 3cm
+    right: 85,
     fontSize: 9,
     color: '#666',
+    fontFamily: 'NotoSerif',
   },
   title: {
     fontSize: 18,
-    fontFamily: 'Helvetica-Bold',
+    fontFamily: 'NotoSerif',
+    fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 0,
     marginBottom: 20,
     textTransform: 'uppercase',
   },
   contractText: {
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 1.5,
     textAlign: 'justify',
     marginBottom: 15,
-    hyphens: 'auto',
+    fontFamily: 'NotoSerif',
+    fontWeight: 'normal',
   },
   signatureSection: {
     marginTop: 40,
@@ -96,12 +105,14 @@ const styles = StyleSheet.create({
     paddingTop: 5,
     textAlign: 'center',
     fontSize: 9,
+    fontFamily: 'NotoSerif',
   },
   closingText: {
     marginTop: 20,
-    fontSize: 10,
+    fontSize: 11,
     textAlign: 'justify',
     fontStyle: 'italic',
+    fontFamily: 'NotoSerif',
   },
 })
 
@@ -112,7 +123,6 @@ interface ContractPDFProps {
 }
 
 export default function ContractPDF({ contract, employee, company }: ContractPDFProps) {
-  // Generar nombre del archivo: CONTRATO-{RUT}-{DD-MM-AAAA}
   const generateFileName = () => {
     const rut = employee?.rut ? formatRut(employee.rut) : 'SIN-RUT'
     const startDate = contract?.start_date ? new Date(contract.start_date) : new Date()
@@ -122,18 +132,14 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
     return `CONTRATO-${rut}-${day}-${month}-${year}`
   }
 
-  // Generar texto completo del contrato
   const contractText = generateContractText(contract, employee, company)
-
-  // Dividir el texto en párrafos para mejor renderizado
   const paragraphs = contractText.split('\n\n').filter(p => p.trim().length > 0)
 
   return (
     <div style={{ width: '100%', height: '100vh' }}>
       <PDFViewer width="100%" height="100%">
         <Document title={generateFileName()}>
-          <Page size="LETTER" style={styles.page}>
-            {/* Logo en esquina superior izquierda */}
+          <Page size="LETTER" style={styles.page} wrap>
             {company?.logo_url && (
               <View style={styles.logoContainer} fixed>
                 <Image 
@@ -143,7 +149,6 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
               </View>
             )}
 
-            {/* Paginador y número de contrato en esquina superior derecha */}
             <View style={styles.pageNumber} fixed>
               <Text
                 render={({ pageNumber, totalPages }) => `${pageNumber} de ${totalPages} páginas`}
@@ -155,10 +160,8 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
               </View>
             )}
 
-            {/* Título */}
             <Text style={styles.title}>CONTRATO DE TRABAJO</Text>
 
-            {/* Texto del contrato en prosa legal continua */}
             <View>
               {paragraphs.map((paragraph, index) => {
                 const trimmed = paragraph.trim()
@@ -200,7 +203,7 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
                   const [, letter, content] = letterMatch
                   return (
                     <Text key={index} style={styles.contractText}>
-                      <Text style={{ fontFamily: 'Helvetica-Bold' }}>{letter}</Text>
+                      <Text style={{ fontFamily: 'NotoSerif', fontWeight: 'bold' }}>{letter}</Text>
                       {renderBoldText(content.trim(), {})}
                     </Text>
                   )
@@ -214,7 +217,6 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
               })}
             </View>
 
-            {/* Sección de firmas */}
             <View style={styles.signatureSection}>
               <View style={styles.signatureRow}>
                 <View style={styles.signatureBox}>
@@ -229,9 +231,8 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
                 </View>
               </View>
               
-              {/* Fecha */}
               <View style={{ marginTop: 20, textAlign: 'center' }}>
-                <Text style={{ fontSize: 9 }}>
+                <Text style={{ fontSize: 9, fontFamily: 'NotoSerif' }}>
                   {company?.city || 'Ciudad'}, {formatDateLegal(contract.start_date)}
                 </Text>
               </View>
