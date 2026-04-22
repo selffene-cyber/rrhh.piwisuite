@@ -164,8 +164,9 @@ export function generateContractTextFromSavedClauses(contract: any, employee: an
 
   const clauses: ContractClause[] = contract.clauses
   for (const clause of clauses) {
-    const labelPart = clause.label ? ` ${clause.label}` : ''
-    text += `${clause.title}:${labelPart}  ${clause.text}\n\n`
+    const titleBold = `*${clause.title}:*`
+    const labelPart = clause.label ? ` *${clause.label}*` : ''
+    text += `${titleBold}${labelPart}  ${clause.text}\n\n`
   }
 
   text += `Para constancia, se firma el presente contrato en dos ejemplares del mismo tenor y fecha, quedando uno en poder de cada parte.`

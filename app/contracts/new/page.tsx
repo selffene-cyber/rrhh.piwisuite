@@ -1292,7 +1292,11 @@ export default function NewContractPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const updated = formData.clauses.filter((_, i) => i !== index)
+                        const updated = formData.clauses.filter((_, i) => i !== index).map((c, i) => ({
+                          ...c,
+                          num: i + 1,
+                          title: numberToSpanishOrdinal(i + 1),
+                        }))
                         setFormData({ ...formData, clauses: updated })
                       }}
                       style={{ 

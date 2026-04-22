@@ -74,18 +74,10 @@ const styles = StyleSheet.create({
   },
   contractText: {
     fontSize: 10,
-    lineHeight: 1.5, // Interlineado 1.5
+    lineHeight: 1.5,
     textAlign: 'justify',
     marginBottom: 15,
-    hyphens: 'auto', // Sin cortar palabras
-  },
-  clauseTitle: {
-    fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
-  },
-  clauseLabel: {
-    fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
+    hyphens: 'auto',
   },
   signatureSection: {
     marginTop: 40,
@@ -169,48 +161,40 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
             {/* Texto del contrato en prosa legal continua */}
             <View>
               {paragraphs.map((paragraph, index) => {
-                // Detectar si es un título de cláusula (PRIMERO:, SEGUNDO:, etc.)
-                const clauseMatch = paragraph.match(/^((?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO|DÉCIMO PRIMERO|DÉCIMO SEGUNDO|DÉCIMO TERCERO|DÉCIMO CUARTO|DÉCIMO QUINTO|DÉCIMO SEXTO|DÉCIMO SÉPTIMO|DÉCIMO OCTAVO|DÉCIMO NOVENO|VIGÉSIMO|VIGÉSIMO PRIMERO|VIGÉSIMO SEGUNDO|VIGÉSIMO TERCERO|VIGÉSIMO CUARTO|VIGÉSIMO QUINTO|TRIGÉSIMO):\s*)([^\s].*?)\s{2,}(.*)$/is)
-                
-                if (clauseMatch) {
-                  const [, title, label, content] = clauseMatch
-                  return (
-                    <Text key={index} style={styles.contractText}>
-                      <Text style={styles.clauseTitle}>{title.trim()}</Text>
-                      {label && label.trim() && (
-                        <>
-                          <Text> </Text>
-                          <Text style={styles.clauseLabel}>{label.trim()}</Text>
-                        </>
-                      )}
-                      {content && content.trim() && (
-                        <>
-                          <Text> </Text>
-                          {renderBoldText(content.trim(), {})}
-                        </>
-                      )}
-                    </Text>
-                  )
-                }
+                const trimmed = paragraph.trim()
+                const startsWithBoldOrdinal = /^\*[A-ZÁÉÍÓÚÑ ]+:/i.test(trimmed)
 
-                const clauseMatchNoLabel = paragraph.match(/^((?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO|DÉCIMO PRIMERO|DÉCIMO SEGUNDO|DÉCIMO TERCERO|DÉCIMO CUARTO|DÉCIMO QUINTO|DÉCIMO SEXTO|DÉCIMO SÉPTIMO|DÉCIMO OCTAVO|DÉCIMO NOVENO|VIGÉSIMO|VIGÉSIMO PRIMERO|VIGÉSIMO SEGUNDO|VIGÉSIMO TERCERO|VIGÉSIMO CUARTO|VIGÉSIMO QUINTO|TRIGÉSIMO):)(.*)$/is)
-                
-                if (clauseMatchNoLabel) {
-                  const [, title, content] = clauseMatchNoLabel
-                  return (
-                    <Text key={index} style={styles.contractText}>
-                      <Text style={styles.clauseTitle}>{title.trim()}</Text>
-                      {content.trim() && (
-                        <>
+                if (startsWithBoldOrdinal) {
+                  const colonEndBold = trimmed.indexOf(':*')
+                  if (colonEndBold !== -1) {
+                    const afterTitle = trimmed.substring(colonEndBold + 2).trim()
+                    const secondBoldStart = afterTitle.indexOf('*')
+                    const secondBoldEnd = afterTitle.indexOf('*', secondBoldStart + 1)
+
+                    if (secondBoldStart === 0 && secondBoldEnd !== -1) {
+                      return (
+                        <Text key={index} style={styles.contractText}>
+                          {renderBoldText(trimmed.substring(0, colonEndBold + 2), {})}
                           <Text> </Text>
-                          {renderBoldText(content.trim(), {})}
-                        </>
-                      )}
-                    </Text>
-                  )
+                          {renderBoldText(afterTitle, {})}
+                        </Text>
+                      )
+                    }
+
+                    return (
+                      <Text key={index} style={styles.contractText}>
+                        {renderBoldText(trimmed.substring(0, colonEndBold + 2), {})}
+                        {afterTitle && (
+                          <>
+                            <Text> </Text>
+                            {renderBoldText(afterTitle, {})}
+                          </>
+                        )}
+                      </Text>
+                    )
+                  }
                 }
                 
-                // Detectar si el párrafo comienza con una letra seguida de punto (a., b., c., etc.)
                 const letterMatch = paragraph.match(/^([a-z]\.\s+)(.*)$/i)
                 if (letterMatch) {
                   const [, letter, content] = letterMatch
@@ -222,10 +206,9 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
                   )
                 }
                 
-                // Párrafo normal
                 return (
                   <Text key={index} style={styles.contractText}>
-                    {renderBoldText(paragraph.trim(), {})}
+                    {renderBoldText(trimmed, {})}
                   </Text>
                 )
               })}
