@@ -32,10 +32,12 @@ function renderBoldText(text: string, baseStyle: any) {
   })
 }
 
+const MARGIN_LR = 50
+
 const styles = StyleSheet.create({
   page: {
-    paddingLeft: 85,
-    paddingRight: 85,
+    paddingLeft: MARGIN_LR,
+    paddingRight: MARGIN_LR,
     paddingTop: 90,
     paddingBottom: 40,
     fontSize: 10,
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     position: 'absolute',
     top: 20,
-    left: 85,
+    left: MARGIN_LR,
     width: 56,
     height: 56,
   },
@@ -58,7 +60,7 @@ const styles = StyleSheet.create({
   pageNumber: {
     position: 'absolute',
     top: 20,
-    right: 85,
+    right: MARGIN_LR,
     fontSize: 9,
     color: '#666',
     fontFamily: 'Arial',
@@ -66,7 +68,7 @@ const styles = StyleSheet.create({
   contractNumber: {
     position: 'absolute',
     top: 35,
-    right: 85,
+    right: MARGIN_LR,
     fontSize: 9,
     color: '#666',
     fontFamily: 'Arial',
