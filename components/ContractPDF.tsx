@@ -5,10 +5,10 @@ import { generateContractText, formatDateLegal } from '@/lib/utils/contractText'
 import { formatRut } from '@/lib/utils/rutHelper'
 
 Font.register({
-  family: 'NotoSerif',
+  family: 'Arial',
   fonts: [
-    { src: '/fonts/NotoSerif-Regular.ttf', fontWeight: 'normal' },
-    { src: '/fonts/NotoSerif-Bold.ttf', fontWeight: 'bold' },
+    { src: '/fonts/Arial-Regular.ttf', fontWeight: 'normal' },
+    { src: '/fonts/Arial-Bold.ttf', fontWeight: 'bold' },
   ],
 })
 
@@ -19,13 +19,13 @@ function renderBoldText(text: string, baseStyle: any) {
     if (part.startsWith('*') && part.endsWith('*')) {
       const boldText = part.slice(1, -1)
       return (
-        <Text key={index} style={{ ...baseStyle, fontFamily: 'NotoSerif', fontWeight: 'bold' }}>
+        <Text key={index} style={{ ...baseStyle, fontFamily: 'Arial', fontWeight: 'bold' }}>
           {boldText}
         </Text>
       )
     }
     return (
-      <Text key={index} style={{ ...baseStyle, fontFamily: 'NotoSerif', fontWeight: 'normal' }}>
+      <Text key={index} style={{ ...baseStyle, fontFamily: 'Arial', fontWeight: 'normal' }}>
         {part}
       </Text>
     )
@@ -38,8 +38,8 @@ const styles = StyleSheet.create({
     paddingRight: 85,
     paddingTop: 90,
     paddingBottom: 40,
-    fontSize: 11,
-    fontFamily: 'NotoSerif',
+    fontSize: 10,
+    fontFamily: 'Arial',
     fontWeight: 'normal',
     lineHeight: 1.5,
   },
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     right: 85,
     fontSize: 9,
     color: '#666',
-    fontFamily: 'NotoSerif',
+    fontFamily: 'Arial',
   },
   contractNumber: {
     position: 'absolute',
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     right: 85,
     fontSize: 9,
     color: '#666',
-    fontFamily: 'NotoSerif',
+    fontFamily: 'Arial',
   },
   title: {
-    fontSize: 18,
-    fontFamily: 'NotoSerif',
+    fontSize: 16,
+    fontFamily: 'Arial',
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 0,
@@ -81,11 +81,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   contractText: {
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 1.5,
     textAlign: 'justify',
     marginBottom: 15,
-    fontFamily: 'NotoSerif',
+    fontFamily: 'Arial',
     fontWeight: 'normal',
   },
   signatureSection: {
@@ -105,14 +105,7 @@ const styles = StyleSheet.create({
     paddingTop: 5,
     textAlign: 'center',
     fontSize: 9,
-    fontFamily: 'NotoSerif',
-  },
-  closingText: {
-    marginTop: 20,
-    fontSize: 11,
-    textAlign: 'justify',
-    fontStyle: 'italic',
-    fontFamily: 'NotoSerif',
+    fontFamily: 'Arial',
   },
 })
 
@@ -132,8 +125,8 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
     return `CONTRATO-${rut}-${day}-${month}-${year}`
   }
 
-  const contractText = generateContractText(contract, employee, company)
-  const paragraphs = contractText.split('\n\n').filter(p => p.trim().length > 0)
+  const contractTextRaw = generateContractText(contract, employee, company)
+  const paragraphs = contractTextRaw.split('\n\n').filter(p => p.trim().length > 0)
 
   return (
     <div style={{ width: '100%', height: '100vh' }}>
@@ -203,7 +196,7 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
                   const [, letter, content] = letterMatch
                   return (
                     <Text key={index} style={styles.contractText}>
-                      <Text style={{ fontFamily: 'NotoSerif', fontWeight: 'bold' }}>{letter}</Text>
+                      <Text style={{ fontFamily: 'Arial', fontWeight: 'bold' }}>{letter}</Text>
                       {renderBoldText(content.trim(), {})}
                     </Text>
                   )
@@ -232,7 +225,7 @@ export default function ContractPDF({ contract, employee, company }: ContractPDF
               </View>
               
               <View style={{ marginTop: 20, textAlign: 'center' }}>
-                <Text style={{ fontSize: 9, fontFamily: 'NotoSerif' }}>
+                <Text style={{ fontSize: 9, fontFamily: 'Arial' }}>
                   {company?.city || 'Ciudad'}, {formatDateLegal(contract.start_date)}
                 </Text>
               </View>
