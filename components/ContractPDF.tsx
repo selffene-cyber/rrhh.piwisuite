@@ -12,6 +12,8 @@ Font.register({
   ],
 })
 
+Font.registerHyphenationCallback((word: string) => [word])
+
 function renderBoldText(text: string, baseStyle: any) {
   const parts = text.split(/(\*[^*]+\*)/g)
   
