@@ -47,10 +47,11 @@ export class EmployeeEligibilityService {
     }
 
     const employeeData = employee as { status: string }
-    if (employeeData.status !== 'active') {
+    const allowedStatuses = ['active', 'licencia_medica']
+    if (!allowedStatuses.includes(employeeData.status)) {
       return denied(
         ValidationCodes.EMPLOYEE_NOT_ACTIVE,
-        `El trabajador está en estado "${employeeData.status}". Solo se permiten operaciones con trabajadores activos.`,
+        `El trabajador está en estado "${employeeData.status}". Solo se permiten operaciones con trabajadores activos o con licencia médica.`,
         { status: employeeData.status }
       )
     }
