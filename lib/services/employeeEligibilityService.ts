@@ -291,14 +291,14 @@ export class EmployeeEligibilityService {
       )
     }
 
-    // Verificar que el contrato sea tipo 'indefinido'
-    if (contract.contract_type !== 'indefinido') {
+    // Verificar que el contrato sea tipo 'indefinido' o 'plazo_fijo'
+    if (contract.contract_type !== 'indefinido' && contract.contract_type !== 'plazo_fijo') {
       return denied(
         ValidationCodes.LOAN_REQUIRES_INDEFINIDO_CONTRACT,
-        `Los préstamos solo se pueden generar para trabajadores con contrato indefinido. El contrato actual es tipo "${contract.contract_type}".`,
+        `Los préstamos solo se pueden generar para trabajadores con contrato indefinido o plazo fijo. El contrato actual es tipo "${contract.contract_type}".`,
         { 
           contractType: contract.contract_type,
-          allowedTypes: ['indefinido']
+          allowedTypes: ['indefinido', 'plazo_fijo']
         }
       )
     }

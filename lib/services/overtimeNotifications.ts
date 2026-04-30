@@ -238,8 +238,9 @@ export async function getOvertimeNotifications(
     
     const employeeIds = employeesData.map((emp: any) => emp.id)
     
-    // 1. Detectar trabajadores SIN PACTO
-    const noPactNotifications = await detectEmployeesWithoutValidPact(companyId, employeeIds, supabase)
+    // 1. No generar alertas de "sin pacto" para todos los empleados
+    // Solo mostrar alertas de pactos próximos a vencer o vencidos
+    const noPactNotifications: OvertimeNotification[] = []
     
     // 2. Obtener pactos activos que requieren atención (próximos 30 días o vencidos)
     const { data: pactsData, error } = await supabase
