@@ -209,8 +209,8 @@ async function calculateAFPRegime(
   
   // 2. HABERES NO IMPONIBLES
   const nonTaxableEarnings = {
-    transportation: Math.ceil(transportation),
-    mealAllowance: Math.ceil(mealAllowance),
+    transportation: daysWorked === 30 ? Math.ceil(transportation) : Math.ceil((transportation / 30) * daysWorked),
+    mealAllowance: daysWorked === 30 ? Math.ceil(mealAllowance) : Math.ceil((mealAllowance / 30) * daysWorked),
     aguinaldo: Math.ceil(aguinaldo),
     otherNonTaxableEarnings: Math.ceil(otherNonTaxableEarnings),
     total: 0
@@ -426,8 +426,8 @@ async function calculateOtherRegime(
   
   // 3. HABERES NO IMPONIBLES
   const nonTaxableEarnings = {
-    transportation: Math.ceil(transportation),
-    mealAllowance: Math.ceil(mealAllowance),
+    transportation: daysWorked === 30 ? Math.ceil(transportation) : Math.ceil((transportation / 30) * daysWorked),
+    mealAllowance: daysWorked === 30 ? Math.ceil(mealAllowance) : Math.ceil((mealAllowance / 30) * daysWorked),
     aguinaldo: Math.ceil(aguinaldo),
     otherNonTaxableEarnings: Math.ceil(otherNonTaxableEarnings),
     total: 0

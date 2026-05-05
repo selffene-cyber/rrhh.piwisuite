@@ -124,11 +124,12 @@ export async function calculatePayroll(
   const aguinaldoNum = Number(aguinaldo) || 0
   
   const nonTaxableEarnings = {
-    transportation: Math.ceil(transportationNum),
-    mealAllowance: Math.ceil(mealAllowanceNum),
+    transportation: daysWorked === 30 ? Math.ceil(transportationNum) : Math.ceil((transportationNum / 30) * daysWorked),
+    mealAllowance: daysWorked === 30 ? Math.ceil(mealAllowanceNum) : Math.ceil((mealAllowanceNum / 30) * daysWorked),
     aguinaldo: Math.ceil(aguinaldoNum),
-    total: Math.ceil(transportationNum + mealAllowanceNum + aguinaldoNum),
+    total: 0,
   }
+  nonTaxableEarnings.total = Math.ceil(nonTaxableEarnings.transportation + nonTaxableEarnings.mealAllowance + nonTaxableEarnings.aguinaldo)
   
   // Debug: verificar cálculo de haberes no imponibles
   console.log('🔍 [CALCULADOR - HABERES NO IMPONIBLES]', {
