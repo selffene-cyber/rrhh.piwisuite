@@ -93,6 +93,8 @@ export default function EditContractPage() {
     schedule_regime: 'ordinary' as 'ordinary' | 'partial' | 'excluded_art22',
     work_location: '',
     base_salary: '',
+    transportation: '',
+    meal_allowance: '',
     gratuity: true,
     gratuity_amount: '',
     bonuses: [] as Array<{ id: string; name: string; amount: string }>,
@@ -326,6 +328,8 @@ export default function EditContractPage() {
         schedule_regime: contractData.schedule_regime || 'ordinary',
         work_location: contractData.work_location || '',
         base_salary: formatNumberForInput(contractData.base_salary || 0),
+        transportation: contractData.transportation ? formatNumberForInput(contractData.transportation) : '',
+        meal_allowance: contractData.meal_allowance ? formatNumberForInput(contractData.meal_allowance) : '',
         gratuity: contractData.gratuity ?? true,
         gratuity_amount: contractData.gratuity_amount ? formatNumberForInput(contractData.gratuity_amount) : '',
         bonuses: bonuses,
@@ -387,6 +391,8 @@ export default function EditContractPage() {
           : (parseInt(formData.lunch_break_duration) || 60),
         schedule_regime: formData.schedule_regime,
         base_salary: baseSalary,
+        transportation: formData.transportation ? parseFormattedNumber(formData.transportation) : 0,
+        meal_allowance: formData.meal_allowance ? parseFormattedNumber(formData.meal_allowance) : 0,
         gratuity: formData.gratuity,
         gratuity_amount: formData.gratuity_amount ? parseFormattedNumber(formData.gratuity_amount) : null,
         other_allowances: formData.bonuses.length > 0 
@@ -834,7 +840,32 @@ export default function EditContractPage() {
               />
             </div>
             <div className="form-group">
-              <label>Gratificación</label>
+              <label>Movilización</label>
+              <input
+                type="text"
+                value={formData.transportation}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '')
+                  setFormData({ ...formData, transportation: formatNumberForInput(parseFormattedNumber(value)) })
+                }}
+                placeholder="Ej: 35000"
+              />
+            </div>
+            <div className="form-group">
+              <label>Colación</label>
+              <input
+                type="text"
+                value={formData.meal_allowance}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '')
+                  setFormData({ ...formData, meal_allowance: formatNumberForInput(parseFormattedNumber(value)) })
+                }}
+                placeholder="Ej: 80000"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Gratificación</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 <ToggleSwitch
                   checked={formData.gratuity}
@@ -860,7 +891,6 @@ export default function EditContractPage() {
                 )}
               </div>
             </div>
-          </div>
           <div className="form-group">
             <label>Otros Bonos o Asignaciones</label>
             <div style={{ marginBottom: '16px' }}>

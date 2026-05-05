@@ -200,18 +200,30 @@ export default function NewPayrollPage() {
           })
           setDefaultValuesLoaded(true)
           
-          // Cargar bonos del contrato activo del trabajador
+          // Cargar bonos, movilización y colación del contrato activo del trabajador
           try {
             const { data: activeContract } = await supabase
               .from('contracts')
-              .select('other_allowances')
+              .select('other_allowances, transportation, meal_allowance')
               .eq('employee_id', employeeIdParam)
               .eq('status', 'active')
               .order('start_date', { ascending: false })
               .limit(1)
               .maybeSingle()
 
-            if (activeContract?.other_allowances) {
+            if (activeContract) {
+              // Cargar movilización y colación desde el contrato (si tiene valores)
+              const contractTransportation = activeContract.transportation || 0
+              const contractMealAllowance = activeContract.meal_allowance || 0
+              if (contractTransportation > 0 || contractMealAllowance > 0) {
+                setFormData((prev: any) => ({
+                  ...prev,
+                  transportation: contractTransportation,
+                  meal_allowance: contractMealAllowance,
+                }))
+              }
+
+              if (activeContract.other_allowances) {
               // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
               const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
               const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
@@ -235,8 +247,9 @@ export default function NewPayrollPage() {
                 setBonuses(bonusesFromContract)
               }
             }
+          }
           } catch (error) {
-            console.error('Error al cargar bonos del contrato:', error)
+            console.error('Error al cargar datos del contrato:', error)
           }
         }
       }
@@ -267,18 +280,30 @@ export default function NewPayrollPage() {
     setPermissionDaysWithoutPay(0) // Resetear días de permiso al cambiar trabajador
     setPermissionsToApply([]) // Resetear lista de permisos al cambiar trabajador
 
-    // Cargar bonos del contrato activo del trabajador
+    // Cargar bonos, movilización y colación del contrato activo del trabajador
     try {
       const { data: activeContract } = await supabase
         .from('contracts')
-        .select('other_allowances')
+        .select('other_allowances, transportation, meal_allowance')
         .eq('employee_id', employeeId)
         .eq('status', 'active')
         .order('start_date', { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      if (activeContract?.other_allowances) {
+      if (activeContract) {
+        // Cargar movilización y colación desde el contrato (si tiene valores)
+        const contractTransportation = activeContract.transportation || 0
+        const contractMealAllowance = activeContract.meal_allowance || 0
+        if (contractTransportation > 0 || contractMealAllowance > 0) {
+          setFormData((prev: any) => ({
+            ...prev,
+            transportation: contractTransportation,
+            meal_allowance: contractMealAllowance,
+          }))
+        }
+
+        if (activeContract.other_allowances) {
         // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
         const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
         const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
@@ -306,8 +331,9 @@ export default function NewPayrollPage() {
       } else {
         setBonuses([])
       }
+      }
     } catch (error) {
-      console.error('Error al cargar bonos del contrato:', error)
+      console.error('Error al cargar datos del contrato:', error)
       setBonuses([])
     }
   }
