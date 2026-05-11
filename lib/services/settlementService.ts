@@ -8,6 +8,7 @@ import { Database } from '@/types/database'
 import { calculateSettlement, createCalculationSnapshot, SettlementCalculationInput, SettlementCalculationResult } from './settlementCalculator'
 import { getVacationSummary } from './vacationPeriods'
 import { formatDateLegal } from '@/lib/utils/contractText'
+import { getCachedIndicators } from './indicatorsCache'
 
 // Tipos temporales hasta que se actualice types/database.ts
 type Settlement = any
@@ -45,6 +46,15 @@ export interface EmployeeSettlementData {
   vacation_days_pending: number
   loan_balance: number
   advance_balance: number
+  previsional_regime: 'AFP' | 'OTRO_REGIMEN'
+  afp?: string | null
+  health_system?: string | null
+  health_plan_percentage?: number
+  contract_type?: string
+  afc_applicable?: boolean
+  manual_pension_rate?: number | null
+  manual_health_rate?: number | null
+  manual_base_type?: 'imponible' | 'sueldo_base' | null
 }
 
 /**
@@ -94,7 +104,7 @@ export async function getEmployeeDataForSettlement(
   // 1. Obtener trabajador
   const { data: employee, error: empError } = await supabase
     .from('employees')
-    .select('id, company_id, hire_date, base_salary, transportation, meal_allowance')
+    .select('id, company_id, hire_date, base_salary, transportation, meal_allowance, previsional_regime, afp, health_system, health_plan_percentage, afc_applicable, manual_pension_rate, manual_health_rate, manual_base_type')
     .eq('id', employeeId)
     .single()
 
@@ -105,7 +115,7 @@ export async function getEmployeeDataForSettlement(
   // 2. Obtener contrato activo más reciente
   const { data: activeContract } = await supabase
     .from('contracts')
-    .select('id, start_date, base_salary, other_allowances, transportation, meal_allowance')
+    .select('id, start_date, base_salary, other_allowances, transportation, meal_allowance, contract_type')
     .eq('employee_id', employeeId)
     .eq('status', 'active')
     .order('start_date', { ascending: false })
@@ -184,7 +194,16 @@ export async function getEmployeeDataForSettlement(
     worked_days_last_month,
     vacation_days_pending,
     loan_balance,
-    advance_balance
+    advance_balance,
+    previsional_regime: (employee as any).previsional_regime || 'AFP',
+    afp: (employee as any).afp,
+    health_system: (employee as any).health_system,
+    health_plan_percentage: (employee as any).health_plan_percentage,
+    contract_type: (activeContract as any)?.contract_type,
+    afc_applicable: (employee as any).afc_applicable !== false,
+    manual_pension_rate: (employee as any).manual_pension_rate,
+    manual_health_rate: (employee as any).manual_health_rate,
+    manual_base_type: (employee as any).manual_base_type,
   }
 }
 
@@ -216,6 +235,29 @@ export async function createSettlement(
     throw new Error('Causal no encontrada')
   }
 
+  // 2b. Obtener indicadores previred del mes anterior al término
+  const terminationDate = typeof input.termination_date === 'string'
+    ? new Date(input.termination_date + 'T00:00:00')
+    : input.termination_date
+  const termYear = terminationDate.getFullYear()
+  const termMonth = terminationDate.getMonth() + 1
+  let indicators = null
+  try {
+    const prevMonthDate = new Date(termYear, termMonth - 2, 1)
+    indicators = await getCachedIndicators(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1)
+  } catch (e) {
+    console.warn('No se pudieron obtener indicadores previred para finiquito:', e)
+  }
+
+  // 2c. Obtener indicadores del mes de término para gratificación
+  let gratificationIndicators = null
+  try {
+    gratificationIndicators = await getCachedIndicators(termYear, termMonth)
+  } catch (e) {
+    gratificationIndicators = indicators
+  }
+  const indicatorsToUse = gratificationIndicators || indicators
+
   // 3. Preparar input para cálculo
   const calculationInput: SettlementCalculationInput = {
     contract_start_date: employeeData.contract_start_date,
@@ -236,6 +278,18 @@ export async function createSettlement(
     },
     notice_given: input.notice_given,
     notice_days: input.notice_days,
+    previsional_regime: employeeData.previsional_regime || 'AFP',
+    afp: employeeData.afp,
+    health_system: employeeData.health_system,
+    health_plan_percentage: employeeData.health_plan_percentage,
+    contract_type: employeeData.contract_type,
+    afc_applicable: employeeData.afc_applicable,
+    manual_pension_rate: employeeData.manual_pension_rate,
+    manual_health_rate: employeeData.manual_health_rate,
+    manual_base_type: employeeData.manual_base_type,
+    indicators: indicatorsToUse,
+    termination_year: termYear,
+    termination_month: termMonth,
     loan_balance: employeeData.loan_balance,
     advance_balance: employeeData.advance_balance
   }
@@ -272,15 +326,27 @@ export async function createSettlement(
     notice_given: input.notice_given,
     notice_days: input.notice_days || 0,
     salary_balance: calculation.salary_balance,
+    gratification: calculation.gratification,
     bonuses_payout: calculation.bonuses_payout,
+    taxable_earnings_total: calculation.taxable_earnings_total,
     transportation_payout: calculation.transportation_payout,
     meal_allowance_payout: calculation.meal_allowance_payout,
+    non_taxable_earnings_total: calculation.non_taxable_earnings_total,
     vacation_payout: calculation.vacation_payout,
     ias_amount: calculation.ias_amount,
     iap_amount: calculation.iap_amount,
     total_earnings: calculation.total_earnings,
+    afp_total: calculation.afp_total,
+    afp_10: calculation.afp_10,
+    afp_additional: calculation.afp_additional,
+    health_total: calculation.health_total,
+    unemployment_insurance: calculation.unemployment_insurance,
+    legal_deductions_total: calculation.legal_deductions_total,
+    taxable_base_for_tax: calculation.taxable_base_for_tax,
+    unique_tax: calculation.unique_tax,
     loan_balance: calculation.loan_balance,
     advance_balance: calculation.advance_balance,
+    other_deductions_total: calculation.other_deductions_total,
     total_deductions: calculation.total_deductions,
     net_to_pay: calculation.net_to_pay,
     status: 'draft',
@@ -313,7 +379,16 @@ export async function createSettlement(
     })
   }
 
-  // Bonos proporcionales
+  if (calculation.gratification > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'earning',
+      category: 'gratification',
+      description: 'Gratificación proporcional',
+      amount: calculation.gratification
+    })
+  }
+
   if (calculation.bonus_details && calculation.bonus_details.length > 0) {
     for (const bonus of calculation.bonus_details) {
       if (bonus.amount > 0) {
@@ -384,7 +459,49 @@ export async function createSettlement(
     })
   }
 
-  // Descuentos
+  // Descuentos legales
+  if (calculation.afp_total > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'deduction',
+      category: 'afp',
+      description: `AFP${employeeData.afp ? ` (${employeeData.afp})` : ''}`,
+      amount: calculation.afp_total,
+      metadata: { afp_10: calculation.afp_10, afp_additional: calculation.afp_additional }
+    })
+  }
+
+  if (calculation.health_total > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'deduction',
+      category: 'health',
+      description: employeeData.health_system === 'ISAPRE' ? 'ISAPRE' : 'FONASA 7%',
+      amount: calculation.health_total
+    })
+  }
+
+  if (calculation.unemployment_insurance > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'deduction',
+      category: 'unemployment_insurance',
+      description: 'Seguro de cesantía (AFC)',
+      amount: calculation.unemployment_insurance
+    })
+  }
+
+  if (calculation.unique_tax > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'deduction',
+      category: 'unique_tax',
+      description: 'Impuesto único a la renta',
+      amount: calculation.unique_tax
+    })
+  }
+
+  // Otros descuentos
   if (calculation.loan_balance > 0) {
     items.push({
       settlement_id: (settlement as any).id,
@@ -556,6 +673,25 @@ export async function recalculateSettlement(
     throw new Error('Causal no encontrada')
   }
 
+  // 3b. Obtener indicadores previred
+  const termDate = typeof terminationDate === 'string'
+    ? new Date(terminationDate + 'T00:00:00')
+    : terminationDate
+  const tYear = termDate.getFullYear()
+  const tMonth = termDate.getMonth() + 1
+  let recalcIndicators = null
+  try {
+    const prevMonthDate = new Date(tYear, tMonth - 2, 1)
+    recalcIndicators = await getCachedIndicators(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1)
+  } catch (e) { /* ignore */ }
+  let recalcGratIndicators = null
+  try {
+    recalcGratIndicators = await getCachedIndicators(tYear, tMonth)
+  } catch (e) {
+    recalcGratIndicators = recalcIndicators
+  }
+  const recalcIndicatorsToUse = recalcGratIndicators || recalcIndicators
+
   // 4. Preparar input para cálculo
   const calculationInput: SettlementCalculationInput = {
     contract_start_date: current.contract_start_date,
@@ -576,6 +712,18 @@ export async function recalculateSettlement(
     },
     notice_given: newData.notice_given !== undefined ? newData.notice_given : current.notice_given,
     notice_days: newData.notice_days,
+    previsional_regime: employeeData.previsional_regime || 'AFP',
+    afp: employeeData.afp,
+    health_system: employeeData.health_system,
+    health_plan_percentage: employeeData.health_plan_percentage,
+    contract_type: employeeData.contract_type,
+    afc_applicable: employeeData.afc_applicable,
+    manual_pension_rate: employeeData.manual_pension_rate,
+    manual_health_rate: employeeData.manual_health_rate,
+    manual_base_type: employeeData.manual_base_type,
+    indicators: recalcIndicatorsToUse,
+    termination_year: tYear,
+    termination_month: tMonth,
     loan_balance: employeeData.loan_balance,
     advance_balance: employeeData.advance_balance
   }
@@ -617,15 +765,27 @@ export async function recalculateSettlement(
     notice_given: calculationInput.notice_given,
     notice_days: calculationInput.notice_days || 0,
     salary_balance: calculation.salary_balance,
+    gratification: calculation.gratification,
     bonuses_payout: calculation.bonuses_payout,
+    taxable_earnings_total: calculation.taxable_earnings_total,
     transportation_payout: calculation.transportation_payout,
     meal_allowance_payout: calculation.meal_allowance_payout,
+    non_taxable_earnings_total: calculation.non_taxable_earnings_total,
     vacation_payout: calculation.vacation_payout,
     ias_amount: calculation.ias_amount,
     iap_amount: calculation.iap_amount,
     total_earnings: calculation.total_earnings,
+    afp_total: calculation.afp_total,
+    afp_10: calculation.afp_10,
+    afp_additional: calculation.afp_additional,
+    health_total: calculation.health_total,
+    unemployment_insurance: calculation.unemployment_insurance,
+    legal_deductions_total: calculation.legal_deductions_total,
+    taxable_base_for_tax: calculation.taxable_base_for_tax,
+    unique_tax: calculation.unique_tax,
     loan_balance: calculation.loan_balance,
     advance_balance: calculation.advance_balance,
+    other_deductions_total: calculation.other_deductions_total,
     total_deductions: calculation.total_deductions,
     net_to_pay: calculation.net_to_pay,
     calculation_version: current.calculation_version + 1,
@@ -658,6 +818,16 @@ export async function recalculateSettlement(
       category: 'salary_balance',
       description: 'Saldo de sueldo proporcional',
       amount: calculation.salary_balance
+    })
+  }
+
+  if (calculation.gratification > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'earning',
+      category: 'gratification',
+      description: 'Gratificación proporcional',
+      amount: calculation.gratification
     })
   }
 
@@ -731,6 +901,49 @@ export async function recalculateSettlement(
     })
   }
 
+  // Descuentos legales
+  if (calculation.afp_total > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'deduction',
+      category: 'afp',
+      description: `AFP${employeeData.afp ? ` (${employeeData.afp})` : ''}`,
+      amount: calculation.afp_total,
+      metadata: { afp_10: calculation.afp_10, afp_additional: calculation.afp_additional }
+    })
+  }
+
+  if (calculation.health_total > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'deduction',
+      category: 'health',
+      description: employeeData.health_system === 'ISAPRE' ? 'ISAPRE' : 'FONASA 7%',
+      amount: calculation.health_total
+    })
+  }
+
+  if (calculation.unemployment_insurance > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'deduction',
+      category: 'unemployment_insurance',
+      description: 'Seguro de cesantía (AFC)',
+      amount: calculation.unemployment_insurance
+    })
+  }
+
+  if (calculation.unique_tax > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'deduction',
+      category: 'unique_tax',
+      description: 'Impuesto único a la renta',
+      amount: calculation.unique_tax
+    })
+  }
+
+  // Otros descuentos
   if (calculation.loan_balance > 0) {
     items.push({
       settlement_id: settlementId,
