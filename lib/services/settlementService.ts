@@ -154,9 +154,13 @@ export async function getEmployeeDataForSettlement(
     ? new Date(terminationDate + 'T00:00:00')
     : terminationDate
 
+  const start = typeof (employee as any).hire_date === 'string'
+    ? new Date(((employee as any).hire_date) + 'T00:00:00')
+    : new Date((employee as any).hire_date)
+
   const lastMonthStart = new Date(termination.getFullYear(), termination.getMonth(), 1)
-  const lastMonthEnd = termination
-  const worked_days_last_month = Math.ceil((lastMonthEnd.getTime() - lastMonthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  const effectiveStart = start > lastMonthStart ? start : lastMonthStart
+  const worked_days_last_month = Math.max(1, Math.ceil((termination.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
 
   // 4. Obtener vacaciones pendientes
   const vacationSummary = await getVacationSummary(employeeId, (employee as any).hire_date)
