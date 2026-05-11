@@ -28,6 +28,11 @@ export interface SettlementCalculationInput {
   last_salary_monthly: number // Último sueldo mensual
   worked_days_last_month: number // Días trabajados del último mes (0-31)
   
+  // Bonos y asignaciones del contrato
+  bonuses: Array<{ name: string; amount: number }> // Bonos imponibles
+  transportation: number // Movilización (haber no imponible)
+  meal_allowance: number // Colación (haber no imponible)
+  
   // Vacaciones
   vacation_days_pending: number // Días de vacaciones pendientes
   
@@ -59,6 +64,9 @@ export interface SettlementCalculationResult {
   
   // Haberes
   salary_balance: number // Sueldo proporcional último mes
+  bonuses_payout: number // Bonos proporcionales
+  transportation_payout: number // Movilización proporcional
+  meal_allowance_payout: number // Colación proporcional
   vacation_payout: number // Pago de vacaciones
   ias_amount: number // Indemnización años servicio (si aplica)
   iap_amount: number // Indemnización aviso previo (si aplica)
@@ -75,6 +83,9 @@ export interface SettlementCalculationResult {
   // Validaciones y alertas
   errors: string[]
   warnings: string[]
+
+  // Detalle de bonos para items
+  bonus_details: Array<{ name: string; amount: number }>
 }
 
 /**
@@ -241,6 +252,9 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
     return {
       service_time: calculateServiceTime(input.contract_start_date, input.termination_date),
       salary_balance: 0,
+      bonuses_payout: 0,
+      transportation_payout: 0,
+      meal_allowance_payout: 0,
       vacation_payout: 0,
       ias_amount: 0,
       iap_amount: 0,
@@ -250,7 +264,8 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
       total_deductions: input.loan_balance + input.advance_balance,
       net_to_pay: 0,
       errors: validation.errors,
-      warnings: validation.warnings
+      warnings: validation.warnings,
+      bonus_details: [],
     }
   }
   
@@ -259,6 +274,19 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
   
   // 1. Saldo de sueldo proporcional del último mes
   const salary_balance = Math.ceil((input.last_salary_monthly / 30) * input.worked_days_last_month)
+  
+  // 1b. Bonos proporcionales a los días trabajados
+  const bonus_details: Array<{ name: string; amount: number }> = []
+  let bonuses_payout = 0
+  for (const bonus of input.bonuses || []) {
+    const proportional = Math.ceil((bonus.amount / 30) * input.worked_days_last_month)
+    bonus_details.push({ name: bonus.name, amount: proportional })
+    bonuses_payout += proportional
+  }
+  
+  // 1c. Movilización y colación proporcionales
+  const transportation_payout = input.transportation ? Math.ceil((input.transportation / 30) * input.worked_days_last_month) : 0
+  const meal_allowance_payout = input.meal_allowance ? Math.ceil((input.meal_allowance / 30) * input.worked_days_last_month) : 0
   
   // 2. Pago de vacaciones pendientes
   const vacation_payout = Math.ceil((input.last_salary_monthly / 30) * input.vacation_days_pending)
@@ -270,7 +298,7 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
   const iap_amount = calculateIAP(input.last_salary_monthly, input.notice_given, input.cause)
   
   // 5. Total haberes
-  const total_earnings = Math.ceil(salary_balance + vacation_payout + ias_amount + iap_amount)
+  const total_earnings = Math.ceil(salary_balance + bonuses_payout + transportation_payout + meal_allowance_payout + vacation_payout + ias_amount + iap_amount)
   
   // 6. Total descuentos
   const loan_balance = Math.ceil(Math.max(0, input.loan_balance))
@@ -283,6 +311,9 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
   return {
     service_time: serviceTime,
     salary_balance,
+    bonuses_payout,
+    transportation_payout,
+    meal_allowance_payout,
     vacation_payout,
     ias_amount,
     iap_amount,
@@ -292,7 +323,8 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
     total_deductions,
     net_to_pay,
     errors: [],
-    warnings: validation.warnings
+    warnings: validation.warnings,
+    bonus_details,
   }
 }
 
@@ -311,6 +343,9 @@ export function createCalculationSnapshot(
       termination_date: typeof input.termination_date === 'string' ? input.termination_date : input.termination_date.toISOString().split('T')[0],
       last_salary_monthly: input.last_salary_monthly,
       worked_days_last_month: input.worked_days_last_month,
+      bonuses: input.bonuses,
+      transportation: input.transportation,
+      meal_allowance: input.meal_allowance,
       vacation_days_pending: input.vacation_days_pending,
       cause_code: input.cause_code,
       cause: input.cause,
@@ -322,6 +357,10 @@ export function createCalculationSnapshot(
     result: {
       service_time: result.service_time,
       salary_balance: result.salary_balance,
+      bonuses_payout: result.bonuses_payout,
+      bonus_details: result.bonus_details,
+      transportation_payout: result.transportation_payout,
+      meal_allowance_payout: result.meal_allowance_payout,
       vacation_payout: result.vacation_payout,
       ias_amount: result.ias_amount,
       iap_amount: result.iap_amount,

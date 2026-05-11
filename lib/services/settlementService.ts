@@ -38,6 +38,9 @@ export interface EmployeeSettlementData {
   contract_id?: string
   contract_start_date: Date | string
   last_salary_monthly: number
+  bonuses: Array<{ name: string; amount: number }>
+  transportation: number
+  meal_allowance: number
   worked_days_last_month: number
   vacation_days_pending: number
   loan_balance: number
@@ -91,7 +94,7 @@ export async function getEmployeeDataForSettlement(
   // 1. Obtener trabajador
   const { data: employee, error: empError } = await supabase
     .from('employees')
-    .select('id, company_id, hire_date, base_salary')
+    .select('id, company_id, hire_date, base_salary, transportation, meal_allowance')
     .eq('id', employeeId)
     .single()
 
@@ -102,7 +105,7 @@ export async function getEmployeeDataForSettlement(
   // 2. Obtener contrato activo más reciente
   const { data: activeContract } = await supabase
     .from('contracts')
-    .select('id, start_date, base_salary')
+    .select('id, start_date, base_salary, other_allowances, transportation, meal_allowance')
     .eq('employee_id', employeeId)
     .eq('status', 'active')
     .order('start_date', { ascending: false })
@@ -112,6 +115,29 @@ export async function getEmployeeDataForSettlement(
   // Usar datos del contrato activo si existe, sino del empleado
   const contract_start_date = (activeContract as any)?.start_date || (employee as any).hire_date
   const last_salary_monthly = (activeContract as any)?.base_salary || (employee as any).base_salary
+
+  // Parsear bonos del contrato (other_allowances format: "Bono Nombre: $Monto; Otro Bono: $Monto")
+  const bonuses: Array<{ name: string; amount: number }> = []
+  if ((activeContract as any)?.other_allowances) {
+    const bonusStrings = (activeContract as any).other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
+    for (const bonusStr of bonusStrings) {
+      const match = bonusStr.match(/^(.+?):\s*\$\s*(.+)$/)
+      if (match) {
+        const bonusName = match[1].trim()
+        const bonusAmount = parseFloat(match[2].trim().replace(/\./g, '').replace(',', '.')) || 0
+        if (bonusName && bonusAmount > 0) {
+          bonuses.push({ name: bonusName, amount: bonusAmount })
+        }
+      }
+    }
+  }
+
+  // Movilización y colación del contrato (o fallback a ficha del empleado)
+  const contractTransportation = (activeContract as any)?.transportation || 0
+  const contractMealAllowance = (activeContract as any)?.meal_allowance || 0
+  // Si el contrato tiene valores > 0, usar los del contrato; si no, usar los del empleado
+  const transportation = contractTransportation > 0 ? contractTransportation : ((employee as any).transportation || 0)
+  const meal_allowance = contractMealAllowance > 0 ? contractMealAllowance : ((employee as any).meal_allowance || 0)
 
   // 3. Calcular días trabajados del último mes
   const termination = typeof terminationDate === 'string' 
@@ -152,6 +178,9 @@ export async function getEmployeeDataForSettlement(
     contract_id: (activeContract as any)?.id,
     contract_start_date,
     last_salary_monthly,
+    bonuses,
+    transportation,
+    meal_allowance,
     worked_days_last_month,
     vacation_days_pending,
     loan_balance,
@@ -193,6 +222,9 @@ export async function createSettlement(
     termination_date: input.termination_date,
     last_salary_monthly: employeeData.last_salary_monthly,
     worked_days_last_month: employeeData.worked_days_last_month,
+    bonuses: employeeData.bonuses || [],
+    transportation: employeeData.transportation || 0,
+    meal_allowance: employeeData.meal_allowance || 0,
     vacation_days_pending: employeeData.vacation_days_pending,
     cause_code: input.cause_code,
     cause: {
@@ -240,6 +272,9 @@ export async function createSettlement(
     notice_given: input.notice_given,
     notice_days: input.notice_days || 0,
     salary_balance: calculation.salary_balance,
+    bonuses_payout: calculation.bonuses_payout,
+    transportation_payout: calculation.transportation_payout,
+    meal_allowance_payout: calculation.meal_allowance_payout,
     vacation_payout: calculation.vacation_payout,
     ias_amount: calculation.ias_amount,
     iap_amount: calculation.iap_amount,
@@ -275,6 +310,44 @@ export async function createSettlement(
       category: 'salary_balance',
       description: 'Saldo de sueldo proporcional',
       amount: calculation.salary_balance
+    })
+  }
+
+  // Bonos proporcionales
+  if (calculation.bonus_details && calculation.bonus_details.length > 0) {
+    for (const bonus of calculation.bonus_details) {
+      if (bonus.amount > 0) {
+        items.push({
+          settlement_id: (settlement as any).id,
+          type: 'earning',
+          category: 'bonus',
+          description: `${bonus.name} proporcional`,
+          amount: bonus.amount,
+          metadata: { bonus_name: bonus.name }
+        })
+      }
+    }
+  }
+
+  if (calculation.transportation_payout > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'earning',
+      category: 'transportation',
+      description: `Movilización proporcional (${employeeData.worked_days_last_month} días)`,
+      amount: calculation.transportation_payout,
+      metadata: { days: employeeData.worked_days_last_month }
+    })
+  }
+
+  if (calculation.meal_allowance_payout > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'earning',
+      category: 'meal_allowance',
+      description: `Colación proporcional (${employeeData.worked_days_last_month} días)`,
+      amount: calculation.meal_allowance_payout,
+      metadata: { days: employeeData.worked_days_last_month }
     })
   }
 
@@ -489,6 +562,9 @@ export async function recalculateSettlement(
     termination_date: terminationDate,
     last_salary_monthly: employeeData.last_salary_monthly,
     worked_days_last_month: employeeData.worked_days_last_month,
+    bonuses: employeeData.bonuses || [],
+    transportation: employeeData.transportation || 0,
+    meal_allowance: employeeData.meal_allowance || 0,
     vacation_days_pending: employeeData.vacation_days_pending,
     cause_code: causeCode,
     cause: {
@@ -541,6 +617,9 @@ export async function recalculateSettlement(
     notice_given: calculationInput.notice_given,
     notice_days: calculationInput.notice_days || 0,
     salary_balance: calculation.salary_balance,
+    bonuses_payout: calculation.bonuses_payout,
+    transportation_payout: calculation.transportation_payout,
+    meal_allowance_payout: calculation.meal_allowance_payout,
     vacation_payout: calculation.vacation_payout,
     ias_amount: calculation.ias_amount,
     iap_amount: calculation.iap_amount,
@@ -579,6 +658,43 @@ export async function recalculateSettlement(
       category: 'salary_balance',
       description: 'Saldo de sueldo proporcional',
       amount: calculation.salary_balance
+    })
+  }
+
+  if (calculation.bonus_details && calculation.bonus_details.length > 0) {
+    for (const bonus of calculation.bonus_details) {
+      if (bonus.amount > 0) {
+        items.push({
+          settlement_id: settlementId,
+          type: 'earning',
+          category: 'bonus',
+          description: `${bonus.name} proporcional`,
+          amount: bonus.amount,
+          metadata: { bonus_name: bonus.name }
+        })
+      }
+    }
+  }
+
+  if (calculation.transportation_payout > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'earning',
+      category: 'transportation',
+      description: `Movilización proporcional (${employeeData.worked_days_last_month} días)`,
+      amount: calculation.transportation_payout,
+      metadata: { days: employeeData.worked_days_last_month }
+    })
+  }
+
+  if (calculation.meal_allowance_payout > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'earning',
+      category: 'meal_allowance',
+      description: `Colación proporcional (${employeeData.worked_days_last_month} días)`,
+      amount: calculation.meal_allowance_payout,
+      metadata: { days: employeeData.worked_days_last_month }
     })
   }
 
