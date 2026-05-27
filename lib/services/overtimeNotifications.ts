@@ -263,6 +263,25 @@ export async function getOvertimeNotifications(
 
     const art22EmployeeIds = new Set((art22Contracts || []).map((c: any) => c.employee_id))
 
+    // Determinar qué empleados tienen un pacto activo vigente
+    const employeesWithActivePact = new Set<string>()
+    for (const pact of pactsData) {
+      if (pact.status === 'active') {
+        employeesWithActivePact.add(pact.employee_id)
+      }
+    }
+
+    // Para empleados con múltiple pactos expirados, guardar solo el más reciente
+    const latestExpiredPerEmployee = new Map<string, any>()
+    for (const pact of pactsData) {
+      if (pact.status === 'expired') {
+        const existing = latestExpiredPerEmployee.get(pact.employee_id)
+        if (!existing || new Date(pact.end_date) > new Date(existing.end_date)) {
+          latestExpiredPerEmployee.set(pact.employee_id, pact)
+        }
+      }
+    }
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -274,6 +293,34 @@ export async function getOvertimeNotifications(
 
       // Excluir trabajadores con regimen Art. 22 inc. 2
       if (art22EmployeeIds.has(employee.id)) continue
+
+      // Si el empleado tiene un pacto activo, saltar pactos expirados
+      if (pact.status === 'expired' && employeesWithActivePact.has(pact.employee_id)) {
+        continue
+      }
+
+      // Si el pacto es expirado, solo notificar el más reciente por empleado
+      if (pact.status === 'expired') {
+        const latestExpired = latestExpiredPerEmployee.get(pact.employee_id)
+        if (latestExpired && latestExpired.id !== pact.id) {
+          continue
+        }
+      }
+
+      // Para pactos activos, solo notificar el más reciente por empleado
+      if (pact.status === 'active') {
+        const activePactsForEmployee = pactsData.filter(
+          (p: any) => p.employee_id === pact.employee_id && p.status === 'active'
+        )
+        if (activePactsForEmployee.length > 1) {
+          const latestActive = activePactsForEmployee.reduce((a: any, b: any) =>
+            new Date(b.end_date) > new Date(a.end_date) ? b : a
+          )
+          if (latestActive.id !== pact.id) {
+            continue
+          }
+        }
+      }
 
       const fechaVencimiento = new Date(pact.end_date)
       fechaVencimiento.setHours(0, 0, 0, 0)
