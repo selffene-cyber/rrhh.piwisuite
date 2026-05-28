@@ -44,9 +44,12 @@ export async function calculatePayroll(
   // IMPORTANTE: Las vacaciones se pagan como remuneración íntegra (concepto separado)
   // Se descuentan de los días trabajados pero se suman como concepto adicional más abajo
   const otherTaxableEarnings = Math.ceil((input as any).otherTaxableEarnings || 0)
+  const vacationRounded = Math.ceil(vacation || 0)
 
   // Total de remuneraciones SIN gratificación (base para calcular la gratificación)
-  const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + otherTaxableEarnings
+  // Art. 47 Código del Trabajo: la gratificación se calcula sobre el TOTAL de remuneraciones imponibles,
+  // INCLUYENDO vacaciones pagadas como remuneración íntegra
+  const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + vacationRounded + otherTaxableEarnings
 
   // Gratificación mensual legal
   // Según normativa chilena (Art. 47 Código del Trabajo):
@@ -101,9 +104,6 @@ export async function calculatePayroll(
   }
 
   // Haberes imponibles (ya redondeados)
-  // NOTA: Las vacaciones se pagan como remuneración íntegra (concepto separado)
-  // Se descuentan de los días trabajados pero se suman como concepto adicional
-  const vacationRounded = Math.ceil(vacation || 0)
   const taxableEarnings = {
     baseSalary: baseSalaryProportional,
     bonuses: bonusesRounded,
