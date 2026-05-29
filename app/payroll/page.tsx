@@ -578,18 +578,7 @@ export default function PayrollPage() {
         }
       }
 
-      // Eliminar reliquidaciones asociadas primero
-      const { error: relError } = await supabase
-        .from('payroll_reliquidations')
-        .delete()
-        .eq('reference_payroll_slip_id', id)
-
-      if (relError) {
-        console.error('Error al eliminar reliquidaciones:', relError)
-        throw relError
-      }
-
-      // Eliminar la liquidación
+      // Eliminar la liquidación (las reliquidaciones se eliminan en cascada por FK)
       const { error } = await supabase
         .from('payroll_slips')
         .delete()
