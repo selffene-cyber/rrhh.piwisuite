@@ -47,17 +47,20 @@ export async function calculatePayroll(
   const vacationRounded = Math.ceil(vacation || 0)
 
   // Total de remuneraciones SIN gratificación (base para calcular la gratificación)
-  // Art. 47 Código del Trabajo: la gratificación se calcula sobre el TOTAL de remuneraciones imponibles,
+  // Art. 47/50 Código del Trabajo: la gratificación se calcula sobre el TOTAL de remuneraciones imponibles,
   // INCLUYENDO vacaciones pagadas como remuneración íntegra
+  // IMPORTANTE: Los montos ya están proporcionalizados a días trabajados, NO se debe volver a proporcionalizar
   const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + vacationRounded + otherTaxableEarnings
 
   // Gratificación mensual legal
-  // Según normativa chilena (Art. 47 Código del Trabajo):
-  // - La gratificación es el 25% del TOTAL de remuneraciones imponibles
+  // Según normativa chilena (Art. 50 Código del Trabajo):
+  // - La gratificación es el 25% del TOTAL de remuneraciones imponibles del mes
   // - PERO tiene un tope legal: (4,75 × Ingreso Mínimo Mensual) / 12
   // - El Ingreso Mínimo Mensual está en los indicadores como RMITrabDepeInd
   // - IMPORTANTE: La gratificación debe usar el sueldo mínimo del MES DE LA LIQUIDACIÓN, no del mes anterior
   // - Se usa el MENOR entre el 25% del total y el tope legal
+  // - Los haberes ya están proporcionalizados a días trabajados, así que la gratificación resultante
+  //   NO necesita volver a proporcionalizarse
   let monthlyGratification = 0
   
   // Obtener indicadores del mes ACTUAL para la gratificación (no del mes anterior)
@@ -80,27 +83,18 @@ export async function calculatePayroll(
     const ingresoMinimo = parseChileanNumber(indicatorsForGratification.RMITrabDepeInd)
     const topeGratificacion = (4.75 * ingresoMinimo) / 12
     
-    // DEBUG: Log temporal para diagnosticar problema de gratificación
-    console.log('🔍 [GRATIFICACIÓN DEBUG]', {
-      mes_liquidacion: month ? `${year}/${month}` : 'N/A',
-      mes_indicadores_usados: gratificationIndicators ? `${year}/${month}` : 'mes_anterior',
-      RMITrabDepeInd_original: indicatorsForGratification.RMITrabDepeInd,
-      ingresoMinimo_parseado: ingresoMinimo,
-      topeGratificacion_calculado: topeGratificacion,
-      topeGratificacion_redondeado: Math.round(topeGratificacion)
-    })
-    // CORRECCIÓN: Calcular sobre el total de remuneraciones, no solo sueldo base
+    // Calcular sobre el total de remuneraciones imponibles (ya proporcionalizadas a días trabajados)
     const gratificacion25Porciento = totalRemunerationsWithoutGratification * 0.25
     
     // La gratificación es el menor entre el tope legal y el 25% del total
     const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
     
-    // Proporcional a días trabajados (redondear hacia arriba)
-    monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
+    // NO se vuelve a proporcionalizar: los haberes ya están en base a días trabajados
+    monthlyGratification = Math.ceil(gratificacionMensual)
   } else {
     // Si no hay indicadores, usar cálculo tradicional (25% del total)
-    // CORRECCIÓN: Calcular sobre el total de remuneraciones, no solo sueldo base
-    monthlyGratification = Math.ceil((totalRemunerationsWithoutGratification * 0.25 / 30) * daysWorked)
+    // Los haberes ya están proporcionalizados a días trabajados, no se vuelve a proporcionalizar
+    monthlyGratification = Math.ceil(totalRemunerationsWithoutGratification * 0.25)
   }
 
   // Haberes imponibles (ya redondeados)
