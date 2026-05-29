@@ -105,8 +105,6 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
   // en lugar de lp.amount que puede estar limitado por el 15%
   const loansTotal = (currentLoanPayments || []).reduce((sum: number, lp: any) => {
     const loan = lp.loans
-    // Usar el installment_amount del préstamo (monto esperado autorizado) si está disponible
-    // Si no, usar el amount guardado como fallback
     const expectedAmount = loan?.installment_amount || lp.amount || 0
     return sum + Number(expectedAmount)
   }, 0)
@@ -117,9 +115,12 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
     .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
   
   // Préstamos con cuotas desde payroll_items (por compatibilidad)
-  const loansFromItems = otherDeductions
-    .filter((item: any) => item.category === 'prestamo')
-    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+  // Solo se usan si NO hay loan_payments (para evitar doble conteo)
+  const loansFromItems = (currentLoanPayments || []).length === 0
+    ? otherDeductions
+        .filter((item: any) => item.category === 'prestamo')
+        .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+    : 0
   
   const advancesTotal = (currentAdvances || []).reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
   
