@@ -80,9 +80,51 @@ export default function MedicalLeavesManagementPage() {
 
       if (error) throw error
 
-      // Filtrar según el estado seleccionado
       const today = new Date()
       today.setHours(0, 0, 0, 0)
+
+      const expiredActiveLeaves = (leavesData || []).filter((leave: any) => {
+        if (!leave.is_active) return false
+        const endDate = new Date(leave.end_date)
+        endDate.setHours(0, 0, 0, 0)
+        return today > endDate
+      })
+
+        if (expiredActiveLeaves.length > 0) {
+          const expiredIds = expiredActiveLeaves.map((l: any) => l.id)
+          await supabase
+            .from('medical_leaves')
+            .update({ is_active: false })
+            .in('id', expiredIds)
+
+          leavesData.forEach((leave: any) => {
+            if (expiredIds.includes(leave.id)) {
+              leave.is_active = false
+            }
+          })
+
+          const affectedEmployeeIds = [...new Set(expiredActiveLeaves.map((l: any) => l.employee_id))]
+        for (const employeeId of affectedEmployeeIds) {
+          const { data: remainingActive } = await supabase
+            .from('medical_leaves')
+            .select('id')
+            .eq('employee_id', employeeId)
+            .eq('is_active', true)
+            .limit(1)
+
+          if (!remainingActive || remainingActive.length === 0) {
+            await supabase
+              .from('employees')
+              .update({ status: 'active' })
+              .eq('id', employeeId)
+              .eq('status', 'licencia_medica')
+          }
+        }
+      }
+
+      // Filtrar según el estado seleccionado
+      const todayFilter = new Date()
+      todayFilter.setHours(0, 0, 0, 0)
 
       let filteredLeaves = leavesData || []
 
@@ -93,20 +135,20 @@ export default function MedicalLeavesManagementPage() {
           const endDate = new Date(leave.end_date)
           startDate.setHours(0, 0, 0, 0)
           endDate.setHours(0, 0, 0, 0)
-          return today >= startDate && today <= endDate
+          return todayFilter >= startDate && todayFilter <= endDate
         })
       } else if (filterStatus === 'expired') {
         filteredLeaves = filteredLeaves.filter((leave: any) => {
           const endDate = new Date(leave.end_date)
           endDate.setHours(0, 0, 0, 0)
-          return today > endDate
+          return todayFilter > endDate
         })
       } else if (filterStatus === 'upcoming') {
         filteredLeaves = filteredLeaves.filter((leave: any) => {
           if (!leave.is_active) return false
           const startDate = new Date(leave.start_date)
           startDate.setHours(0, 0, 0, 0)
-          return today < startDate
+          return todayFilter < startDate
         })
       }
 

@@ -105,7 +105,7 @@ export default function AdvancesPage() {
       const { data: employeesData } = await supabase
         .from('employees')
         .select('id, full_name, rut')
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .eq('company_id', companyId)
         .order('full_name')
 

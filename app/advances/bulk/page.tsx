@@ -65,7 +65,7 @@ export default function BulkAdvancesPage() {
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
         .select('id, full_name, rut, base_salary, company_id')
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .eq('company_id', companyId)
         .order('full_name')
 

@@ -65,7 +65,7 @@ export default function EditAdvancePage() {
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
         .select('id, full_name, rut, base_salary')
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .order('full_name')
 
       if (employeesError) throw employeesError
