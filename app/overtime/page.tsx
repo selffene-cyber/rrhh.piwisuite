@@ -39,7 +39,7 @@ export default function OvertimePage() {
         .from('employees')
         .select('id, full_name, rut')
         .eq('company_id', companyId)
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .order('full_name')
 
       if (error) throw error

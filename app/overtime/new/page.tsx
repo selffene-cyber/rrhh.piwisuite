@@ -35,7 +35,7 @@ export default function NewOvertimePactPage() {
         .from('employees')
         .select('id, full_name, rut, position')
         .eq('company_id', companyId)
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .order('full_name', { ascending: true })
 
       if (error) throw error
