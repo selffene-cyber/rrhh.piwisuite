@@ -34,12 +34,14 @@ export default function VacationsDashboardPage() {
   const [sortColumn, setSortColumn] = useState<string>('totalAccumulated')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [pendingVacations, setPendingVacations] = useState<any[]>([])
+  const [approvedVacations, setApprovedVacations] = useState<any[]>([])
   const [approvingId, setApprovingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (companyId) {
       loadEmployeesVacations()
       loadPendingVacations()
+      loadApprovedVacations()
     } else {
       setEmployees([])
       setLoading(false)
@@ -75,6 +77,36 @@ export default function VacationsDashboardPage() {
     }
   }
 
+  const loadApprovedVacations = async () => {
+    if (!companyId) return
+    try {
+      const { data: emps } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', companyId)
+
+      if (!emps || emps.length === 0) {
+        setApprovedVacations([])
+        return
+      }
+
+      const empIds = emps.map((e: { id: string }) => e.id)
+      const { data, error } = await supabase
+        .from('vacations')
+        .select('id, employee_id, start_date, end_date, days_count, status, signed_pdf_url, approved_at, created_at, employees(full_name, rut)')
+        .in('employee_id', empIds)
+        .eq('status', 'aprobada')
+        .order('approved_at', { ascending: false })
+        .limit(10)
+
+      if (!error) {
+        setApprovedVacations(data || [])
+      }
+    } catch (err) {
+      console.error('Error al cargar vacaciones aprobadas:', err)
+    }
+  }
+
   const handleApproveVacation = async (vacationId: string, employeeId: string) => {
     if (!confirm('¿Aprobar esta solicitud de vacaciones? Se generará un documento firmado.')) return
     setApprovingId(vacationId)
@@ -84,6 +116,7 @@ export default function VacationsDashboardPage() {
       if (!res.ok) throw new Error(result.error || 'Error al aprobar')
       alert('Vacación aprobada correctamente. Puede ver el documento firmado en la página del trabajador.')
       loadPendingVacations()
+      loadApprovedVacations()
       loadEmployeesVacations()
     } catch (err: any) {
       alert('Error al aprobar vacación: ' + err.message)
@@ -562,6 +595,58 @@ export default function VacationsDashboardPage() {
                               Ver Detalle
                             </button>
                           </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {approvedVacations.length > 0 && (
+            <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid #10b981' }}>
+              <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaCheck color="#10b981" />
+                Aprobadas Recientemente ({approvedVacations.length})
+              </h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Trabajador</th>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Inicio</th>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Término</th>
+                      <th style={{ textAlign: 'center', padding: '10px' }}>Días</th>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Aprobada</th>
+                      <th style={{ textAlign: 'center', padding: '10px' }}>Documento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {approvedVacations.map((v: any) => (
+                      <tr key={v.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '10px', fontWeight: 500 }}>
+                          {v.employees?.full_name || 'N/A'}
+                          <div style={{ fontSize: '12px', color: '#6b7280' }}>{v.employees?.rut || ''}</div>
+                        </td>
+                        <td style={{ padding: '10px' }}>{v.start_date}</td>
+                        <td style={{ padding: '10px' }}>{v.end_date}</td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>{v.days_count}</td>
+                        <td style={{ padding: '10px', fontSize: '12px', color: '#6b7280' }}>
+                          {v.approved_at ? new Date(v.approved_at).toLocaleDateString('es-CL') : '-'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                          {v.signed_pdf_url ? (
+                            <a href={v.signed_pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                              Ver PDF Firmado
+                            </a>
+                          ) : (
+                            <Link href={`/employees/${v.employee_id}/vacations/${v.id}/pdf`} target="_blank">
+                              <button style={{ padding: '4px 8px', fontSize: '12px' }}>
+                                Generar PDF
+                              </button>
+                            </Link>
+                          )}
                         </td>
                       </tr>
                     ))}
