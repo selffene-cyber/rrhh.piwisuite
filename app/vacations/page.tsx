@@ -82,8 +82,9 @@ export default function VacationsDashboardPage() {
       const res = await fetch(`/api/vacations/${vacationId}/approve`, { method: 'POST' })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Error al aprobar')
-      alert('Vacación aprobada correctamente')
+      alert('Vacación aprobada correctamente. Puede ver el documento firmado en la página del trabajador.')
       loadPendingVacations()
+      loadEmployeesVacations()
     } catch (err: any) {
       alert('Error al aprobar vacación: ' + err.message)
     } finally {
