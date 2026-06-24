@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { getVacationPeriods, syncVacationPeriods, getVacationSummary } from '@/lib/services/vacationPeriods'
-import { FaUmbrellaBeach, FaUser, FaCalendarAlt, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa'
+import { FaUmbrellaBeach, FaUser, FaCalendarAlt, FaSort, FaSortUp, FaSortDown, FaClock, FaCheck, FaTimes } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import HolidaysModal from '@/components/HolidaysModal'
 
@@ -33,15 +33,81 @@ export default function VacationsDashboardPage() {
   })
   const [sortColumn, setSortColumn] = useState<string>('totalAccumulated')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [pendingVacations, setPendingVacations] = useState<any[]>([])
+  const [approvingId, setApprovingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (companyId) {
       loadEmployeesVacations()
+      loadPendingVacations()
     } else {
       setEmployees([])
       setLoading(false)
     }
   }, [companyId])
+
+  const loadPendingVacations = async () => {
+    if (!companyId) return
+    try {
+      const { data: emps } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', companyId)
+
+      if (!emps || emps.length === 0) {
+        setPendingVacations([])
+        return
+      }
+
+      const empIds = emps.map((e: { id: string }) => e.id)
+      const { data, error } = await supabase
+        .from('vacations')
+        .select('id, employee_id, start_date, end_date, days_count, status, created_at, employees(full_name, rut)')
+        .in('employee_id', empIds)
+        .eq('status', 'solicitada')
+        .order('created_at', { ascending: false })
+
+      if (!error) {
+        setPendingVacations(data || [])
+      }
+    } catch (err) {
+      console.error('Error al cargar solicitudes pendientes:', err)
+    }
+  }
+
+  const handleApproveVacation = async (vacationId: string, employeeId: string) => {
+    if (!confirm('¿Aprobar esta solicitud de vacaciones? Se generará un documento firmado.')) return
+    setApprovingId(vacationId)
+    try {
+      const res = await fetch(`/api/vacations/${vacationId}/approve`, { method: 'POST' })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Error al aprobar')
+      alert('Vacación aprobada correctamente')
+      loadPendingVacations()
+    } catch (err: any) {
+      alert('Error al aprobar vacación: ' + err.message)
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const handleRejectVacation = async (vacationId: string) => {
+    const reason = prompt('Motivo del rechazo (obligatorio):')
+    if (!reason) return
+    try {
+      const res = await fetch(`/api/vacations/${vacationId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejection_reason: reason }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Error al rechazar')
+      alert('Vacación rechazada')
+      loadPendingVacations()
+    } catch (err: any) {
+      alert('Error al rechazar vacación: ' + err.message)
+    }
+  }
 
   const loadEmployeesVacations = async () => {
     if (!companyId) return
@@ -53,7 +119,7 @@ export default function VacationsDashboardPage() {
       const { data: employeesData, error: empError } = await supabase
         .from('employees')
         .select('id, full_name, rut, hire_date')
-        .eq('status', 'active')
+        .in('status', ['active', 'licencia_medica'])
         .eq('company_id', companyId)
         .order('full_name', { ascending: true })
 
@@ -414,6 +480,95 @@ export default function VacationsDashboardPage() {
               </div>
             </div>
           </div>
+
+          {pendingVacations.length > 0 && (
+            <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid #f59e0b' }}>
+              <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaClock color="#f59e0b" />
+                Solicitudes Pendientes ({pendingVacations.length})
+              </h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Trabajador</th>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Inicio</th>
+                      <th style={{ textAlign: 'left', padding: '10px' }}>Término</th>
+                      <th style={{ textAlign: 'center', padding: '10px' }}>Días</th>
+                      <th style={{ textAlign: 'center', padding: '10px' }}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingVacations.map((v: any) => (
+                      <tr key={v.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '10px', fontWeight: 500 }}>
+                          {v.employees?.full_name || 'N/A'}
+                          <div style={{ fontSize: '12px', color: '#6b7280' }}>{v.employees?.rut || ''}</div>
+                        </td>
+                        <td style={{ padding: '10px' }}>{v.start_date}</td>
+                        <td style={{ padding: '10px' }}>{v.end_date}</td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>{v.days_count}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleApproveVacation(v.id, v.employee_id)}
+                            disabled={approvingId === v.id}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              backgroundColor: approvingId === v.id ? '#9ca3af' : '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: approvingId === v.id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <FaCheck size={10} />
+                            {approvingId === v.id ? 'Aprobando...' : 'Aprobar'}
+                          </button>
+                          <button
+                            onClick={() => handleRejectVacation(v.id)}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <FaTimes size={10} />
+                            Rechazar
+                          </button>
+                          <Link href={`/employees/${v.employee_id}/vacations`}>
+                            <button
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Ver Detalle
+                            </button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="card">
             <h2 style={{ marginBottom: '20px' }}>Trabajadores y sus Vacaciones</h2>

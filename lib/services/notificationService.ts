@@ -201,7 +201,7 @@ export async function getNotifications(
             type: 'vacation_pending',
             title: 'Solicitud de Vacaciones Pendiente',
             message: `${vacation.employees?.full_name || 'Trabajador'} tiene una solicitud de vacaciones pendiente de aprobación`,
-            link: `/vacations`,
+            link: `/employees/${vacation.employees?.id}/vacations`,
             createdAt: vacation.created_at,
             priority: 'low',
             employeeId: vacation.employees?.id,
