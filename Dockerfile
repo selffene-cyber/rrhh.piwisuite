@@ -7,7 +7,8 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps && \
+    npm install --no-save @tailwindcss/oxide-linux-x64-musl@4.1.18 lightningcss-linux-x64-musl@1.30.2
 
 # Build de la aplicación
 FROM base AS builder
