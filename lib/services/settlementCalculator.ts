@@ -15,6 +15,8 @@
 
 import { PreviredIndicators, getAFPRate, getUnemploymentInsuranceRate } from './previredAPI'
 import { getCachedIndicators } from './indicatorsCache'
+import { calculatePrevisional } from './previsional/previsionalEngine'
+import type { CalculationContext, PrevisionalCalculationResult } from './previsional/types'
 
 export interface SettlementCause {
   code: string
@@ -123,7 +125,18 @@ export interface SettlementCalculationResult {
   // Total descuentos y líquido
   total_deductions: number
   net_to_pay: number
-  
+
+  // Aportes del empleador (motor central previsional)
+  employer_sis: number
+  employer_sis_rate: number
+  employer_afp_account: number
+  employer_afp_account_rate: number
+  employer_crp: number
+  employer_crp_rate: number
+  employer_afc: number
+  employer_afc_rate: number
+  employer_total: number
+
   errors: string[]
   warnings: string[]
   bonus_details: Array<{ name: string; amount: number }>
@@ -229,7 +242,7 @@ export function calculateIAP(
   return Math.ceil(lastSalaryMonthly)
 }
 
-export function calculateSettlement(input: SettlementCalculationInput): SettlementCalculationResult {
+export async function calculateSettlement(input: SettlementCalculationInput): Promise<SettlementCalculationResult> {
   const emptyResult = (errors: string[], warnings: string[]): SettlementCalculationResult => ({
     service_time: calculateServiceTime(input.contract_start_date, input.termination_date),
     salary_balance: 0, gratification: 0, bonuses_payout: 0, taxable_earnings_total: 0,
@@ -241,7 +254,13 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
     loan_balance: input.loan_balance, advance_balance: input.advance_balance,
     other_deductions_total: Math.ceil(Math.max(0, input.loan_balance) + Math.max(0, input.advance_balance)),
     total_deductions: Math.ceil(Math.max(0, input.loan_balance) + Math.max(0, input.advance_balance)),
-    net_to_pay: 0, errors, warnings, bonus_details: [],
+    net_to_pay: 0,
+    employer_sis: 0, employer_sis_rate: 0,
+    employer_afp_account: 0, employer_afp_account_rate: 0,
+    employer_crp: 0, employer_crp_rate: 0,
+    employer_afc: 0, employer_afc_rate: 0,
+    employer_total: 0,
+    errors, warnings, bonus_details: [],
   })
 
   const validation = validateSettlementInput(input)
@@ -307,52 +326,131 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
     taxable_earnings_total + non_taxable_earnings_total + vacation_payout + ias_amount + iap_amount
   )
 
-  // ========== DESCUENTOS LEGALES (sobre base imponible del saldo de sueldo) ==========
+  // ========== DESCUENTOS LEGALES Y APORTES EMPLEADOR (motor central previsional) ==========
 
   const taxableBase = taxable_earnings_total
   let afp_total = 0, afp_10 = 0, afp_additional = 0
   let health_total = 0
   let unemployment_insurance = 0
+  let employer_sis = 0, employer_sis_rate = 0
+  let employer_afp_account = 0, employer_afp_account_rate = 0
+  let employer_crp = 0, employer_crp_rate = 0
+  let employer_afc = 0, employer_afc_rate = 0
+  let employer_total = 0
 
-  if (isSpecialRegime) {
-    const manualPensionRate = input.manual_pension_rate || 0
-    const manualHealthRate = input.manual_health_rate || 7
-    const manualBaseType = input.manual_base_type || 'imponible'
-    const baseCalc = manualBaseType === 'sueldo_base' ? salary_balance : taxableBase
+  const year = input.termination_year || new Date().getFullYear()
+  const month = input.termination_month || (new Date().getMonth() + 1)
 
-    afp_total = Math.ceil(baseCalc * (manualPensionRate / 100))
-    afp_10 = afp_total
-    afp_additional = 0
+  // Construir contexto para el motor central
+  const prevContext: CalculationContext = {
+    year,
+    month,
+    employee: {
+      id: 'settlement',
+      afp: input.afp ?? undefined,
+      healthSystem: input.health_system ?? undefined,
+      healthPlanPercentage: input.health_plan_percentage ?? undefined,
+      previsionalRegime: isSpecialRegime ? 'OTRO_REGIMEN' : 'AFP',
+      otherRegimeType: undefined,
+      manualPensionRate: input.manual_pension_rate ?? undefined,
+      manualHealthRate: input.manual_health_rate ?? undefined,
+      manualBaseType: input.manual_base_type as any ?? undefined,
+      contractType: input.contract_type ?? undefined,
+      afcApplicable: input.afc_applicable !== false,
+    },
+    taxableEarnings: taxableBase,
+    baseSalaryProportional: taxableBase,
+    daysWorked: input.worked_days_last_month || 30,
+    calculationType: 'finiquito',
+    indicators: input.indicators ?? null,
+  }
 
-    health_total = Math.ceil(baseCalc * (manualHealthRate / 100))
-  } else {
-    // AFP
-    const afpRates = getAFPRate(input.afp || null, input.indicators || null)
-    afp_total = Math.ceil(taxableBase * (afpRates.trabajador / 100))
-    afp_10 = Math.ceil(taxableBase * 0.10)
-    afp_additional = Math.ceil(afp_total - afp_10)
+  try {
+    const prevResult: PrevisionalCalculationResult = await calculatePrevisional(prevContext)
 
-    // Salud
-    if (input.health_system === 'FONASA') {
-      health_total = Math.ceil(taxableBase * 0.07)
-    } else if (input.health_system === 'ISAPRE') {
-      const healthPlanUF = input.health_plan_percentage || 0
-      const ufValue = input.indicators ? parseChileanNumber(input.indicators.UFValPeriodo) : 0
-      if (healthPlanUF > 0 && ufValue > 0) {
-        health_total = Math.ceil(healthPlanUF * ufValue)
-      } else {
-        health_total = Math.ceil(taxableBase * 0.07)
+    if (prevResult.blocked && prevResult.blockedConcepts.length > 0) {
+      throw new Error(
+        `Calculo de finiquito bloqueado: faltan tasas previsionales validadas para [${prevResult.blockedConcepts.join(', ')}] ` +
+        `en ${month}/${year}. Valide las tasas en la tabla prevision_rates antes de calcular.`
+      )
+    }
+
+    const empDed = prevResult.employeeDeductions
+
+    if (isSpecialRegime) {
+      const manualPensionRate = input.manual_pension_rate || 0
+      const manualHealthRate = input.manual_health_rate || 7
+      const manualBaseType = input.manual_base_type || 'imponible'
+      const baseCalc = manualBaseType === 'sueldo_base' ? salary_balance : taxableBase
+
+      afp_total = Math.ceil(baseCalc * (manualPensionRate / 100))
+      afp_10 = afp_total
+      afp_additional = 0
+
+      health_total = Math.ceil(baseCalc * (manualHealthRate / 100))
+    } else {
+      afp_total = empDed.pension
+      afp_10 = empDed.pensionObligatorio
+      afp_additional = empDed.pensionComision
+      health_total = empDed.health
+      unemployment_insurance = empDed.afcTrabajador
+
+      if (input.contract_type === 'plazo_fijo' || input.contract_type === 'otro') {
+        unemployment_insurance = 0
       }
     }
 
-    // Seguro de cesantía
-    const afcApplicable = input.afc_applicable !== false
-    if (afcApplicable) {
-      const unemploymentRate = getUnemploymentInsuranceRate(input.indicators || null)
-      unemployment_insurance = Math.ceil(taxableBase * (unemploymentRate / 100))
-      // Plazo fijo: trabajador no paga AFC
-      if (input.contract_type === 'plazo_fijo' || input.contract_type === 'otro') {
-        unemployment_insurance = 0
+    employer_sis = prevResult.sisAmount
+    employer_sis_rate = prevResult.sisRate
+    employer_afp_account = prevResult.afpEmployerAccountAmount
+    employer_afp_account_rate = prevResult.afpEmployerAccountRate
+    employer_crp = prevResult.crpAmount
+    employer_crp_rate = prevResult.crpRate
+    employer_afc = prevResult.afcEmployerAmount
+    employer_afc_rate = prevResult.afcEmployerRate
+    employer_total = prevResult.employerContributionsTotal
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Calculo de finiquito bloqueado')) {
+      throw error
+    }
+    console.warn('[settlementCalculator] Error tecnico en motor central previsional, usando calculo legacy:', error)
+
+    if (isSpecialRegime) {
+      const manualPensionRate = input.manual_pension_rate || 0
+      const manualHealthRate = input.manual_health_rate || 7
+      const manualBaseType = input.manual_base_type || 'imponible'
+      const baseCalc = manualBaseType === 'sueldo_base' ? salary_balance : taxableBase
+
+      afp_total = Math.ceil(baseCalc * (manualPensionRate / 100))
+      afp_10 = afp_total
+      afp_additional = 0
+
+      health_total = Math.ceil(baseCalc * (manualHealthRate / 100))
+    } else {
+      const afpRates = getAFPRate(input.afp || null, input.indicators || null)
+      afp_total = Math.ceil(taxableBase * (afpRates.trabajador / 100))
+      afp_10 = Math.ceil(taxableBase * 0.10)
+      afp_additional = Math.ceil(afp_total - afp_10)
+
+      if (input.health_system === 'FONASA') {
+        health_total = Math.ceil(taxableBase * 0.07)
+      } else if (input.health_system === 'ISAPRE') {
+        const healthPlanUF = input.health_plan_percentage || 0
+        const ufValue = input.indicators ? parseChileanNumber(input.indicators.UFValPeriodo) : 0
+        if (healthPlanUF > 0 && ufValue > 0) {
+          health_total = Math.ceil(healthPlanUF * ufValue)
+        } else {
+          health_total = Math.ceil(taxableBase * 0.07)
+        }
+      }
+
+      const afcApplicable = input.afc_applicable !== false
+      if (afcApplicable) {
+        const unemploymentRate = getUnemploymentInsuranceRate(input.indicators || null)
+        unemployment_insurance = Math.ceil(taxableBase * (unemploymentRate / 100))
+        if (input.contract_type === 'plazo_fijo' || input.contract_type === 'otro') {
+          unemployment_insurance = 0
+        }
       }
     }
   }
@@ -396,6 +494,11 @@ export function calculateSettlement(input: SettlementCalculationInput): Settleme
     taxable_base_for_tax, unique_tax,
     loan_balance, advance_balance, other_deductions_total,
     total_deductions, net_to_pay,
+    employer_sis, employer_sis_rate,
+    employer_afp_account, employer_afp_account_rate,
+    employer_crp, employer_crp_rate,
+    employer_afc, employer_afc_rate,
+    employer_total,
     errors: [], warnings: validation.warnings, bonus_details,
   }
 }
@@ -453,7 +556,16 @@ export function createCalculationSnapshot(
       advance_balance: result.advance_balance,
       other_deductions_total: result.other_deductions_total,
       total_deductions: result.total_deductions,
-      net_to_pay: result.net_to_pay
+      net_to_pay: result.net_to_pay,
+      employer_sis: result.employer_sis,
+      employer_sis_rate: result.employer_sis_rate,
+      employer_afp_account: result.employer_afp_account,
+      employer_afp_account_rate: result.employer_afp_account_rate,
+      employer_crp: result.employer_crp,
+      employer_crp_rate: result.employer_crp_rate,
+      employer_afc: result.employer_afc,
+      employer_afc_rate: result.employer_afc_rate,
+      employer_total: result.employer_total
     },
     errors: result.errors,
     warnings: result.warnings

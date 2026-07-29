@@ -3,6 +3,7 @@ import { Database } from '@/types/database'
 import { PayrollBook, PayrollBookEntry } from '@/types'
 import { calculatePayroll } from './payrollCalculator'
 import { getCachedIndicators } from './indicatorsCache'
+import { getEmployerContributionsForBookEntry } from './previsional/payrollBookAdapter'
 
 /**
  * Genera el Libro de Remuneraciones para una empresa, año y mes
@@ -73,7 +74,17 @@ export async function generatePayrollBook(
 
   if (existingBookData) {
     const existingBook = existingBookData as any
-    // Actualizar libro existente
+    
+    // PERIODO CERRADO: No regenerar libros cerrados o enviados
+    // Los resultados historicos deben conservarse intactos.
+    if (existingBook.status === 'closed' || existingBook.status === 'sent_dt') {
+      throw new Error(
+        `El Libro de Remuneraciones para ${month}/${year} ya está cerrado o enviado. ` +
+        `No se puede regenerar un libro cerrado. Los resultados historicos deben conservarse.`
+      )
+    }
+    
+    // Actualizar libro existente (solo si está en draft)
     const { data: updatedBook, error: updateError } = await (supabase
       .from('payroll_books') as any)
       .update({
@@ -256,36 +267,40 @@ export async function generatePayrollBook(
 
     const totalOtherDeductionsEntry = Number(slip.total_other_deductions) || 0
 
-    // Calcular aportes del empleador (usando la lógica del calculador)
-    // Nota: Estos valores se calculan pero normalmente no se registran en payroll_items
-    // Se calculan aquí para el libro según normativa
+    // Calcular aportes del empleador usando el motor central previsional
+    // FASE 4: Si el motor central tiene tasas validated, las usa.
+    // Si el motor central bloquea (falta tasa validated), BLOQUEA la generacion.
+    // Solo cae al calculo legacy por errores tecnicos inesperados.
+    // Periodos cerrados: NO se recalculan, se usa el resultado historico de la BD.
     const taxableBase = Number(slip.taxable_base) || 0
     let employerAfpContribution = 0
     let employerSisContribution = 0
     let employerAfcContribution = 0
+    let employerRentabilidadProtegida = 0
+    let employerAfpAccount = 0
 
-    if (indicators) {
-      // AFP Empleador: 0.1% de la base imponible
-      employerAfpContribution = Math.ceil(taxableBase * 0.001)
+    const employerContribs = await getEmployerContributionsForBookEntry(
+      employee, year, month, taxableBase, indicators
+    )
 
-      // SIS: Tasa del indicador
-      const sisRate = indicators.TasaSIS ? parseFloat(String(indicators.TasaSIS).replace(/\./g, '').replace(',', '.')) / 100 : 0
-      employerSisContribution = Math.ceil(taxableBase * sisRate)
-
-      // AFC Empleador: según tipo de contrato
-      const contractType = employee.contract_type || 'indefinido'
-      let afcRate = 0
-      if (contractType === 'indefinido' && indicators.AFCCpiEmpleador) {
-        afcRate = parseFloat(String(indicators.AFCCpiEmpleador).replace(/\./g, '').replace(',', '.')) / 100
-      } else if (contractType === 'plazo_fijo' && indicators.AFCCpfEmpleador) {
-        afcRate = parseFloat(String(indicators.AFCCpfEmpleador).replace(/\./g, '').replace(',', '.')) / 100
-      } else if (contractType === 'temporal' && indicators.AFCTcpEmpleador) {
-        afcRate = parseFloat(String(indicators.AFCTcpEmpleador).replace(/\./g, '').replace(',', '.')) / 100
-      }
-      employerAfcContribution = Math.ceil(taxableBase * afcRate)
+    if (employerContribs.blocked && employerContribs.blockedConcepts.length > 0) {
+      // BLOQUEO: Faltan tasas validated. NO generar el libro con datos incorrectos.
+      throw new Error(
+        `No se puede generar el Libro de Remuneraciones: faltan tasas previsionales validadas para ` +
+        `[${employerContribs.blockedConcepts.join(', ')}] en ${month}/${year}. ` +
+        `Valide las tasas en la tabla prevision_rates antes de generar el libro.`
+      )
     }
 
-    const totalEmployerContributionsEntry = employerAfpContribution + employerSisContribution + employerAfcContribution
+    if (!employerContribs.blocked) {
+      employerAfpContribution = employerContribs.afpAccount
+      employerSisContribution = employerContribs.sis
+      employerAfcContribution = employerContribs.afc
+      employerRentabilidadProtegida = employerContribs.crp
+      employerAfpAccount = employerContribs.afpAccount
+    }
+
+    const totalEmployerContributionsEntry = employerAfpContribution + employerSisContribution + employerAfcContribution + employerRentabilidadProtegida
 
     // Totales
     const totalEarningsEntry = totalTaxableEarningsEntry + totalNonTaxableEarningsEntry
@@ -337,6 +352,8 @@ export async function generatePayrollBook(
       employer_afp_contribution: employerAfpContribution,
       employer_sis_contribution: employerSisContribution,
       employer_afc_contribution: employerAfcContribution,
+      employer_rentabilidad_protegida: employerRentabilidadProtegida,
+      employer_afp_account: employerAfpAccount,
       total_employer_contributions: totalEmployerContributionsEntry,
       // Totales
       total_earnings: totalEarningsEntry,

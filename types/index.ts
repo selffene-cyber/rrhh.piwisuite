@@ -152,6 +152,8 @@ export type PayrollBookEntry = {
   employer_afp_contribution: number
   employer_sis_contribution: number
   employer_afc_contribution: number
+  employer_rentabilidad_protegida?: number
+  employer_afp_account?: number
   total_employer_contributions: number
   // Totales
   total_earnings: number

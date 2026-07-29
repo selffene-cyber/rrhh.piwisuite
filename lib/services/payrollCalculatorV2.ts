@@ -1,6 +1,10 @@
 /**
  * Motor de Cálculo de Liquidaciones v2
  * Soporta AFP (Previred) y Regímenes Especiales (DIPRECA, CAPREDENA, etc.)
+ *
+ * FASE 4: Integracion con motor central previsional.
+ * El motor central se usa cuando hay tasas validated disponibles.
+ * Si el motor central bloquea o falla, cae al calculo legacy.
  */
 
 import { 
@@ -15,6 +19,8 @@ import {
   PrevisionCalculationResult,
   shouldCalculateAFC 
 } from '@/types/prevision'
+
+import { calculatePrevisionalFromV2, mergePrevisionalResultIntoV2 } from './previsional/previsionalAdapter'
 
 // ============================================
 // TIPOS
@@ -137,6 +143,48 @@ export async function calculatePayrollV2(
 // ============================================
 
 async function calculateAFPRegime(
+  input: PayrollCalculationInputV2
+): Promise<PayrollCalculationResultV2> {
+  
+  // FASE 4: Intentar delegar al motor central previsional
+  // REGLA: Si faltan tasas validated, se BLOQUEA el calculo (no fallback silencioso).
+  // Solo se cae al legacy por errores tecnicos inesperados.
+  try {
+    const adapterResult = await calculatePrevisionalFromV2(input)
+    
+    if (adapterResult.usedNewEngine && adapterResult.previsionalResult) {
+      // Motor central exitoso: calcular la parte no-previsional con V2 legacy
+      // y luego mergear los resultados previsionales corregidos
+      const legacyResult = await calculateAFPRegimeLegacy(input)
+      const mergedResult = mergePrevisionalResultIntoV2(legacyResult, adapterResult.previsionalResult)
+      return mergedResult
+    }
+    
+    // Si el motor central bloqueo por falta de tasas validated, propagar error
+    if (adapterResult.blockedConcepts && adapterResult.blockedConcepts.length > 0) {
+      throw new Error(
+        `Calculo bloqueado: faltan tasas previsionales validadas para [${adapterResult.blockedConcepts.join(', ')}] ` +
+        `en ${input.month}/${input.year}. Valide las tasas en la tabla prevision_rates antes de calcular.`
+      )
+    }
+  } catch (error) {
+    // Si es un error de bloqueo de tasas, propagarlo (no hacer fallback)
+    if (error instanceof Error && error.message.startsWith('Calculo bloqueado')) {
+      throw error
+    }
+    // Error tecnico inesperado: caer al legacy
+    console.warn('[payrollCalculatorV2] Error tecnico en motor central, usando calculo legacy:', error)
+  }
+  
+  // Fallback solo por errores tecnicos
+  return calculateAFPRegimeLegacy(input)
+}
+
+// ============================================
+// FLUJO AFP LEGACY (calculado original)
+// ============================================
+
+async function calculateAFPRegimeLegacy(
   input: PayrollCalculationInputV2
 ): Promise<PayrollCalculationResultV2> {
   
@@ -353,6 +401,37 @@ async function calculateAFPRegime(
 // ============================================
 
 async function calculateOtherRegime(
+  input: PayrollCalculationInputV2
+): Promise<PayrollCalculationResultV2> {
+  
+  // FASE 4: Intentar delegar al motor central previsional
+  // REGLA: Si faltan tasas validated, se BLOQUEA el calculo (no fallback silencioso).
+  try {
+    const adapterResult = await calculatePrevisionalFromV2(input)
+    
+    if (adapterResult.usedNewEngine && adapterResult.previsionalResult) {
+      const legacyResult = await calculateOtherRegimeLegacy(input)
+      const mergedResult = mergePrevisionalResultIntoV2(legacyResult, adapterResult.previsionalResult)
+      return mergedResult
+    }
+    
+    if (adapterResult.blockedConcepts && adapterResult.blockedConcepts.length > 0) {
+      throw new Error(
+        `Calculo bloqueado: faltan tasas previsionales validadas para [${adapterResult.blockedConcepts.join(', ')}] ` +
+        `en ${input.month}/${input.year}. Valide las tasas en la tabla prevision_rates antes de calcular.`
+      )
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Calculo bloqueado')) {
+      throw error
+    }
+    console.warn('[payrollCalculatorV2] Error tecnico en motor central (otro regimen), usando calculo legacy:', error)
+  }
+  
+  return calculateOtherRegimeLegacy(input)
+}
+
+async function calculateOtherRegimeLegacy(
   input: PayrollCalculationInputV2
 ): Promise<PayrollCalculationResultV2> {
   

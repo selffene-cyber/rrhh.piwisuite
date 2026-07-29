@@ -160,15 +160,19 @@ export async function getCurrentMonthIndicators(): Promise<PreviredIndicators | 
 
 /**
  * Obtiene la tasa de AFP según el nombre de la AFP
- * Nota: La API de Gael Cloud no siempre incluye las tasas por AFP,
- * por lo que se usan valores por defecto basados en los indicadores de Previred
+ *
+ * @deprecated Usar getPrevisionalRate('AFP_TRABAJADOR_PROVIDA', year, month, indicators)
+ * del modulo previsional en su lugar. Esta funcion tiene fallbacks hardcoded
+ * con valores de diciembre 2025 que no reflejan las tasas con vigencia temporal.
+ * El motor central previsional consulta la tabla prevision_rates.
  */
+
 /**
- * Función helper para parsear números chilenos (puntos para miles, coma para decimales)
+ * Funcion helper para parsear numeros chilenos (puntos para miles, coma para decimales)
  */
 function parseChileanNumber(str: string | undefined): number {
   if (!str) return 0
-  return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+  return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0
 }
 
 export function getAFPRate(afpName: string | null | undefined, indicators: PreviredIndicators | null): {
@@ -243,6 +247,10 @@ export function getAFPRate(afpName: string | null | undefined, indicators: Previ
 
 /**
  * Obtiene la tasa de seguro de cesantía del trabajador
+ *
+ * @deprecated Usar getPrevisionalRate('AFC_TRABAJADOR_INDEFINIDO', year, month, indicators)
+ * del modulo previsional en su lugar. Esta funcion siempre retorna 0.6% sin distinguir
+ * tipo de contrato (plazo fijo y temporal deberian ser 0%).
  */
 export function getUnemploymentInsuranceRate(indicators: PreviredIndicators | null): number {
   // Tasa fija del trabajador: 0.6% para contrato plazo indefinido
@@ -251,6 +259,10 @@ export function getUnemploymentInsuranceRate(indicators: PreviredIndicators | nu
 
 /**
  * Obtiene la tasa de seguro de cesantía del empleador según tipo de contrato
+ *
+ * @deprecated Usar getPrevisionalRate('AFC_EMPLEADOR_INDEFINIDO', year, month, indicators)
+ * del modulo previsional en su lugar. Esta funcion tiene fallbacks hardcoded
+ * (2.4% indefinido, 3.0% plazo fijo) que no reflejan las tasas reales con vigencia.
  */
 export function getUnemploymentInsuranceEmployerRate(
   contractType: string | null | undefined,
@@ -292,6 +304,11 @@ export function getUnemploymentInsuranceEmployerRate(
 
 /**
  * Obtiene la tasa de SIS (Seguro de Invalidez y Sobrevivencia) del empleador
+ *
+ * @deprecated Usar getPrevisionalRate('SIS', year, month, indicators) del modulo
+ * previsional en su lugar. Esta funcion tiene un fallback hardcoded de 1.49%
+ * que no refleja las variaciones historicas de la tasa SIS.
+ * El motor central previsional consulta la tabla prevision_rates con vigencia temporal.
  */
 export function getSISRate(indicators: PreviredIndicators | null): number {
   // Si la API proporciona el valor de SIS como "TasaSIS" (viene como string "1,49")
@@ -308,10 +325,11 @@ export function getSISRate(indicators: PreviredIndicators | null): number {
 
 /**
  * Obtiene la tasa de salud según el sistema
- * @param healthSystem Sistema de salud (FONASA o ISAPRE)
- * @param healthPlanPercentage Porcentaje adicional del plan ISAPRE (solo para ISAPRE)
- * @param indicators Indicadores de Previred (opcional)
- * @returns Porcentaje total a descontar al trabajador
+ *
+ * @deprecated Para FONASA, usar getPrevisionalRate('FONASA', year, month, indicators)
+ * del modulo previsional. Para ISAPRE, el calculo es UF * valorUF y no requiere
+ * esta funcion. Esta funcion tiene un fallback hardcoded de 7% para FONASA
+ * que no consulta la tabla prevision_rates.
  */
 export function getHealthRate(
   healthSystem: string, 

@@ -299,7 +299,7 @@ export async function createSettlement(
   }
 
   // 4. Calcular finiquito
-  const calculation = calculateSettlement(calculationInput)
+  const calculation = await calculateSettlement(calculationInput)
 
   if (calculation.errors.length > 0) {
     throw new Error(`Errores en el cálculo: ${calculation.errors.join(', ')}`)
@@ -353,6 +353,15 @@ export async function createSettlement(
     other_deductions_total: calculation.other_deductions_total,
     total_deductions: calculation.total_deductions,
     net_to_pay: calculation.net_to_pay,
+    employer_sis: calculation.employer_sis,
+    employer_sis_rate: calculation.employer_sis_rate,
+    employer_afp_account: calculation.employer_afp_account,
+    employer_afp_account_rate: calculation.employer_afp_account_rate,
+    employer_crp: calculation.employer_crp,
+    employer_crp_rate: calculation.employer_crp_rate,
+    employer_afc: calculation.employer_afc,
+    employer_afc_rate: calculation.employer_afc_rate,
+    employer_total: calculation.employer_total,
     status: 'draft',
     calculation_version: 1,
     calculation_snapshot: snapshot,
@@ -523,6 +532,51 @@ export async function createSettlement(
       category: 'advance',
       description: 'Descuento por anticipos pendientes',
       amount: calculation.advance_balance
+    })
+  }
+
+  // Aportes del empleador (motor central previsional)
+  if (calculation.employer_sis > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'employer_contribution',
+      category: 'sis',
+      description: `SIS (${calculation.employer_sis_rate}%)`,
+      amount: calculation.employer_sis,
+      metadata: { rate: calculation.employer_sis_rate }
+    })
+  }
+
+  if (calculation.employer_afp_account > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'employer_contribution',
+      category: 'afp_account',
+      description: `AFP Cuenta Individual Empleador (${calculation.employer_afp_account_rate}%)`,
+      amount: calculation.employer_afp_account,
+      metadata: { rate: calculation.employer_afp_account_rate }
+    })
+  }
+
+  if (calculation.employer_crp > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'employer_contribution',
+      category: 'crp',
+      description: `CRP (${calculation.employer_crp_rate}%)`,
+      amount: calculation.employer_crp,
+      metadata: { rate: calculation.employer_crp_rate }
+    })
+  }
+
+  if (calculation.employer_afc > 0) {
+    items.push({
+      settlement_id: (settlement as any).id,
+      type: 'employer_contribution',
+      category: 'afc_employer',
+      description: 'AFC Empleador',
+      amount: calculation.employer_afc,
+      metadata: { rate: calculation.employer_afc_rate }
     })
   }
 
@@ -733,7 +787,7 @@ export async function recalculateSettlement(
   }
 
   // 5. Calcular finiquito
-  const calculation = calculateSettlement(calculationInput)
+  const calculation = await calculateSettlement(calculationInput)
 
   if (calculation.errors.length > 0) {
     throw new Error(`Errores en el cálculo: ${calculation.errors.join(', ')}`)
@@ -792,6 +846,15 @@ export async function recalculateSettlement(
     other_deductions_total: calculation.other_deductions_total,
     total_deductions: calculation.total_deductions,
     net_to_pay: calculation.net_to_pay,
+    employer_sis: calculation.employer_sis,
+    employer_sis_rate: calculation.employer_sis_rate,
+    employer_afp_account: calculation.employer_afp_account,
+    employer_afp_account_rate: calculation.employer_afp_account_rate,
+    employer_crp: calculation.employer_crp,
+    employer_crp_rate: calculation.employer_crp_rate,
+    employer_afc: calculation.employer_afc,
+    employer_afc_rate: calculation.employer_afc_rate,
+    employer_total: calculation.employer_total,
     calculation_version: current.calculation_version + 1,
     calculation_snapshot: snapshot,
     calculation_log: log
@@ -965,6 +1028,51 @@ export async function recalculateSettlement(
       category: 'advance',
       description: 'Descuento por anticipos pendientes',
       amount: calculation.advance_balance
+    })
+  }
+
+  // Aportes del empleador (motor central previsional)
+  if (calculation.employer_sis > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'employer_contribution',
+      category: 'sis',
+      description: `SIS (${calculation.employer_sis_rate}%)`,
+      amount: calculation.employer_sis,
+      metadata: { rate: calculation.employer_sis_rate }
+    })
+  }
+
+  if (calculation.employer_afp_account > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'employer_contribution',
+      category: 'afp_account',
+      description: `AFP Cuenta Individual Empleador (${calculation.employer_afp_account_rate}%)`,
+      amount: calculation.employer_afp_account,
+      metadata: { rate: calculation.employer_afp_account_rate }
+    })
+  }
+
+  if (calculation.employer_crp > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'employer_contribution',
+      category: 'crp',
+      description: `CRP (${calculation.employer_crp_rate}%)`,
+      amount: calculation.employer_crp,
+      metadata: { rate: calculation.employer_crp_rate }
+    })
+  }
+
+  if (calculation.employer_afc > 0) {
+    items.push({
+      settlement_id: settlementId,
+      type: 'employer_contribution',
+      category: 'afc_employer',
+      description: 'AFC Empleador',
+      amount: calculation.employer_afc,
+      metadata: { rate: calculation.employer_afc_rate }
     })
   }
 
