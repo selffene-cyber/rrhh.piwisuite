@@ -281,13 +281,13 @@ const SettlementDocument = ({ settlement, employee, company, generateFileName }:
           </Text>
         </View>
 
-        {/* TERCERO: Pensión de alimentos */}
+        {/* TERCERO: Ley 21.389 / Pension de alimentos */}
         <View style={styles.section}>
           <Text style={{ textAlign: 'justify', lineHeight: 1.5, fontSize: 9 }}>
             <Text style={styles.sectionTitle}>TERCERO:</Text>{' '}
-            Según Ley 21.389, el empleador declara bajo juramento que el trabajador no se encuentra 
-            sujeto a la retención judicial de pensión alimenticia, según se acredita con la exhibición 
-            de las 3 últimas liquidaciones de sueldo, liberado en este acto al notario autorizante de 
+            Segun Ley 21.389, el empleador declara bajo juramento que el trabajador no se encuentra 
+            sujeto a la retencion judicial de pension alimenticia, segun se acredita con la exhibicion 
+            de las 3 ultimas liquidaciones de sueldo, liberado en este acto al notario autorizante de 
             cualquier responsabilidad por el no pago de esta, quedando dos de ellos en poder del trabajador 
             y uno en poder del empleador.
           </Text>
@@ -298,10 +298,54 @@ const SettlementDocument = ({ settlement, employee, company, generateFileName }:
           <View style={styles.section}>
             <Text style={{ textAlign: 'justify', lineHeight: 1.5, fontSize: 9 }}>
               <Text style={styles.sectionTitle}>CUARTO:</Text>{' '}
-              De conformidad con lo dispuesto en la Ley N° 21.389, que establece la retención 
-              del 10% de las indemnizaciones por años de servicio (IAS) para el Fondo de 
-              Cesantía Solidario, se informa que sobre el monto de la indemnización por años 
-              de servicio corresponderán las retenciones legales aplicables según la normativa vigente.
+              De conformidad con lo dispuesto en la Ley N 21.389, que establece la retencion 
+              del 10% de las indemnizaciones por anos de servicio (IAS) para el Fondo de 
+              Cesantia Solidario, se informa que sobre el monto de la indemnizacion por anos 
+              de servicio corresponderan las retenciones legales aplicables segun la normativa vigente.
+            </Text>
+          </View>
+        )}
+
+        {/* CLAUSULAS LEGALES AUTOMATICAS (generadas por el motor de reglas) */}
+        {settlement.legal_clauses && settlement.legal_clauses.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>CLAUSULAS LEGALES</Text>
+            {settlement.legal_clauses.map((clause: string, index: number) => (
+              <View key={index} style={{ marginBottom: 6 }}>
+                <Text style={{ textAlign: 'justify', lineHeight: 1.5, fontSize: 9 }}>
+                  {clause}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ADVERTENCIA SOBRE CONCEPTOS NO PAGADOS (si la causal no paga IAS/IAP) */}
+        {settlement.cause && !settlement.cause.has_ias && !settlement.cause.has_iap && (
+          <View style={styles.section}>
+            <Text style={{ textAlign: 'justify', lineHeight: 1.5, fontSize: 9, fontStyle: 'italic' }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>NOTA:</Text>{' '}
+              Conforme a la causal invocada ({settlement.cause?.article || 'N/A'} del Codigo del Trabajo), 
+              no corresponde el pago de indemnizacion por anos de servicio ni indemnizacion sustitutiva del aviso previo.
+              {settlement.voluntary_indemnity > 0 && (
+                <>
+                  {' '}No obstante lo anterior, las partes acuerdan voluntariamente el pago de una indemnizacion 
+                  adicional ex gratia por {formatCurrency(settlement.voluntary_indemnity)}, sin que ello 
+                  constituya reconocimiento de obligacion legal alguna.
+                </>
+              )}
+            </Text>
+          </View>
+        )}
+
+        {/* INDICACION SI HAY INDEMNIZACION VOLUNTARIA SIN IAS/IAP */}
+        {settlement.cause && (settlement.cause.has_ias || settlement.cause.has_iap) && settlement.voluntary_indemnity > 0 && (
+          <View style={styles.section}>
+            <Text style={{ textAlign: 'justify', lineHeight: 1.5, fontSize: 9, fontStyle: 'italic' }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>INDEMNIZACION VOLUNTARIA:</Text>{' '}
+              Ademas de las indemnizaciones legales, las partes acuerdan voluntariamente el pago de una indemnizacion 
+              adicional ex gratia por {formatCurrency(settlement.voluntary_indemnity)}, sin que ello 
+              constituya reconocimiento de obligacion legal alguna adicional a las ya establecidas.
             </Text>
           </View>
         )}

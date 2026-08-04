@@ -19,6 +19,7 @@ export default function NewSettlementPage() {
     cause_code: '',
     notice_given: false,
     notice_days: 0,
+    voluntary_indemnity: 0,
     notes: ''
   })
 
@@ -226,8 +227,29 @@ export default function NewSettlementPage() {
               {selectedCause && (
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
                   {selectedCause.description}
-                  {selectedCause.has_ias && <div>✓ Incluye Indemnización por Años de Servicio</div>}
-                  {selectedCause.has_iap && <div>✓ Incluye Indemnización por Aviso Previo</div>}
+                  {selectedCause.has_ias && <div style={{ color: '#059669' }}>✓ Incluye Indemnizacion por Anos de Servicio (IAS)</div>}
+                  {!selectedCause.has_ias && <div style={{ color: '#dc2626' }}>✗ No incluye Indemnizacion por Anos de Servicio (IAS)</div>}
+                  {selectedCause.has_iap && <div style={{ color: '#059669' }}>✓ Incluye Indemnizacion sustitutiva del Aviso Previo (IAP)</div>}
+                  {!selectedCause.has_iap && <div style={{ color: '#dc2626' }}>✗ No incluye Indemnizacion sustitutiva del Aviso Previo (IAP)</div>}
+                  {selectedCause.rule_config && (
+                    <div style={{ marginTop: '4px', padding: '8px', background: '#f8fafc', borderRadius: '4px', fontSize: '11px' }}>
+                      <div><strong>Conceptos que corresponden:</strong></div>
+                      {selectedCause.rule_config.pagaDiasTrabajados && <div>• Dias trabajados y saldo de sueldo</div>}
+                      {selectedCause.rule_config.pagaGratificacionProporcional && <div>• Gratificacion proporcional</div>}
+                      {selectedCause.rule_config.pagaVacacionesPendientes && <div>• Vacaciones pendientes</div>}
+                      {selectedCause.rule_config.pagaVacacionesProporcionales && <div>• Vacaciones proporcionales</div>}
+                      {selectedCause.rule_config.pagaIAS && <div>• IAS (tope {selectedCause.rule_config.iasTopeAnios ?? 11} anos)</div>}
+                      {selectedCause.rule_config.pagaIAP && <div>• IAP (si no hay aviso previo)</div>}
+                      {selectedCause.rule_config.permiteIndemnizacionVoluntaria && <div style={{ color: '#2563eb' }}>• Permite indemnizacion voluntaria (ex gratia)</div>}
+                      <div style={{ marginTop: '4px' }}><strong>Descuentos:</strong></div>
+                      {selectedCause.rule_config.descuentaPrevision && <div>• AFP/Pension</div>}
+                      {selectedCause.rule_config.descuentaSalud && <div>• Salud (FONASA/ISAPRE)</div>}
+                      {selectedCause.rule_config.descuentaAFC && <div>• Seguro de cesantia (AFC)</div>}
+                      {selectedCause.rule_config.descuentaImpuestoUnico && <div>• Impuesto unico</div>}
+                      {selectedCause.rule_config.descuentaPrestamos && <div>• Prestamos pendientes</div>}
+                      {selectedCause.rule_config.descuentaAnticipos && <div>• Anticipos pendientes</div>}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -291,6 +313,31 @@ export default function NewSettlementPage() {
                     fontSize: '14px'
                   }}
                 />
+              </div>
+            )}
+
+            {selectedCause?.rule_config?.permiteIndemnizacionVoluntaria && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>
+                  Indemnizacion voluntaria (ex gratia) - $CLP
+                </label>
+                <input
+                  type="number"
+                  value={formData.voluntary_indemnity || ''}
+                  onChange={(e) => setFormData({ ...formData, voluntary_indemnity: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  placeholder="0 (opcional)"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
+                <div style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
+                  Monto adicional voluntario que la empresa desea pagar. No es obligatorio legalmente.
+                </div>
               </div>
             )}
 

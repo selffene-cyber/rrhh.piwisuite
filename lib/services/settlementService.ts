@@ -9,6 +9,7 @@ import { calculateSettlement, createCalculationSnapshot, SettlementCalculationIn
 import { getVacationSummary } from './vacationPeriods'
 import { formatDateLegal } from '@/lib/utils/contractText'
 import { getCachedIndicators } from './indicatorsCache'
+import { getSettlementRule, evaluateSettlementRule, SettlementRuleConfig } from './settlementRulesEngine'
 
 // Tipos temporales hasta que se actualice types/database.ts
 type Settlement = any
@@ -221,6 +222,7 @@ export async function createSettlement(
     cause_code: string
     notice_given: boolean
     notice_days?: number
+    voluntary_indemnity?: number
     notes?: string
   },
   userId: string,
@@ -295,7 +297,8 @@ export async function createSettlement(
     termination_year: termYear,
     termination_month: termMonth,
     loan_balance: employeeData.loan_balance,
-    advance_balance: employeeData.advance_balance
+    advance_balance: employeeData.advance_balance,
+    voluntary_indemnity: input.voluntary_indemnity ?? 0
   }
 
   // 4. Calcular finiquito
@@ -327,6 +330,11 @@ export async function createSettlement(
     service_years_effective: calculation.service_time.service_years_effective,
     service_years_capped: calculation.service_time.service_years_capped,
     vacation_days_pending: employeeData.vacation_days_pending,
+    vacation_days_proportional: calculation.vacation_calc?.vacation_days_proportional ?? 0,
+    vacation_proportional_payout: calculation.vacation_proportional_payout ?? 0,
+    feriado_progresivo_days: calculation.vacation_calc?.feriado_progresivo_days ?? 0,
+    feriado_progresivo_payout: calculation.feriado_progresivo_payout ?? 0,
+    semana_corrida_payout: calculation.semana_corrida_payout ?? 0,
     notice_given: input.notice_given,
     notice_days: input.notice_days || 0,
     salary_balance: calculation.salary_balance,
@@ -339,6 +347,7 @@ export async function createSettlement(
     vacation_payout: calculation.vacation_payout,
     ias_amount: calculation.ias_amount,
     iap_amount: calculation.iap_amount,
+    voluntary_indemnity: calculation.voluntary_indemnity ?? 0,
     total_earnings: calculation.total_earnings,
     afp_total: calculation.afp_total,
     afp_10: calculation.afp_10,
@@ -350,6 +359,7 @@ export async function createSettlement(
     unique_tax: calculation.unique_tax,
     loan_balance: calculation.loan_balance,
     advance_balance: calculation.advance_balance,
+    other_deductions: calculation.other_deductions ?? 0,
     other_deductions_total: calculation.other_deductions_total,
     total_deductions: calculation.total_deductions,
     net_to_pay: calculation.net_to_pay,
@@ -362,6 +372,9 @@ export async function createSettlement(
     employer_afc: calculation.employer_afc,
     employer_afc_rate: calculation.employer_afc_rate,
     employer_total: calculation.employer_total,
+    legal_clauses: calculation.legal_clauses ?? [],
+    rule_evaluation: calculation.rule_evaluation ?? null,
+    rule_config_snapshot: calculation.rule_evaluation?.ruleConfig ?? null,
     status: 'draft',
     calculation_version: 1,
     calculation_snapshot: snapshot,
@@ -378,33 +391,46 @@ export async function createSettlement(
 
   if (settlementError) throw settlementError
 
-  // 7. Crear items detallados
+  // 7. Crear items detallados usando el motor de reglas
+  const ruleEvaluation = calculation.rule_evaluation
   const items: any[] = []
 
-  // Haberes
-  if (calculation.salary_balance > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'salary_balance',
-      description: 'Saldo de sueldo proporcional',
-      amount: calculation.salary_balance
-    })
+  // Funcion helper para crear items solo si el concepto aplica segun la regla
+  const addEarningItem = (category: string, description: string, amount: number, applies: boolean, metadata?: any) => {
+    if (amount > 0 && applies) {
+      items.push({
+        settlement_id: (settlement as any).id,
+        type: 'earning',
+        category,
+        description,
+        amount,
+        ...(metadata ? { metadata } : {})
+      })
+    }
   }
 
-  if (calculation.gratification > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'gratification',
-      description: 'Gratificación proporcional',
-      amount: calculation.gratification
-    })
+  const addDeductionItem = (category: string, description: string, amount: number, applies: boolean, metadata?: any) => {
+    if (amount > 0 && applies) {
+      items.push({
+        settlement_id: (settlement as any).id,
+        type: 'deduction',
+        category,
+        description,
+        amount,
+        ...(metadata ? { metadata } : {})
+      })
+    }
   }
+
+  const conceptos = ruleEvaluation?.conceptos
+
+  // Haberes imponibles
+  addEarningItem('salary_balance', 'Saldo de sueldo proporcional', calculation.salary_balance, conceptos?.saldoSueldo?.aplica ?? true)
+  addEarningItem('gratification', 'Gratificacion proporcional', calculation.gratification, conceptos?.gratificacionProporcional?.aplica ?? true)
 
   if (calculation.bonus_details && calculation.bonus_details.length > 0) {
     for (const bonus of calculation.bonus_details) {
-      if (bonus.amount > 0) {
+      if (bonus.amount > 0 && (conceptos?.bonosProporcionales?.aplica ?? true)) {
         items.push({
           settlement_id: (settlement as any).id,
           type: 'earning',
@@ -417,122 +443,45 @@ export async function createSettlement(
     }
   }
 
-  if (calculation.transportation_payout > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'transportation',
-      description: `Movilización proporcional (${employeeData.worked_days_last_month} días)`,
-      amount: calculation.transportation_payout,
-      metadata: { days: employeeData.worked_days_last_month }
-    })
+  // Haberes no imponibles
+  addEarningItem('transportation', `Movilizacion proporcional (${employeeData.worked_days_last_month} dias)`, calculation.transportation_payout, conceptos?.movilizacion?.aplica ?? true, { days: employeeData.worked_days_last_month })
+  addEarningItem('meal_allowance', `Colacion proporcional (${employeeData.worked_days_last_month} dias)`, calculation.meal_allowance_payout, conceptos?.colacion?.aplica ?? true, { days: employeeData.worked_days_last_month })
+
+  if (calculation.semana_corrida_payout > 0 && (conceptos?.semanaCorrida?.aplica ?? false)) {
+    addEarningItem('semana_corrida', 'Semana corrida proporcional (remuneracion variable)', calculation.semana_corrida_payout, true)
   }
 
-  if (calculation.meal_allowance_payout > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'meal_allowance',
-      description: `Colación proporcional (${employeeData.worked_days_last_month} días)`,
-      amount: calculation.meal_allowance_payout,
-      metadata: { days: employeeData.worked_days_last_month }
-    })
+  // Vacaciones
+  addEarningItem('vacation', `Pago de vacaciones pendientes (${employeeData.vacation_days_pending} dias)`, calculation.vacation_payout, conceptos?.vacacionesPendientes?.aplica ?? true, { vacation_days: employeeData.vacation_days_pending })
+
+  if (calculation.vacation_proportional_payout > 0 && (conceptos?.vacacionesProporcionales?.aplica ?? true)) {
+    addEarningItem('vacation_proportional', `Pago de vacaciones proporcionales (${(calculation.vacation_calc?.vacation_days_proportional ?? 0).toFixed(2)} dias)`, calculation.vacation_proportional_payout, true, { vacation_days_proportional: calculation.vacation_calc?.vacation_days_proportional ?? 0 })
   }
 
-  if (calculation.vacation_payout > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'vacation',
-      description: `Pago de vacaciones pendientes (${employeeData.vacation_days_pending} días)`,
-      amount: calculation.vacation_payout,
-      metadata: { vacation_days: employeeData.vacation_days_pending }
-    })
+  if (calculation.feriado_progresivo_payout > 0 && (conceptos?.feriadoProgresivo?.aplica ?? false)) {
+    addEarningItem('feriado_progresivo', `Feriado progresivo (${calculation.vacation_calc?.feriado_progresivo_days ?? 0} dias)`, calculation.feriado_progresivo_payout, true)
   }
 
-  if (calculation.ias_amount > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'ias',
-      description: `Indemnización por años de servicio (${calculation.service_time.service_years_capped} años)`,
-      amount: calculation.ias_amount,
-      metadata: { service_years: calculation.service_time.service_years_capped }
-    })
-  }
+  // Indemnizaciones
+  addEarningItem('ias', `Indemnizacion por anos de servicio (${calculation.service_time.service_years_capped} anos)`, calculation.ias_amount, conceptos?.ias?.aplica ?? true, { service_years: calculation.service_time.service_years_capped })
+  addEarningItem('iap', 'Indemnizacion sustitutiva del aviso previo', calculation.iap_amount, conceptos?.iap?.aplica ?? true, { notice_given: input.notice_given })
 
-  if (calculation.iap_amount > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'earning',
-      category: 'iap',
-      description: 'Indemnización por aviso previo',
-      amount: calculation.iap_amount,
-      metadata: { notice_given: false }
-    })
+  if (calculation.voluntary_indemnity > 0 && (conceptos?.indemnizacionVoluntaria?.aplica ?? true)) {
+    addEarningItem('voluntary_indemnity', 'Indemnizacion voluntaria (ex gratia)', calculation.voluntary_indemnity, true, { voluntary: true })
   }
 
   // Descuentos legales
-  if (calculation.afp_total > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'deduction',
-      category: 'afp',
-      description: `AFP${employeeData.afp ? ` (${employeeData.afp})` : ''}`,
-      amount: calculation.afp_total,
-      metadata: { afp_10: calculation.afp_10, afp_additional: calculation.afp_additional }
-    })
-  }
-
-  if (calculation.health_total > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'deduction',
-      category: 'health',
-      description: employeeData.health_system === 'ISAPRE' ? 'ISAPRE' : 'FONASA 7%',
-      amount: calculation.health_total
-    })
-  }
-
-  if (calculation.unemployment_insurance > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'deduction',
-      category: 'unemployment_insurance',
-      description: 'Seguro de cesantía (AFC)',
-      amount: calculation.unemployment_insurance
-    })
-  }
-
-  if (calculation.unique_tax > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'deduction',
-      category: 'unique_tax',
-      description: 'Impuesto único a la renta',
-      amount: calculation.unique_tax
-    })
-  }
+  addDeductionItem('afp', `AFP${employeeData.afp ? ` (${employeeData.afp})` : ''}`, calculation.afp_total, conceptos?.descuentoAFP?.aplica ?? true, { afp_10: calculation.afp_10, afp_additional: calculation.afp_additional })
+  addDeductionItem('health', employeeData.health_system === 'ISAPRE' ? 'ISAPRE' : 'FONASA 7%', calculation.health_total, conceptos?.descuentoSalud?.aplica ?? true)
+  addDeductionItem('unemployment_insurance', 'Seguro de cesantia (AFC)', calculation.unemployment_insurance, conceptos?.descuentoAFC?.aplica ?? true)
+  addDeductionItem('unique_tax', 'Impuesto unico a la renta', calculation.unique_tax, conceptos?.descuentoImpuestoUnico?.aplica ?? true)
 
   // Otros descuentos
-  if (calculation.loan_balance > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'deduction',
-      category: 'loan',
-      description: 'Descuento por préstamos pendientes',
-      amount: calculation.loan_balance
-    })
-  }
+  addDeductionItem('loan', 'Descuento por prestamos pendientes', calculation.loan_balance, conceptos?.descuentoPrestamos?.aplica ?? true)
+  addDeductionItem('advance', 'Descuento por anticipos pendientes', calculation.advance_balance, conceptos?.descuentoAnticipos?.aplica ?? true)
 
-  if (calculation.advance_balance > 0) {
-    items.push({
-      settlement_id: (settlement as any).id,
-      type: 'deduction',
-      category: 'advance',
-      description: 'Descuento por anticipos pendientes',
-      amount: calculation.advance_balance
-    })
+  if (calculation.other_deductions > 0 && (conceptos?.descuentoHaberesPendientes?.aplica ?? true)) {
+    addDeductionItem('other_deductions', 'Otros descuentos pendientes', calculation.other_deductions, true)
   }
 
   // Aportes del empleador (motor central previsional)
@@ -587,6 +536,26 @@ export async function createSettlement(
       .insert(items)
 
     if (itemsError) throw itemsError
+  }
+
+  // 8. Guardar auditoria del motor de reglas
+  if (ruleEvaluation && ruleEvaluation.auditLog && ruleEvaluation.auditLog.length > 0) {
+    try {
+      await (supabase as any)
+        .from('settlement_rule_audit')
+        .insert({
+          settlement_id: (settlement as any).id,
+          cause_code: input.cause_code,
+          rule_config_snapshot: ruleEvaluation.ruleConfig,
+          evaluation_result: ruleEvaluation.conceptos,
+          warnings: ruleEvaluation.warnings,
+          blocked: ruleEvaluation.blocked,
+          blocked_reason: ruleEvaluation.blockedReason,
+          evaluated_by: userId
+        })
+    } catch (auditError) {
+      console.warn('[settlementService] Error guardando auditoria del motor de reglas:', auditError)
+    }
   }
 
   return settlement
@@ -783,7 +752,8 @@ export async function recalculateSettlement(
     termination_year: tYear,
     termination_month: tMonth,
     loan_balance: employeeData.loan_balance,
-    advance_balance: employeeData.advance_balance
+    advance_balance: employeeData.advance_balance,
+    voluntary_indemnity: (current as any).voluntary_indemnity ?? 0
   }
 
   // 5. Calcular finiquito

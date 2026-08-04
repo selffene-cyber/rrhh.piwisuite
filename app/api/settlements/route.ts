@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { employee_id, termination_date, cause_code, notice_given, notice_days, notes } = body
+    const { employee_id, termination_date, cause_code, notice_given, notice_days, voluntary_indemnity, notes } = body
 
     // Validaciones básicas
     if (!employee_id || !termination_date || !cause_code) {
@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
         cause_code,
         notice_given: notice_given || false,
         notice_days,
+        voluntary_indemnity: voluntary_indemnity || 0,
         notes
       },
       user.id,
