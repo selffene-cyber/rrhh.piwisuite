@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
-import { formatMonthYear } from '@/lib/utils/date'
+import { formatMonthYear, MONTHS } from '@/lib/utils/date'
 import { PayrollBook } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -23,6 +23,10 @@ export default function PayrollBookPage() {
   const { company: currentCompany } = useCurrentCompany()
   const [books, setBooks] = useState<PayrollBook[]>([])
   const [loading, setLoading] = useState(true)
+  const [showGenerate, setShowGenerate] = useState(false)
+  const [generateYear, setGenerateYear] = useState<number>(new Date().getFullYear())
+  const [generateMonth, setGenerateMonth] = useState<number>(new Date().getMonth() + 1)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     if (currentCompany) {
@@ -53,6 +57,52 @@ export default function PayrollBookPage() {
     }
   }
 
+  const handleGenerate = async () => {
+    if (!currentCompany) return
+
+    const existing = books.find(b => b.year === generateYear && b.month === generateMonth)
+    if (existing && (existing.status === 'closed' || existing.status === 'sent_dt')) {
+      alert(`El libro para ${MONTHS[generateMonth - 1]} ${generateYear} ya está cerrado/enviado y no se puede regenerar.`)
+      return
+    }
+
+    if (!confirm(`¿Generar el Libro de Remuneraciones para ${MONTHS[generateMonth - 1]} ${generateYear}?`)) {
+      return
+    }
+
+    try {
+      setGenerating(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/payroll-book/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          company_id: currentCompany.id,
+          year: generateYear,
+          month: generateMonth,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al generar el libro')
+      }
+
+      alert(`Libro de Remuneraciones para ${MONTHS[generateMonth - 1]} ${generateYear} generado correctamente.`)
+      setShowGenerate(false)
+      await loadData()
+    } catch (error: any) {
+      console.error('Error al generar libro:', error)
+      alert('Error al generar libro: ' + error.message)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (!currentCompany) {
     return (
       <div>
@@ -66,11 +116,45 @@ export default function PayrollBookPage() {
     )
   }
 
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Libros de Remuneraciones</h1>
+        <button onClick={() => setShowGenerate(true)}>Generar Libro</button>
       </div>
+
+      {showGenerate && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <h2 style={{ marginTop: 0 }}>Generar Nuevo Libro</h2>
+          <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr auto', alignItems: 'end' }}>
+            <div className="form-group">
+              <label>Año</label>
+              <select value={generateYear} onChange={(e) => setGenerateYear(Number(e.target.value))}>
+                {years.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Mes</label>
+              <select value={generateMonth} onChange={(e) => setGenerateMonth(Number(e.target.value))}>
+                {MONTHS.map((m, i) => (
+                  <option key={i + 1} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleGenerate} disabled={generating}>
+                {generating ? 'Generando...' : 'Generar'}
+              </button>
+              <button onClick={() => setShowGenerate(false)} className="secondary">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="card">
@@ -79,7 +163,7 @@ export default function PayrollBookPage() {
       ) : books.length === 0 ? (
         <div className="card">
           <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
-            No hay libros de remuneraciones generados aún.
+            No hay libros de remuneraciones generados aún. Haga clic en "Generar Libro" para crear uno.
           </p>
         </div>
       ) : (
