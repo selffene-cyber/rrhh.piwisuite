@@ -211,6 +211,19 @@ export class AnnexUpdateService {
         if (salary) updateFields.base_salary = salary
       }
 
+      // Propagar cambio de tipo de contrato al empleado
+      const contractType = sourceData.contract_type || sourceData.contractType
+      const endDateValue = sourceData.end_date || sourceData.endDate
+
+      if (contractType) {
+        updateFields.contract_type = contractType
+        if (contractType === 'plazo_fijo' && endDateValue) {
+          updateFields.contract_end_date = endDateValue
+        } else if (contractType === 'indefinido') {
+          updateFields.contract_end_date = null
+        }
+      }
+
       // Solo actualizar si hay campos para actualizar
       if (Object.keys(updateFields).length > 0) {
         console.log(`[AnnexUpdateService] Actualizando empleado ${employee.id} con campos:`, JSON.stringify(updateFields, null, 2))
