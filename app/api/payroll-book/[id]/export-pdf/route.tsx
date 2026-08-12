@@ -20,75 +20,56 @@ function fmtDate(dateStr: string | null): string {
   return `${day}/${m}/${y}`
 }
 
-// Columns with absolute widths in pt (Letter landscape usable ~732pt with 15pt margins each side)
-// Total = 732pt mapped to groups
-// Groups: Identificacion(120) | Haberes(244) | Descuentos(202) | Aportes(102) | Liquido(64) = 732
+// Letter landscape = 792pt wide. Margins 12pt each side = 768pt usable.
+// 24 columns after removing 5: Aguinaldo, Vacaciones, OtrosHabNoImp, Prestamos, Anticipos
+// Total width = 768pt
 interface Col {
   key: string
-  header: string[] // lines for header
+  header: string[]
   width: number
   align: 'left' | 'right' | 'center'
   group: 'id' | 'hab' | 'desc' | 'aport' | 'liq'
 }
 
 const columns: Col[] = [
-  // Identificación
-  { key: 'employee_rut', header: ['RUT'], width: 36, align: 'center', group: 'id' },
-  { key: 'employee_name', header: ['Nombre'], width: 60, align: 'left', group: 'id' },
-  { key: 'employee_hire_date', header: ['Fecha', 'Ingreso'], width: 25, align: 'center', group: 'id' },
+  // Identificación (156)
+  { key: 'employee_rut', header: ['RUT'], width: 42, align: 'center', group: 'id' },
+  { key: 'employee_name', header: ['Nombre'], width: 80, align: 'left', group: 'id' },
+  { key: 'employee_hire_date', header: ['Fecha', 'Ingreso'], width: 34, align: 'center', group: 'id' },
 
-  // Haberes Imponibles
-  { key: 'base_salary', header: ['Sueldo', 'Base'], width: 28, align: 'right', group: 'hab' },
-  { key: 'monthly_gratification', header: ['Grat.', 'Mensual'], width: 26, align: 'right', group: 'hab' },
-  { key: 'bonuses', header: ['Bonos'], width: 20, align: 'right', group: 'hab' },
-  { key: 'overtime', header: ['Horas', 'Extra'], width: 24, align: 'right', group: 'hab' },
-  { key: 'vacation_paid', header: ['Vacaciones'], width: 24, align: 'right', group: 'hab' },
-  { key: 'other_taxable_earnings', header: ['Otros', 'Hab. Imp.'], width: 26, align: 'right', group: 'hab' },
-  { key: 'total_taxable_earnings', header: ['T. Hab.', 'Imp.'], width: 26, align: 'right', group: 'hab' },
+  // Haberes Imponibles (180)
+  { key: 'base_salary', header: ['Sueldo', 'Base'], width: 34, align: 'right', group: 'hab' },
+  { key: 'monthly_gratification', header: ['Grat.', 'Mensual'], width: 32, align: 'right', group: 'hab' },
+  { key: 'bonuses', header: ['Bonos'], width: 24, align: 'right', group: 'hab' },
+  { key: 'overtime', header: ['Horas', 'Extra'], width: 28, align: 'right', group: 'hab' },
+  { key: 'other_taxable_earnings', header: ['Otros', 'Hab. Imp.'], width: 30, align: 'right', group: 'hab' },
+  { key: 'total_taxable_earnings', header: ['T. Hab.', 'Imp.'], width: 32, align: 'right', group: 'hab' },
 
-  // Haberes No Imponibles
-  { key: 'transportation', header: ['Transporte'], width: 24, align: 'right', group: 'hab' },
-  { key: 'meal_allowance', header: ['Colación'], width: 20, align: 'right', group: 'hab' },
-  { key: 'aguinaldo', header: ['Aguinaldo'], width: 22, align: 'right', group: 'hab' },
-  { key: 'other_non_taxable_earnings', header: ['Otros Hab.', 'No Imp.'], width: 26, align: 'right', group: 'hab' },
-  { key: 'total_non_taxable_earnings', header: ['T. Hab.', 'No Imp.'], width: 26, align: 'right', group: 'hab' },
+  // Haberes No Imponibles (84)
+  { key: 'transportation', header: ['Transporte'], width: 28, align: 'right', group: 'hab' },
+  { key: 'meal_allowance', header: ['Colación'], width: 24, align: 'right', group: 'hab' },
+  { key: 'total_non_taxable_earnings', header: ['T. Hab.', 'No Imp.'], width: 32, align: 'right', group: 'hab' },
 
-  // Descuentos Legales
-  { key: 'afp_deduction', header: ['AFP'], width: 22, align: 'right', group: 'desc' },
-  { key: 'health_deduction', header: ['Salud'], width: 22, align: 'right', group: 'desc' },
-  { key: 'unemployment_insurance_deduction', header: ['Seg.', 'Cesantía'], width: 24, align: 'right', group: 'desc' },
-  { key: 'unique_tax_deduction', header: ['Imp.', 'Único'], width: 24, align: 'right', group: 'desc' },
-  { key: 'total_legal_deductions', header: ['T. Desc.', 'Legales'], width: 26, align: 'right', group: 'desc' },
+  // Descuentos Legales (144)
+  { key: 'afp_deduction', header: ['AFP'], width: 26, align: 'right', group: 'desc' },
+  { key: 'health_deduction', header: ['Salud'], width: 26, align: 'right', group: 'desc' },
+  { key: 'unemployment_insurance_deduction', header: ['Seg.', 'Cesantía'], width: 28, align: 'right', group: 'desc' },
+  { key: 'unique_tax_deduction', header: ['Imp.', 'Único'], width: 28, align: 'right', group: 'desc' },
+  { key: 'total_legal_deductions', header: ['T. Desc.', 'Legales'], width: 32, align: 'right', group: 'desc' },
 
-  // Descuentos Otros
-  { key: 'loans_deduction', header: ['Préstamos'], width: 24, align: 'right', group: 'desc' },
-  { key: 'advances_deduction', header: ['Anticipos'], width: 22, align: 'right', group: 'desc' },
-  { key: 'other_deductions', header: ['Otros', 'Desc.'], width: 22, align: 'right', group: 'desc' },
-  { key: 'total_other_deductions', header: ['T. Otros', 'Desc.'], width: 26, align: 'right', group: 'desc' },
+  // Descuentos Otros (56)
+  { key: 'other_deductions', header: ['Otros', 'Desc.'], width: 26, align: 'right', group: 'desc' },
+  { key: 'total_other_deductions', header: ['T. Otros', 'Desc.'], width: 30, align: 'right', group: 'desc' },
 
-  // Aportes Empleador
-  { key: 'employer_afp_contribution', header: ['Aporte', 'AFP Emp.'], width: 26, align: 'right', group: 'aport' },
-  { key: 'employer_sis_contribution', header: ['Aporte', 'SIS Emp.'], width: 26, align: 'right', group: 'aport' },
-  { key: 'employer_afc_contribution', header: ['Aporte', 'AFC Emp.'], width: 26, align: 'right', group: 'aport' },
-  { key: 'total_employer_contributions', header: ['T. Aportes', 'Empleador'], width: 28, align: 'right', group: 'aport' },
+  // Aportes Empleador (114)
+  { key: 'employer_afp_contribution', header: ['Aporte', 'AFP Emp.'], width: 28, align: 'right', group: 'aport' },
+  { key: 'employer_sis_contribution', header: ['Aporte', 'SIS Emp.'], width: 28, align: 'right', group: 'aport' },
+  { key: 'employer_afc_contribution', header: ['Aporte', 'AFC Emp.'], width: 28, align: 'right', group: 'aport' },
+  { key: 'total_employer_contributions', header: ['T. Aportes', 'Empleador'], width: 30, align: 'right', group: 'aport' },
 
-  // Líquido
-  { key: 'net_pay', header: ['Líquido'], width: 34, align: 'right', group: 'liq' },
+  // Líquido (36)
+  { key: 'net_pay', header: ['Líquido'], width: 36, align: 'right', group: 'liq' },
 ]
-
-// Group separator positions (cumulative width where a group boundary occurs)
-const groupBoundaries: Record<string, number> = {}
-let cumW = 0
-for (const col of columns) {
-  const prev = cumW
-  cumW += col.width
-  if (!groupBoundaries[col.group]) {
-    groupBoundaries[col.group] = prev
-  }
-}
-groupBoundaries['_end'] = cumW
-
-const totalWidth = columns.reduce((s, c) => s + c.width, 0)
 
 const GROUP_SEPARATORS = (() => {
   const seps: number[] = []
@@ -108,15 +89,15 @@ const styles = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
     fontSize: 6,
-    paddingHorizontal: 15,
-    paddingTop: 12,
-    paddingBottom: 22,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   headerLeft: {
     flex: 1,
@@ -126,37 +107,37 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   title: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
     marginBottom: 1,
   },
   subtitle: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'Helvetica-Bold',
-    color: '#333333',
-    marginBottom: 2,
+    color: '#000000',
+    marginBottom: 1,
   },
   companyLine: {
-    fontSize: 6.5,
+    fontSize: 7,
     fontFamily: 'Helvetica',
     color: '#333333',
     lineHeight: 1.4,
   },
   companyName: {
-    fontSize: 7.5,
+    fontSize: 8,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
   },
   thinLine: {
     height: 0.5,
     backgroundColor: '#000000',
-    marginVertical: 3,
+    marginVertical: 2,
   },
   thickLine: {
     height: 1.5,
     backgroundColor: '#000000',
-    marginVertical: 3,
+    marginVertical: 2,
   },
   columnHeaderRow: {
     flexDirection: 'row',
@@ -171,18 +152,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 1,
   },
   colHeaderText: {
-    fontSize: 5,
+    fontSize: 5.2,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
     textAlign: 'center',
-    lineHeight: 1.2,
+    lineHeight: 1.15,
   },
   dataRow: {
     flexDirection: 'row',
     paddingVertical: 1.5,
     paddingHorizontal: 1,
     borderBottomWidth: 0.3,
-    borderBottomColor: '#bbbbbb',
+    borderBottomColor: '#cccccc',
     borderBottomStyle: 'solid',
   },
   dataCell: {
@@ -211,32 +192,19 @@ const styles = StyleSheet.create({
   },
   pageNumber: {
     position: 'absolute',
-    bottom: 8,
-    left: 15,
-    right: 15,
+    bottom: 6,
+    left: 12,
+    right: 12,
     textAlign: 'center',
     fontSize: 6.5,
     fontFamily: 'Helvetica',
     color: '#555555',
   },
-  groupHeaderRow: {
-    flexDirection: 'row',
-    marginTop: 4,
-    marginBottom: 1,
-  },
-  groupHeaderCell: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   groupHeaderText: {
-    fontSize: 6,
+    fontSize: 5.5,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
     textAlign: 'center',
-  },
-  groupHeaderUnderline: {
-    height: 0.5,
-    backgroundColor: '#000000',
   },
 })
 
@@ -261,11 +229,11 @@ function centerAlignStyle(): any {
 }
 
 const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
-  const companyName = company?.name || ''
+  const companyName = company?.name || company?.employer_name || ''
   const companyRut = company?.rut || ''
   const companyAddress = company?.address || ''
   const companyCity = company?.city || ''
-  const companyActivity = company?.activity || ''
+  const companyEmployer = company?.employer_name || ''
 
   const ROWS_PER_PAGE = 26
   const pages: any[][] = []
@@ -282,21 +250,16 @@ const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
     monthly_gratification: '',
     bonuses: '',
     overtime: '',
-    vacation_paid: '',
     other_taxable_earnings: '',
     total_taxable_earnings: fc(book.total_taxable_earnings || 0),
     transportation: '',
     meal_allowance: '',
-    aguinaldo: '',
-    other_non_taxable_earnings: '',
     total_non_taxable_earnings: fc(book.total_non_taxable_earnings || 0),
     afp_deduction: '',
     health_deduction: '',
     unemployment_insurance_deduction: '',
     unique_tax_deduction: '',
     total_legal_deductions: fc(book.total_legal_deductions || 0),
-    loans_deduction: '',
-    advances_deduction: '',
     other_deductions: '',
     total_other_deductions: fc(book.total_other_deductions || 0),
     employer_afp_contribution: '',
@@ -309,7 +272,6 @@ const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
   const totalPages = pages.length
   const totalEmployees = entries.length
 
-  // Group labels positioned at center of each group's columns
   const groups: { label: string; startCol: number; endCol: number }[] = []
   let currentGroup = columns[0].group
   let startIdx = 0
@@ -340,11 +302,19 @@ const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
               <Text style={styles.subtitle}>{periodLabel}</Text>
             </View>
             <View style={styles.headerRight}>
-              <Text style={styles.companyName}>{companyName}</Text>
+              {companyName && <Text style={styles.companyName}>{companyName}</Text>}
+              {companyEmployer && companyEmployer !== companyName && (
+                <Text style={styles.companyLine}>{companyEmployer}</Text>
+              )}
               {companyRut && <Text style={styles.companyLine}>RUT: {companyRut}</Text>}
-              {companyActivity && <Text style={styles.companyLine}>Giro: {companyActivity}</Text>}
-              {companyAddress && <Text style={styles.companyLine}>{companyAddress}{companyCity ? `, ${companyCity}` : ''}</Text>}
-              {!companyAddress && companyCity && <Text style={styles.companyLine}>{companyCity}</Text>}
+              {companyAddress && (
+                <Text style={styles.companyLine}>
+                  {companyAddress}{companyCity ? `, ${companyCity}` : ''}
+                </Text>
+              )}
+              {!companyAddress && companyCity && (
+                <Text style={styles.companyLine}>{companyCity}</Text>
+              )}
             </View>
           </View>
 
@@ -366,7 +336,8 @@ const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
           {/* Column headers */}
           <View style={styles.columnHeaderRow}>
             {columns.map((col, ci) => {
-              const isSep = GROUP_SEPARATORS.includes(columns.slice(0, ci).reduce((s, c) => s + c.width, 0))
+              const prevWidth = columns.slice(0, ci).reduce((s, c) => s + c.width, 0)
+              const isSep = GROUP_SEPARATORS.includes(prevWidth)
               return (
                 <View
                   key={col.key}
@@ -386,32 +357,29 @@ const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
           </View>
 
           {/* Data rows */}
-          {pageEntries.map((entry: any, idx: number) => {
-            let cumWidth = 0
-            return (
-              <View key={entry.id || idx} style={styles.dataRow}>
-                {columns.map((col, ci) => {
-                  const prevWidth = columns.slice(0, ci).reduce((s, c) => s + c.width, 0)
-                  const isSep = GROUP_SEPARATORS.includes(prevWidth)
-                  return (
-                    <View
-                      key={col.key}
-                      style={[
-                        styles.dataCell,
-                        { width: col.width },
-                        cellAlignStyle(col.align),
-                        isSep ? { borderLeftWidth: 0.5, borderLeftColor: '#888888' } : {},
-                      ]}
-                    >
-                      <Text style={styles.dataCellText}>
-                        {getCellValue(entry, col.key)}
-                      </Text>
-                    </View>
-                  )
-                })}
-              </View>
-            )
-          })}
+          {pageEntries.map((entry: any, idx: number) => (
+            <View key={entry.id || idx} style={styles.dataRow}>
+              {columns.map((col, ci) => {
+                const prevWidth = columns.slice(0, ci).reduce((s, c) => s + c.width, 0)
+                const isSep = GROUP_SEPARATORS.includes(prevWidth)
+                return (
+                  <View
+                    key={col.key}
+                    style={[
+                      styles.dataCell,
+                      { width: col.width },
+                      cellAlignStyle(col.align),
+                      isSep ? { borderLeftWidth: 0.5, borderLeftColor: '#888888' } : {},
+                    ]}
+                  >
+                    <Text style={styles.dataCellText}>
+                      {getCellValue(entry, col.key)}
+                    </Text>
+                  </View>
+                )
+              })}
+            </View>
+          ))}
 
           {/* Totals row on last page */}
           {pageIndex === totalPages - 1 && (
@@ -474,7 +442,7 @@ export async function GET(
 
     const { data: companyData } = await supabase
       .from('companies')
-      .select('name, rut, address, city, activity, legal_representative')
+      .select('name, employer_name, rut, address, city')
       .eq('id', book.company_id)
       .single()
 
