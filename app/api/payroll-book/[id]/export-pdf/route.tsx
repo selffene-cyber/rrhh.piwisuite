@@ -4,148 +4,239 @@ import { getPayrollBook } from '@/lib/services/payrollBookGenerator'
 import { MONTHS } from '@/lib/utils/date'
 import { pdf } from '@react-pdf/renderer'
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 
 export const dynamic = 'force-dynamic'
 
-function formatCurrency(value: number): string {
+function fc(value: number): string {
   if (value === 0 || value === null || value === undefined) return ''
   return '$' + Math.round(value).toLocaleString('es-CL')
 }
 
-function formatDateShort(dateStr: string | null): string {
+function fmtDate(dateStr: string | null): string {
   if (!dateStr) return ''
   const d = dateStr.split('T')[0]
   const [y, m, day] = d.split('-')
   return `${day}/${m}/${y}`
 }
 
-interface ColumnDef {
+// Columns with absolute widths in pt (Letter landscape usable ~732pt with 15pt margins each side)
+// Total = 732pt mapped to groups
+// Groups: Identificacion(120) | Haberes(244) | Descuentos(202) | Aportes(102) | Liquido(64) = 732
+interface Col {
   key: string
-  header: string
-  width: string
-  align?: 'left' | 'right' | 'center'
+  header: string[] // lines for header
+  width: number
+  align: 'left' | 'right' | 'center'
+  group: 'id' | 'hab' | 'desc' | 'aport' | 'liq'
 }
 
-const columns: ColumnDef[] = [
-  { key: 'employee_rut', header: 'RUT', width: '3.2%', align: 'left' },
-  { key: 'employee_name', header: 'Nombre', width: '6.5%', align: 'left' },
-  { key: 'employee_hire_date', header: 'F. Ingreso', width: '2.8%', align: 'center' },
-  { key: 'base_salary', header: 'Sueldo Base', width: '3.5%', align: 'right' },
-  { key: 'monthly_gratification', header: 'Grat. Mensual', width: '3.5%', align: 'right' },
-  { key: 'bonuses', header: 'Bonos', width: '2.8%', align: 'right' },
-  { key: 'overtime', header: 'Horas Extra', width: '3%', align: 'right' },
-  { key: 'vacation_paid', header: 'Vacaciones', width: '3%', align: 'right' },
-  { key: 'other_taxable_earnings', header: 'Otros Hab. Imp.', width: '3.5%', align: 'right' },
-  { key: 'total_taxable_earnings', header: 'T. Hab. Imp.', width: '3.5%', align: 'right' },
-  { key: 'transportation', header: 'Transporte', width: '3%', align: 'right' },
-  { key: 'meal_allowance', header: 'Colación', width: '2.8%', align: 'right' },
-  { key: 'aguinaldo', header: 'Aguinaldo', width: '2.8%', align: 'right' },
-  { key: 'other_non_taxable_earnings', header: 'Otros Hab. No Imp.', width: '3.8%', align: 'right' },
-  { key: 'total_non_taxable_earnings', header: 'T. Hab. No Imp.', width: '3.6%', align: 'right' },
-  { key: 'afp_deduction', header: 'AFP', width: '2.8%', align: 'right' },
-  { key: 'health_deduction', header: 'Salud', width: '2.8%', align: 'right' },
-  { key: 'unemployment_insurance_deduction', header: 'Seg. Cesantía', width: '3.3%', align: 'right' },
-  { key: 'unique_tax_deduction', header: 'Imp. Único', width: '3.1%', align: 'right' },
-  { key: 'total_legal_deductions', header: 'T. Desc. Legales', width: '3.6%', align: 'right' },
-  { key: 'loans_deduction', header: 'Prestamos', width: '3%', align: 'right' },
-  { key: 'advances_deduction', header: 'Anticipos', width: '2.9%', align: 'right' },
-  { key: 'other_deductions', header: 'Otros Desc.', width: '3%', align: 'right' },
-  { key: 'total_other_deductions', header: 'T. Otros Desc.', width: '3.4%', align: 'right' },
-  { key: 'employer_afp_contribution', header: 'Aporte AFP Emp.', width: '3.6%', align: 'right' },
-  { key: 'employer_sis_contribution', header: 'Aporte SIS Emp.', width: '3.6%', align: 'right' },
-  { key: 'employer_afc_contribution', header: 'Aporte AFC Emp.', width: '3.6%', align: 'right' },
-  { key: 'total_employer_contributions', header: 'T. Aportes Emp.', width: '3.6%', align: 'right' },
-  { key: 'net_pay', header: 'Líquido', width: '3.6%', align: 'right' },
+const columns: Col[] = [
+  // Identificación
+  { key: 'employee_rut', header: ['RUT'], width: 36, align: 'center', group: 'id' },
+  { key: 'employee_name', header: ['Nombre'], width: 60, align: 'left', group: 'id' },
+  { key: 'employee_hire_date', header: ['Fecha', 'Ingreso'], width: 25, align: 'center', group: 'id' },
+
+  // Haberes Imponibles
+  { key: 'base_salary', header: ['Sueldo', 'Base'], width: 28, align: 'right', group: 'hab' },
+  { key: 'monthly_gratification', header: ['Grat.', 'Mensual'], width: 26, align: 'right', group: 'hab' },
+  { key: 'bonuses', header: ['Bonos'], width: 20, align: 'right', group: 'hab' },
+  { key: 'overtime', header: ['Horas', 'Extra'], width: 24, align: 'right', group: 'hab' },
+  { key: 'vacation_paid', header: ['Vacaciones'], width: 24, align: 'right', group: 'hab' },
+  { key: 'other_taxable_earnings', header: ['Otros', 'Hab. Imp.'], width: 26, align: 'right', group: 'hab' },
+  { key: 'total_taxable_earnings', header: ['T. Hab.', 'Imp.'], width: 26, align: 'right', group: 'hab' },
+
+  // Haberes No Imponibles
+  { key: 'transportation', header: ['Transporte'], width: 24, align: 'right', group: 'hab' },
+  { key: 'meal_allowance', header: ['Colación'], width: 20, align: 'right', group: 'hab' },
+  { key: 'aguinaldo', header: ['Aguinaldo'], width: 22, align: 'right', group: 'hab' },
+  { key: 'other_non_taxable_earnings', header: ['Otros Hab.', 'No Imp.'], width: 26, align: 'right', group: 'hab' },
+  { key: 'total_non_taxable_earnings', header: ['T. Hab.', 'No Imp.'], width: 26, align: 'right', group: 'hab' },
+
+  // Descuentos Legales
+  { key: 'afp_deduction', header: ['AFP'], width: 22, align: 'right', group: 'desc' },
+  { key: 'health_deduction', header: ['Salud'], width: 22, align: 'right', group: 'desc' },
+  { key: 'unemployment_insurance_deduction', header: ['Seg.', 'Cesantía'], width: 24, align: 'right', group: 'desc' },
+  { key: 'unique_tax_deduction', header: ['Imp.', 'Único'], width: 24, align: 'right', group: 'desc' },
+  { key: 'total_legal_deductions', header: ['T. Desc.', 'Legales'], width: 26, align: 'right', group: 'desc' },
+
+  // Descuentos Otros
+  { key: 'loans_deduction', header: ['Préstamos'], width: 24, align: 'right', group: 'desc' },
+  { key: 'advances_deduction', header: ['Anticipos'], width: 22, align: 'right', group: 'desc' },
+  { key: 'other_deductions', header: ['Otros', 'Desc.'], width: 22, align: 'right', group: 'desc' },
+  { key: 'total_other_deductions', header: ['T. Otros', 'Desc.'], width: 26, align: 'right', group: 'desc' },
+
+  // Aportes Empleador
+  { key: 'employer_afp_contribution', header: ['Aporte', 'AFP Emp.'], width: 26, align: 'right', group: 'aport' },
+  { key: 'employer_sis_contribution', header: ['Aporte', 'SIS Emp.'], width: 26, align: 'right', group: 'aport' },
+  { key: 'employer_afc_contribution', header: ['Aporte', 'AFC Emp.'], width: 26, align: 'right', group: 'aport' },
+  { key: 'total_employer_contributions', header: ['T. Aportes', 'Empleador'], width: 28, align: 'right', group: 'aport' },
+
+  // Líquido
+  { key: 'net_pay', header: ['Líquido'], width: 34, align: 'right', group: 'liq' },
 ]
+
+// Group separator positions (cumulative width where a group boundary occurs)
+const groupBoundaries: Record<string, number> = {}
+let cumW = 0
+for (const col of columns) {
+  const prev = cumW
+  cumW += col.width
+  if (!groupBoundaries[col.group]) {
+    groupBoundaries[col.group] = prev
+  }
+}
+groupBoundaries['_end'] = cumW
+
+const totalWidth = columns.reduce((s, c) => s + c.width, 0)
+
+const GROUP_SEPARATORS = (() => {
+  const seps: number[] = []
+  let w = 0
+  let prevGroup = columns[0].group
+  for (const col of columns) {
+    if (col.group !== prevGroup) {
+      seps.push(w)
+    }
+    w += col.width
+    prevGroup = col.group
+  }
+  return seps
+})()
 
 const styles = StyleSheet.create({
   page: {
-    padding: 20,
-    paddingBottom: 35,
-    fontSize: 5.5,
     fontFamily: 'Helvetica',
+    fontSize: 6,
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    paddingBottom: 22,
   },
-  headerContainer: {
-    marginBottom: 6,
-  },
-  titleRow: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 2,
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
   title: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    color: '#1e3a5f',
+    color: '#000000',
+    marginBottom: 1,
   },
   subtitle: {
     fontSize: 9,
-    fontFamily: 'Helvetica',
-    color: '#333',
-  },
-  companyInfo: {
-    fontSize: 6.5,
-    color: '#555',
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    flexWrap: 'wrap',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#1e3a5f',
-    marginVertical: 4,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#1e3a5f',
-    paddingVertical: 3,
-    paddingHorizontal: 2,
-  },
-  tableHeaderCell: {
-    color: '#ffffff',
     fontFamily: 'Helvetica-Bold',
-    fontSize: 4.8,
+    color: '#333333',
+    marginBottom: 2,
+  },
+  companyLine: {
+    fontSize: 6.5,
+    fontFamily: 'Helvetica',
+    color: '#333333',
+    lineHeight: 1.4,
+  },
+  companyName: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+  },
+  thinLine: {
+    height: 0.5,
+    backgroundColor: '#000000',
+    marginVertical: 3,
+  },
+  thickLine: {
+    height: 1.5,
+    backgroundColor: '#000000',
+    marginVertical: 3,
+  },
+  columnHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#000000',
+    paddingBottom: 1,
+    paddingTop: 2,
+  },
+  colHeaderCell: {
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 1,
   },
-  tableRow: {
+  colHeaderText: {
+    fontSize: 5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 1.2,
+  },
+  dataRow: {
     flexDirection: 'row',
     paddingVertical: 1.5,
-    paddingHorizontal: 2,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#ddd',
+    paddingHorizontal: 1,
+    borderBottomWidth: 0.3,
+    borderBottomColor: '#bbbbbb',
     borderBottomStyle: 'solid',
   },
-  tableRowEven: {
-    backgroundColor: '#f0f4f8',
-  },
-  tableCell: {
-    fontSize: 5,
-    paddingHorizontal: 1,
+  dataCell: {
+    paddingHorizontal: 2,
     overflow: 'hidden',
+  },
+  dataCellText: {
+    fontSize: 5.5,
+    fontFamily: 'Helvetica',
+    color: '#000000',
+    lineHeight: 1.1,
   },
   totalsRow: {
     flexDirection: 'row',
-    backgroundColor: '#d4e6f1',
-    paddingVertical: 3,
-    paddingHorizontal: 2,
-    borderTopWidth: 1,
-    borderTopColor: '#1e3a5f',
+    paddingTop: 2,
+    paddingBottom: 2,
+    paddingHorizontal: 1,
   },
   totalsCell: {
+    paddingHorizontal: 2,
+  },
+  totalsCellText: {
     fontSize: 5.5,
     fontFamily: 'Helvetica-Bold',
-    paddingHorizontal: 1,
+    color: '#000000',
   },
   pageNumber: {
     position: 'absolute',
-    bottom: 10,
-    left: 20,
-    right: 20,
+    bottom: 8,
+    left: 15,
+    right: 15,
     textAlign: 'center',
-    fontSize: 7,
-    color: '#666',
+    fontSize: 6.5,
+    fontFamily: 'Helvetica',
+    color: '#555555',
+  },
+  groupHeaderRow: {
+    flexDirection: 'row',
+    marginTop: 4,
+    marginBottom: 1,
+  },
+  groupHeaderCell: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupHeaderText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  groupHeaderUnderline: {
+    height: 0.5,
+    backgroundColor: '#000000',
   },
 })
 
@@ -154,31 +245,29 @@ function getCellValue(entry: any, key: string): string {
   if (val === null || val === undefined) return ''
   if (key === 'employee_rut') return String(val)
   if (key === 'employee_name') return String(val)
-  if (key === 'employee_hire_date') return formatDateShort(val)
-  if (typeof val === 'number') return formatCurrency(val)
+  if (key === 'employee_hire_date') return fmtDate(val)
+  if (typeof val === 'number') return fc(val)
   return String(val)
 }
 
-function getColAlign(col: ColumnDef): any {
-  if (col.align === 'right') return 'flex-end'
-  if (col.align === 'center') return 'center'
-  return 'flex-start'
+function cellAlignStyle(align: 'left' | 'right' | 'center'): any {
+  if (align === 'right') return { alignItems: 'flex-end' as const }
+  if (align === 'center') return { alignItems: 'center' as const }
+  return { alignItems: 'flex-start' as const }
+}
+
+function centerAlignStyle(): any {
+  return { alignItems: 'center' as const }
 }
 
 const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
-  const companyParts: string[] = []
-  if (company?.name) companyParts.push(company.name)
-  if (company?.rut) companyParts.push(`RUT: ${company.rut}`)
-  if (company?.activity) companyParts.push(`Giro: ${company.activity}`)
-  const companyLine = companyParts.join('  |  ')
+  const companyName = company?.name || ''
+  const companyRut = company?.rut || ''
+  const companyAddress = company?.address || ''
+  const companyCity = company?.city || ''
+  const companyActivity = company?.activity || ''
 
-  const addrParts: string[] = []
-  if (company?.address) addrParts.push(company.address)
-  if (company?.city) addrParts.push(company.city)
-  const addressLine = addrParts.join(', ')
-
-  const ROWS_PER_PAGE = 28
-
+  const ROWS_PER_PAGE = 26
   const pages: any[][] = []
   for (let i = 0; i < entries.length; i += ROWS_PER_PAGE) {
     pages.push(entries.slice(i, i + ROWS_PER_PAGE))
@@ -195,119 +284,167 @@ const PayrollBookPDF = ({ book, entries, company, periodLabel }: any) => {
     overtime: '',
     vacation_paid: '',
     other_taxable_earnings: '',
-    total_taxable_earnings: formatCurrency(book.total_taxable_earnings || 0),
+    total_taxable_earnings: fc(book.total_taxable_earnings || 0),
     transportation: '',
     meal_allowance: '',
     aguinaldo: '',
     other_non_taxable_earnings: '',
-    total_non_taxable_earnings: formatCurrency(book.total_non_taxable_earnings || 0),
+    total_non_taxable_earnings: fc(book.total_non_taxable_earnings || 0),
     afp_deduction: '',
     health_deduction: '',
     unemployment_insurance_deduction: '',
     unique_tax_deduction: '',
-    total_legal_deductions: formatCurrency(book.total_legal_deductions || 0),
+    total_legal_deductions: fc(book.total_legal_deductions || 0),
     loans_deduction: '',
     advances_deduction: '',
     other_deductions: '',
-    total_other_deductions: formatCurrency(book.total_other_deductions || 0),
+    total_other_deductions: fc(book.total_other_deductions || 0),
     employer_afp_contribution: '',
     employer_sis_contribution: '',
     employer_afc_contribution: '',
-    total_employer_contributions: formatCurrency(book.total_employer_contributions || 0),
-    net_pay: formatCurrency(book.total_net_pay || 0),
+    total_employer_contributions: fc(book.total_employer_contributions || 0),
+    net_pay: fc(book.total_net_pay || 0),
   }
 
-  const lastPage = pages.length
+  const totalPages = pages.length
   const totalEmployees = entries.length
+
+  // Group labels positioned at center of each group's columns
+  const groups: { label: string; startCol: number; endCol: number }[] = []
+  let currentGroup = columns[0].group
+  let startIdx = 0
+  for (let i = 1; i <= columns.length; i++) {
+    const g = i < columns.length ? columns[i].group : null
+    if (g !== currentGroup) {
+      groups.push({
+        label: currentGroup === 'id' ? 'Identificación' :
+               currentGroup === 'hab' ? 'Haberes' :
+               currentGroup === 'desc' ? 'Descuentos' :
+               currentGroup === 'aport' ? 'Aportes Empleador' : 'Líquido',
+        startCol: startIdx,
+        endCol: i - 1,
+      })
+      startIdx = i
+      currentGroup = g!
+    }
+  }
 
   return (
     <Document>
       {pages.map((pageEntries, pageIndex) => (
-        <Page
-          key={pageIndex}
-          size="LETTER"
-          orientation="landscape"
-          style={styles.page}
-        >
+        <Page key={pageIndex} size="LETTER" orientation="landscape" style={styles.page}>
           {/* Header */}
-          <View style={styles.headerContainer}>
-            <View style={styles.titleRow}>
-              <View>
-                <Text style={styles.title}>LIBRO REMUNERACIONES</Text>
-                <Text style={styles.subtitle}>{periodLabel}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.companyInfo}>{companyLine}</Text>
-                {addressLine && <Text style={styles.companyInfo}>{addressLine}</Text>}
-              </View>
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.title}>LIBRO REMUNERACIONES</Text>
+              <Text style={styles.subtitle}>{periodLabel}</Text>
+            </View>
+            <View style={styles.headerRight}>
+              <Text style={styles.companyName}>{companyName}</Text>
+              {companyRut && <Text style={styles.companyLine}>RUT: {companyRut}</Text>}
+              {companyActivity && <Text style={styles.companyLine}>Giro: {companyActivity}</Text>}
+              {companyAddress && <Text style={styles.companyLine}>{companyAddress}{companyCity ? `, ${companyCity}` : ''}</Text>}
+              {!companyAddress && companyCity && <Text style={styles.companyLine}>{companyCity}</Text>}
             </View>
           </View>
 
-          <View style={styles.separator} />
+          <View style={styles.thinLine} />
 
-          {/* Column Headers */}
-          <View style={styles.tableHeader}>
-            {columns.map((col) => (
-              <View
-                key={col.key}
-                style={{
-                  width: col.width,
-                  justifyContent: getColAlign(col) as any,
-                }}
-              >
-                <Text style={styles.tableHeaderCell}>{col.header}</Text>
-              </View>
-            ))}
+          {/* Group headers */}
+          <View style={{ flexDirection: 'row', marginBottom: 1 }}>
+            {groups.map((grp, gi) => {
+              const gw = columns.slice(grp.startCol, grp.endCol + 1).reduce((s, c) => s + c.width, 0)
+              return (
+                <View key={gi} style={{ width: gw, alignItems: 'center' }}>
+                  <Text style={styles.groupHeaderText}>{grp.label}</Text>
+                </View>
+              )
+            })}
           </View>
+          <View style={styles.thinLine} />
 
-          {/* Data Rows */}
-          {pageEntries.map((entry: any, idx: number) => (
-            <View
-              key={entry.id || idx}
-              style={[
-                styles.tableRow,
-                idx % 2 === 0 ? styles.tableRowEven : {},
-              ]}
-            >
-              {columns.map((col) => (
+          {/* Column headers */}
+          <View style={styles.columnHeaderRow}>
+            {columns.map((col, ci) => {
+              const isSep = GROUP_SEPARATORS.includes(columns.slice(0, ci).reduce((s, c) => s + c.width, 0))
+              return (
                 <View
                   key={col.key}
-                  style={{
-                    width: col.width,
-                    justifyContent: getColAlign(col) as any,
-                  }}
+                  style={[
+                    styles.colHeaderCell,
+                    { width: col.width },
+                    centerAlignStyle(),
+                    isSep ? { borderLeftWidth: 1, borderLeftColor: '#000000' } : {},
+                  ]}
                 >
-                  <Text style={styles.tableCell}>
-                    {getCellValue(entry, col.key)}
-                  </Text>
+                  {col.header.map((line, li) => (
+                    <Text key={li} style={styles.colHeaderText}>{line}</Text>
+                  ))}
                 </View>
-              ))}
-            </View>
-          ))}
+              )
+            })}
+          </View>
+
+          {/* Data rows */}
+          {pageEntries.map((entry: any, idx: number) => {
+            let cumWidth = 0
+            return (
+              <View key={entry.id || idx} style={styles.dataRow}>
+                {columns.map((col, ci) => {
+                  const prevWidth = columns.slice(0, ci).reduce((s, c) => s + c.width, 0)
+                  const isSep = GROUP_SEPARATORS.includes(prevWidth)
+                  return (
+                    <View
+                      key={col.key}
+                      style={[
+                        styles.dataCell,
+                        { width: col.width },
+                        cellAlignStyle(col.align),
+                        isSep ? { borderLeftWidth: 0.5, borderLeftColor: '#888888' } : {},
+                      ]}
+                    >
+                      <Text style={styles.dataCellText}>
+                        {getCellValue(entry, col.key)}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </View>
+            )
+          })}
 
           {/* Totals row on last page */}
-          {pageIndex === lastPage - 1 && (
-            <View style={styles.totalsRow}>
-              {columns.map((col) => (
-                <View
-                  key={col.key}
-                  style={{
-                    width: col.width,
-                    justifyContent: getColAlign(col) as any,
-                  }}
-                >
-                  <Text style={styles.totalsCell}>
-                    {totalsData[col.key] || ''}
-                  </Text>
-                </View>
-              ))}
-            </View>
+          {pageIndex === totalPages - 1 && (
+            <>
+              <View style={styles.thickLine} />
+              <View style={styles.totalsRow}>
+                {columns.map((col, ci) => {
+                  const prevWidth = columns.slice(0, ci).reduce((s, c) => s + c.width, 0)
+                  const isSep = GROUP_SEPARATORS.includes(prevWidth)
+                  return (
+                    <View
+                      key={col.key}
+                      style={[
+                        styles.totalsCell,
+                        { width: col.width },
+                        cellAlignStyle(col.align),
+                        isSep ? { borderLeftWidth: 0.5, borderLeftColor: '#888888' } : {},
+                      ]}
+                    >
+                      <Text style={styles.totalsCellText}>
+                        {totalsData[col.key] || ''}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </View>
+            </>
           )}
 
           {/* Page number */}
           <View style={styles.pageNumber}>
             <Text>
-              Página {pageIndex + 1} de {lastPage}  |  Trabajadores: {totalEmployees}
+              Página {pageIndex + 1} de {totalPages}  —  Trabajadores: {totalEmployees}
             </Text>
           </View>
         </Page>
