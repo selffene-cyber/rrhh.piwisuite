@@ -280,7 +280,7 @@ export async function generatePayrollBook(
     let employerAfpAccount = 0
 
     const employerContribs = await getEmployerContributionsForBookEntry(
-      employee, year, month, taxableBase, indicators
+      employee, year, month, taxableBase, indicators, supabase
     )
 
     if (employerContribs.blocked && employerContribs.blockedConcepts.length > 0) {

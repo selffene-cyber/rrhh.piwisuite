@@ -70,6 +70,7 @@ function parseChileanNumber(str: string | undefined | null): number {
 
 export async function calculatePrevisionalFromV2(
   input: PayrollCalculationInputV2,
+  supabaseOverride?: any,
 ): Promise<{
   previsionalResult: PrevisionalCalculationResult | null
   usedNewEngine: boolean
@@ -79,6 +80,7 @@ export async function calculatePrevisionalFromV2(
   const previredIndicators = (indicators ?? null) as PreviredIndicators | null
 
   const context = buildCalculationContext(input, previredIndicators)
+  context.supabaseClient = supabaseOverride
 
   try {
     const result = await calculatePrevisional(context)

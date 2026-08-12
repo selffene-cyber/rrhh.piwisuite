@@ -19,7 +19,8 @@ import type {
   PrevisionalDataSource,
 } from './types'
 
-import { supabase } from '@/lib/supabase/client'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { supabase as supabaseClient } from '@/lib/supabase/client'
 
 // ============================================
 // MAPEO DE CONCEPTOS A CAMPOS DE LA API
@@ -58,11 +59,13 @@ export async function getPrevisionalRate(
   year: number,
   month: number,
   indicators: PreviredIndicators | null,
+  supabaseOverride?: SupabaseClient<any>,
 ): Promise<PrevisionalRateResult> {
+  const client = supabaseOverride || supabaseClient
   const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`
 
   // 1. Buscar tasa validada en prevision_rates
-  const { data: rates, error } = await supabase
+  const { data: rates, error } = await client
     .from('prevision_rates')
     .select('*')
     .eq('concept_code', conceptCode)
@@ -78,7 +81,7 @@ export async function getPrevisionalRate(
 
   if (!rates || rates.length === 0) {
     // 2. Si no existe tasa validated, buscar tasa pending como fallback
-    const { data: pendingRates, error: pendingError } = await supabase
+    const { data: pendingRates, error: pendingError } = await client
       .from('prevision_rates')
       .select('*')
       .eq('concept_code', conceptCode)
@@ -139,7 +142,7 @@ export async function getPrevisionalRate(
 
   const rate = rates[0]
 
-  // 3. Si existe tasa validada, comparar con API si hay campo correspondiente
+  // 4. Si existe tasa validada, comparar con API si hay campo correspondiente
   let apiValue: number | null = null
   let isApiConsistent: boolean | null = null
   let alertMessage: string | undefined
@@ -151,7 +154,6 @@ export async function getPrevisionalRate(
     if (apiRawValue !== undefined && apiRawValue !== null) {
       apiValue = parseChileanNumber(apiRawValue)
 
-      // Comparar con tolerancia de 0.01%
       const tolerance = 0.01
       isApiConsistent = Math.abs(apiValue - rate.rate) <= tolerance
 

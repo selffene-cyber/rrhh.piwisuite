@@ -302,7 +302,7 @@ export async function createSettlement(
   }
 
   // 4. Calcular finiquito
-  const calculation = await calculateSettlement(calculationInput)
+  const calculation = await calculateSettlement(calculationInput, supabase)
 
   if (calculation.errors.length > 0) {
     throw new Error(`Errores en el cálculo: ${calculation.errors.join(', ')}`)
@@ -757,7 +757,7 @@ export async function recalculateSettlement(
   }
 
   // 5. Calcular finiquito
-  const calculation = await calculateSettlement(calculationInput)
+  const calculation = await calculateSettlement(calculationInput, supabase)
 
   if (calculation.errors.length > 0) {
     throw new Error(`Errores en el cálculo: ${calculation.errors.join(', ')}`)

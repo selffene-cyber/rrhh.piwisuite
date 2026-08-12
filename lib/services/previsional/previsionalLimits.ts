@@ -16,7 +16,8 @@ import type {
   PreviredIndicators,
 } from './types'
 
-import { supabase } from '@/lib/supabase/client'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { supabase as supabaseClient } from '@/lib/supabase/client'
 
 // ============================================
 // MAPEO DE CODIGOS DE TOPES A CAMPOS DE LA API
@@ -44,11 +45,13 @@ export async function getPrevisionalLimit(
   limitCode: string,
   year: number,
   month: number,
+  supabaseOverride?: SupabaseClient<any>,
 ): Promise<PrevisionalLimitResult> {
+  const client = supabaseOverride || supabaseClient
   const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`
 
   // 1. Buscar tope validado en prevision_limits
-  const { data: limits, error } = await supabase
+  const { data: limits, error } = await client
     .from('prevision_limits')
     .select('*')
     .eq('limit_code', limitCode)
@@ -64,7 +67,7 @@ export async function getPrevisionalLimit(
 
   if (!limits || limits.length === 0) {
     // 2. Si no existe tope validated, buscar tope pending como fallback
-    const { data: pendingLimits, error: pendingError } = await supabase
+    const { data: pendingLimits, error: pendingError } = await client
       .from('prevision_limits')
       .select('*')
       .eq('limit_code', limitCode)
@@ -157,11 +160,12 @@ export async function getPrevisionalLimits(
   limitCodes: string[],
   year: number,
   month: number,
+  supabaseOverride?: SupabaseClient<any>,
 ): Promise<Record<string, PrevisionalLimitResult>> {
   const results: Record<string, PrevisionalLimitResult> = {}
 
   for (const code of limitCodes) {
-    results[code] = await getPrevisionalLimit(code, year, month)
+    results[code] = await getPrevisionalLimit(code, year, month, supabaseOverride)
   }
 
   return results

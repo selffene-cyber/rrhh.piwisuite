@@ -22,6 +22,7 @@ import type {
   PreviredIndicators,
 } from './types'
 
+import { SupabaseClient } from '@supabase/supabase-js'
 import { getPrevisionalRate } from './previsionalRates'
 import { getPrevisionalLimit } from './previsionalLimits'
 
@@ -133,6 +134,8 @@ export async function calculatePrevisional(
     calculationType,
   } = context
 
+  const supabaseOverride = context.supabaseClient || undefined
+
   const isSpecialRegime = employee.previsionalRegime === 'OTRO_REGIMEN'
   const blockedConcepts: string[] = []
   const warnings: string[] = []
@@ -140,7 +143,7 @@ export async function calculatePrevisional(
   const limits: PrevisionalLimitResult[] = []
 
   // Calcular bases imponibles con topes
-  const bases = await calculateTaxableBases(year, month, taxableEarnings, baseSalaryProportional, limits, blockedConcepts)
+  const bases = await calculateTaxableBases(year, month, taxableEarnings, baseSalaryProportional, limits, blockedConcepts, supabaseOverride)
 
   // Resultado por defecto para regimenes especiales
   if (isSpecialRegime) {
@@ -161,15 +164,16 @@ async function calculateTaxableBases(
   baseSalaryProportional: number | undefined,
   limits: PrevisionalLimitResult[],
   blockedConcepts: string[],
+  supabaseOverride?: SupabaseClient<any>,
 ): Promise<{
   imponibleAFP: number
   imponibleIPS: number
   imponibleSegCes: number
   imponibleGeneral: number
 }> {
-  const limitAFP = await getPrevisionalLimit('RTI_AFP', year, month)
-  const limitIPS = await getPrevisionalLimit('RTI_IPS', year, month)
-  const limitSegCes = await getPrevisionalLimit('RTI_SEG_CES', year, month)
+  const limitAFP = await getPrevisionalLimit('RTI_AFP', year, month, supabaseOverride)
+  const limitIPS = await getPrevisionalLimit('RTI_IPS', year, month, supabaseOverride)
+  const limitSegCes = await getPrevisionalLimit('RTI_SEG_CES', year, month, supabaseOverride)
 
   limits.push(limitAFP, limitIPS, limitSegCes)
 
@@ -228,6 +232,7 @@ async function calculateAFPRegime(
     year,
     month,
     indicators ?? null,
+    context.supabaseClient,
   )
   rates.push(afpTrabResult)
 
@@ -253,7 +258,7 @@ async function calculateAFPRegime(
     // Concepto no aplica para este periodo, omitir sin bloquear
     warnings.push(`AFP_EMPLEADOR_CUENTA_INDIVIDUAL no aplica para periodos anteriores a agosto 2025`)
   } else {
-    const afpEmplResult = await getPrevisionalRate('AFP_EMPLEADOR_CUENTA_INDIVIDUAL', year, month, indicators ?? null)
+    const afpEmplResult = await getPrevisionalRate('AFP_EMPLEADOR_CUENTA_INDIVIDUAL', year, month, indicators ?? null, context.supabaseClient)
     rates.push(afpEmplResult)
 
     if (afpEmplResult.blocked) {
@@ -265,7 +270,7 @@ async function calculateAFPRegime(
   }
 
   // SIS
-  const sisResult = await getPrevisionalRate('SIS', year, month, indicators ?? null)
+  const sisResult = await getPrevisionalRate('SIS', year, month, indicators ?? null, context.supabaseClient)
   rates.push(sisResult)
 
   if (sisResult.blocked) {
@@ -285,7 +290,7 @@ async function calculateAFPRegime(
     // Concepto no aplica para este periodo, omitir sin bloquear
     warnings.push(`CRP no aplica para periodos anteriores a agosto 2026`)
   } else {
-    const crpResult = await getPrevisionalRate('CRP', year, month, indicators ?? null)
+    const crpResult = await getPrevisionalRate('CRP', year, month, indicators ?? null, context.supabaseClient)
     rates.push(crpResult)
 
     if (crpResult.blocked) {
@@ -316,7 +321,7 @@ async function calculateAFPRegime(
   // AFC trabajador
   const contractType = employee.contractType || 'indefinido'
   const afcTrabConceptCode = mapContractTypeToAFCConcept(contractType, 'trabajador')
-  const afcTrabResult = await getPrevisionalRate(afcTrabConceptCode, year, month, indicators ?? null)
+  const afcTrabResult = await getPrevisionalRate(afcTrabConceptCode, year, month, indicators ?? null, context.supabaseClient)
   rates.push(afcTrabResult)
 
   if (afcTrabResult.blocked) {
@@ -331,7 +336,7 @@ async function calculateAFPRegime(
 
   // AFC empleador
   const afcEmplConceptCode = mapContractTypeToAFCConcept(contractType, 'empleador')
-  const afcEmplResult = await getPrevisionalRate(afcEmplConceptCode, year, month, indicators ?? null)
+  const afcEmplResult = await getPrevisionalRate(afcEmplConceptCode, year, month, indicators ?? null, context.supabaseClient)
   rates.push(afcEmplResult)
 
   if (afcEmplResult.blocked) {

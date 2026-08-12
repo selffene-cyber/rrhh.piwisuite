@@ -28,6 +28,39 @@ export default function PayrollBookPage() {
   const [generateMonth, setGenerateMonth] = useState<number>(new Date().getMonth() + 1)
   const [generating, setGenerating] = useState(false)
 
+  const handleDelete = async (bookId: string, status: string) => {
+    if (status === 'closed' || status === 'sent_dt') {
+      alert('No se puede eliminar un libro cerrado o enviado a DT.')
+      return
+    }
+
+    if (!confirm('¿Está seguro de que desea eliminar este libro de remuneraciones? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(`/api/payroll-book/${bookId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al eliminar el libro')
+      }
+
+      alert('Libro eliminado correctamente.')
+      await loadData()
+    } catch (error: any) {
+      console.error('Error al eliminar libro:', error)
+      alert('Error al eliminar libro: ' + error.message)
+    }
+  }
+
   useEffect(() => {
     if (currentCompany) {
       loadData()
@@ -204,11 +237,21 @@ export default function PayrollBookPage() {
                       : '-'}
                   </td>
                   <td>
-                    <Link href={`/payroll-book/${book.id}`}>
-                      <button style={{ padding: '4px 8px', fontSize: '12px' }}>
-                        Ver Detalle
-                      </button>
-                    </Link>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <Link href={`/payroll-book/${book.id}`}>
+                        <button style={{ padding: '4px 8px', fontSize: '12px' }}>
+                          Ver Detalle
+                        </button>
+                      </Link>
+                      {book.status === 'draft' && (
+                        <button
+                          onClick={() => handleDelete(book.id, book.status)}
+                          style={{ padding: '4px 8px', fontSize: '12px', background: '#ef4444', color: 'white', border: '1px solid #dc2626', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

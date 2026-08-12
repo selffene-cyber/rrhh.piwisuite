@@ -46,6 +46,7 @@ export async function getEmployerContributionsForBookEntry(
   month: number,
   taxableBase: number,
   indicators: PreviredIndicators | null,
+  supabaseOverride?: any,
 ): Promise<EmployerContributionsForBook> {
   const regime = employee.previsional_regime === 'OTRO_REGIMEN' ? 'OTRO_REGIMEN' : 'AFP'
 
@@ -73,6 +74,7 @@ export async function getEmployerContributionsForBookEntry(
     daysWorked: 30,
     calculationType: 'libro_remuneraciones' as const,
     indicators: indicators as any,
+    supabaseClient: supabaseOverride,
   }
 
   const result = await calculatePrevisional(context)

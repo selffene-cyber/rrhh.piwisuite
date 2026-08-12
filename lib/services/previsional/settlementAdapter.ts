@@ -47,6 +47,7 @@ export interface SettlementPrevisionalInput {
   month: number
   taxableBase: number
   indicators?: PreviredIndicators | null
+  supabaseClient?: any
 }
 
 export async function calculateSettlementEmployerContributions(
@@ -77,6 +78,7 @@ export async function calculateSettlementEmployerContributions(
     daysWorked: 30,
     calculationType: 'finiquito',
     indicators: input.indicators ?? null,
+    supabaseClient: input.supabaseClient,
   }
 
   const result = await calculatePrevisional(context)

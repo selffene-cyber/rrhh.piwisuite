@@ -347,7 +347,7 @@ export function validateSettlementInput(input: SettlementCalculationInput): { va
   return { valid: errors.length === 0, errors, warnings }
 }
 
-export async function calculateSettlement(input: SettlementCalculationInput): Promise<SettlementCalculationResult> {
+export async function calculateSettlement(input: SettlementCalculationInput, supabaseOverride?: any): Promise<SettlementCalculationResult> {
   const emptyResult = (errors: string[], warnings: string[]): SettlementCalculationResult => ({
     service_time: calculateServiceTime(input.contract_start_date, input.termination_date),
     vacation_calc: calculateVacationProportional(input.contract_start_date, input.termination_date, input.last_salary_monthly, input.vacation_days_pending),
@@ -531,6 +531,7 @@ export async function calculateSettlement(input: SettlementCalculationInput): Pr
     daysWorked: input.worked_days_last_month || 30,
     calculationType: 'finiquito',
     indicators: input.indicators ?? null,
+    supabaseClient: supabaseOverride,
   }
 
   try {

@@ -145,6 +145,7 @@ export interface CalculationContext {
   daysWorked: number
   calculationType: CalculationType
   indicators?: PreviredIndicators | null
+  supabaseClient?: any
 }
 
 // ============================================
