@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatMonthYear, MONTHS } from '@/lib/utils/date'
+import { FaFilePdf } from 'react-icons/fa'
 import { PayrollBook } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -243,6 +244,15 @@ export default function PayrollBookPage() {
                           Ver Detalle
                         </button>
                       </Link>
+                      <a
+                        href={`/api/payroll-book/${book.id}/export-pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ padding: '4px 8px', fontSize: '12px', background: '#dc2626', color: 'white', border: '1px solid #b91c1c', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <FaFilePdf size={12} />
+                        PDF
+                      </a>
                       {book.status === 'draft' && (
                         <button
                           onClick={() => handleDelete(book.id, book.status)}

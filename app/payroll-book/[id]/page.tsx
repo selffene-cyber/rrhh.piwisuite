@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatMonthYear, formatDate } from '@/lib/utils/date'
-import { FaFileCsv, FaLock, FaArrowLeft } from 'react-icons/fa'
+import { FaFileCsv, FaFilePdf, FaLock, FaArrowLeft } from 'react-icons/fa'
 import { PayrollBook, PayrollBookEntry } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -118,6 +118,11 @@ export default function PayrollBookDetailPage() {
     window.open(`/api/payroll-book/${book.id}/export-csv`, '_blank')
   }
 
+  const handleExportPDF = () => {
+    if (!book) return
+    window.open(`/api/payroll-book/${book.id}/export-pdf`, '_blank')
+  }
+
   if (loading) {
     return (
       <div>
@@ -161,6 +166,13 @@ export default function PayrollBookDetailPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <h1>Libro de Remuneraciones - {formatMonthYear(book.year, book.month)}</h1>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleExportPDF}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#dc2626', color: 'white', border: '1px solid #b91c1c', borderRadius: '4px', cursor: 'pointer', padding: '6px 12px' }}
+          >
+            <FaFilePdf size={16} />
+            Exportar PDF
+          </button>
           <button
             onClick={handleExportCSV}
             className="secondary"
