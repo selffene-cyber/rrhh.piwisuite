@@ -63,7 +63,41 @@ export async function getPrevisionalLimit(
   }
 
   if (!limits || limits.length === 0) {
-    // 2. Si no existe tope validado, bloquear
+    // 2. Si no existe tope validated, buscar tope pending como fallback
+    const { data: pendingLimits, error: pendingError } = await supabase
+      .from('prevision_limits')
+      .select('*')
+      .eq('limit_code', limitCode)
+      .lte('valid_from', periodDate)
+      .or(`valid_to.is.null,valid_to.gte.${periodDate}`)
+      .eq('validation_status', 'pending')
+      .order('valid_from', { ascending: false })
+      .limit(1)
+
+    if (pendingError) {
+      console.error('[previsionalLimits] Error querying pending prevision_limits:', pendingError)
+    }
+
+    if (pendingLimits && pendingLimits.length > 0) {
+      // Usar tope pending como fallback con warning
+      const pendingLimit = pendingLimits[0]
+      console.warn(`[previsionalLimits] Usando tope PENDING para ${limitCode} en ${month}/${year}: ${pendingLimit.amount}. Se recomienda validar este tope.`)
+      return {
+        limitCode,
+        year,
+        month,
+        amount: pendingLimit.amount,
+        unit: pendingLimit.unit as LimitUnit,
+        validFrom: pendingLimit.valid_from,
+        validTo: pendingLimit.valid_to,
+        legalReference: pendingLimit.legal_reference,
+        validationStatus: 'pending' as ValidationStatus,
+        blocked: false,
+        alertMessage: `Tope ${limitCode} en ${month}/${year} usa valor PENDING (${pendingLimit.amount}). Se recomienda validar.`,
+      }
+    }
+
+    // 3. Si no existe ningun tope, bloquear
     return {
       limitCode,
       year,
@@ -75,7 +109,7 @@ export async function getPrevisionalLimit(
       legalReference: null,
       validationStatus: 'pending' as ValidationStatus,
       blocked: true,
-      alertMessage: `No existe tope validado para ${limitCode} en ${month}/${year}. El calculo esta bloqueado hasta que se valide un tope.`,
+      alertMessage: `No existe tope para ${limitCode} en ${month}/${year}. El calculo esta bloqueado hasta que se ingrese un tope.`,
     }
   }
 

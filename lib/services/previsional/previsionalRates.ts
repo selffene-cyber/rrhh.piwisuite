@@ -77,7 +77,46 @@ export async function getPrevisionalRate(
   }
 
   if (!rates || rates.length === 0) {
-    // 2. Si no existe tasa validada, bloquear
+    // 2. Si no existe tasa validated, buscar tasa pending como fallback
+    const { data: pendingRates, error: pendingError } = await supabase
+      .from('prevision_rates')
+      .select('*')
+      .eq('concept_code', conceptCode)
+      .lte('valid_from', periodDate)
+      .or(`valid_to.is.null,valid_to.gte.${periodDate}`)
+      .eq('validation_status', 'pending')
+      .order('valid_from', { ascending: false })
+      .limit(1)
+
+    if (pendingError) {
+      console.error('[previsionalRates] Error querying pending prevision_rates:', pendingError)
+    }
+
+    if (pendingRates && pendingRates.length > 0) {
+      // Usar tasa pending como fallback con warning
+      const pendingRate = pendingRates[0]
+      console.warn(`[previsionalRates] Usando tasa PENDING para ${conceptCode} en ${month}/${year}: ${pendingRate.rate}%. Se recomienda validar esta tasa.`)
+      return {
+        conceptCode: conceptCode as PrevisionalConceptCode,
+        year,
+        month,
+        rate: pendingRate.rate,
+        validFrom: pendingRate.valid_from,
+        validTo: pendingRate.valid_to,
+        financingParty: pendingRate.financing_party as FinancingParty,
+        collectionEntity: pendingRate.collection_entity,
+        taxableBaseType: pendingRate.taxable_base_type as TaxableBaseType,
+        legalReference: pendingRate.legal_reference,
+        source: pendingRate.data_source as PrevisionalDataSource,
+        validationStatus: 'pending' as ValidationStatus,
+        apiValue: null,
+        isApiConsistent: null,
+        blocked: false,
+        alertMessage: `Tasa ${conceptCode} en ${month}/${year} usa valor PENDING (${pendingRate.rate}%). Se recomienda validar.`,
+      }
+    }
+
+    // 3. Si no existe ninguna tasa, bloquear
     return {
       conceptCode: conceptCode as PrevisionalConceptCode,
       year,
@@ -94,7 +133,7 @@ export async function getPrevisionalRate(
       apiValue: null,
       isApiConsistent: null,
       blocked: true,
-      alertMessage: `No existe tasa validada para ${conceptCode} en ${month}/${year}. El calculo esta bloqueado hasta que se valide una tasa.`,
+      alertMessage: `No existe tasa para ${conceptCode} en ${month}/${year}. El calculo esta bloqueado hasta que se ingrese una tasa.`,
     }
   }
 
