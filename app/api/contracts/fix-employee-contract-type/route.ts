@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
       .from('company_users')
       .select('role')
       .eq('user_id', user.id)
-      .single()
 
-    if (!adminUser || !['admin', 'superadmin', 'ejecutivo'].includes(adminUser.role)) {
+    const userRoles = (adminUser || []).map((u: any) => u.role)
+    if (userRoles.length === 0 || !userRoles.some((r: string) => ['admin', 'superadmin', 'ejecutivo'].includes(r))) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
 
