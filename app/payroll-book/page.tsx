@@ -215,7 +215,7 @@ export default function PayrollBookPage() {
             <tbody>
               {books.map((book) => (
                 <tr key={book.id}>
-                  <td>{formatMonthYear(book.month, book.year)}</td>
+                  <td>{formatMonthYear(book.year, book.month)}</td>
                   <td>
                     <span
                       className="badge"
