@@ -1323,6 +1323,7 @@ export default function NewPayrollPage() {
         { 
           type: 'taxable_earning', 
           category: 'sueldo_base', 
+          lre_dt_code: 2101,
           description: (() => {
             const parts = []
             if (medicalLeaveDays > 0) parts.push(`${medicalLeaveDays} días licencia médica`)
@@ -1339,49 +1340,54 @@ export default function NewPayrollPage() {
         ...(vacationDays > 0 && calculation.taxableEarnings.vacation > 0 ? [{
           type: 'taxable_earning' as const,
           category: 'vacaciones',
+          lre_dt_code: 2108,
           description: `Vacaciones (${vacationDays} día${vacationDays > 1 ? 's' : ''})`,
           amount: calculation.taxableEarnings.vacation
         }] : []),
-        { type: 'taxable_earning', category: 'gratificacion', description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
+        { type: 'taxable_earning', category: 'gratificacion', lre_dt_code: 2106, description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
         // Bonos individuales
         ...bonuses.filter(b => b.name && b.amount > 0).map(bonus => ({
           type: 'taxable_earning' as const,
           category: 'bono',
+          lre_dt_code: 2111,
           description: bonus.name,
           amount: bonus.amount,
         })),
-        { type: 'taxable_earning', category: 'horas_extras', description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`, amount: calculation.taxableEarnings.overtime },
+        { type: 'taxable_earning', category: 'horas_extras', lre_dt_code: 2102, description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`, amount: calculation.taxableEarnings.overtime },
         // Otros haberes imponibles
         ...(calculation.taxableEarnings.otherTaxableEarnings && calculation.taxableEarnings.otherTaxableEarnings > 0 ? [{
           type: 'taxable_earning' as const,
           category: 'otros_imponibles',
+          lre_dt_code: 2123,
           description: 'Otros Haberes Imponibles',
           amount: calculation.taxableEarnings.otherTaxableEarnings
         }] : []),
         // Haberes no imponibles
-        { type: 'non_taxable_earning', category: 'movilizacion', description: 'Movilización', amount: calculation.nonTaxableEarnings.transportation },
-        { type: 'non_taxable_earning', category: 'colacion', description: 'Colación', amount: calculation.nonTaxableEarnings.mealAllowance },
+        { type: 'non_taxable_earning', category: 'movilizacion', lre_dt_code: 2302, description: 'Movilización', amount: calculation.nonTaxableEarnings.transportation },
+        { type: 'non_taxable_earning', category: 'colacion', lre_dt_code: 2301, description: 'Colación', amount: calculation.nonTaxableEarnings.mealAllowance },
         // Haberes no imponibles adicionales individuales
         ...nonTaxableEarnings.filter(e => e.name && e.amount > 0).map(earning => ({
           type: 'non_taxable_earning' as const,
           category: 'otro_no_imponible',
+          lre_dt_code: 2204,
           description: earning.name,
           amount: earning.amount,
         })),
-        { type: 'non_taxable_earning', category: 'aguinaldo', description: 'Aguinaldo', amount: formData.aguinaldo },
+        { type: 'non_taxable_earning', category: 'aguinaldo', lre_dt_code: 2110, description: 'Aguinaldo', amount: formData.aguinaldo },
         // Descuentos legales
-        { type: 'legal_deduction', category: 'afp', description: 'FONDO DE PENSIONES AFP', amount: calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional },
+        { type: 'legal_deduction', category: 'afp', lre_dt_code: 3141, description: 'FONDO DE PENSIONES AFP', amount: calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional },
         // Salud: siempre se descuenta (7% para FONASA, 7% + plan para ISAPRE)
         { 
           type: 'legal_deduction', 
           category: 'salud', 
+          lre_dt_code: 3143,
           description: selectedEmployee.health_system === 'ISAPRE' 
             ? `${selectedEmployee.health_plan_percentage || 0} UF Salud ISAPRE` 
             : '7% Salud FONASA', 
           amount: calculation.legalDeductions.health 
         },
-        { type: 'legal_deduction', category: 'cesantia', description: 'Seguro de Cesantía', amount: calculation.legalDeductions.unemploymentInsurance },
-        { type: 'legal_deduction', category: 'impuesto_unico', description: 'Impuesto Único', amount: calculation.legalDeductions.uniqueTax },
+        { type: 'legal_deduction', category: 'cesantia', lre_dt_code: 3151, description: 'Seguro de Cesantía', amount: calculation.legalDeductions.unemploymentInsurance },
+        { type: 'legal_deduction', category: 'impuesto_unico', lre_dt_code: 3161, description: 'Impuesto Único', amount: calculation.legalDeductions.uniqueTax },
         // Otros descuentos
         // Separar préstamos manuales de préstamos con cuotas
         // Los préstamos manuales (formData.loans) se guardan como "Otros Préstamos"
@@ -1389,10 +1395,11 @@ export default function NewPayrollPage() {
         ...(formData.loans > 0 ? [{ 
           type: 'other_deduction', 
           category: 'otros_prestamos', 
+          lre_dt_code: 3188,
           description: 'Otros Préstamos', 
           amount: formData.loans 
         }] : []),
-        { type: 'other_deduction', category: 'anticipo', description: 'Anticipo', amount: calculation.otherDeductions.advances },
+        { type: 'other_deduction', category: 'anticipo', lre_dt_code: 3188, description: 'Anticipo', amount: calculation.otherDeductions.advances },
         // NO agregar descuento por permisos sin goce - ya está implícito en el cálculo proporcional
       ].filter(item => item.amount > 0)
 

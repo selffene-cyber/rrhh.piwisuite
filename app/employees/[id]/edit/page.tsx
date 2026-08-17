@@ -13,6 +13,7 @@ import PrevisionSelector, { PrevisionFormData } from '@/components/PrevisionSele
 import BankSelector from '@/components/BankSelector'
 import RegionCommuneSelector from '@/components/RegionCommuneSelector'
 import RutInput from '@/components/RutInput'
+import LRESection from '@/components/LRESection'
 import { normalizeEmployeeBank } from '@/lib/utils/employeeBankHelper'
 import { normalizeEmployeeLocation } from '@/lib/utils/employeeLocationHelper'
 import { normalizeRutForStorage } from '@/lib/utils/rutHelper'
@@ -72,6 +73,31 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     contract_other: '',
     termination_date: '',
     inactive_note: '',
+    // Campos LRE (Libro de Remuneraciones Electrónico - DT)
+    dt_tipo_impuesto_renta: 1,
+    dt_tecnico_extranjero: 0,
+    dt_tipo_jornada_code: null as number | null,
+    dt_discapacidad: 0,
+    dt_pensionado_vejez: 0,
+    dt_afp_code: null as number | null,
+    dt_ips_code: null as number | null,
+    dt_isapre_fonasa_code: null as number | null,
+    dt_afc_code: null as number | null,
+    dt_ccaf_code: 0,
+    dt_mutual_code: 0,
+    termination_cause_code: null as number | null,
+    cargas_familiares_legales: 0,
+    cargas_familiares_maternales: 0,
+    cargas_familiares_invalidez: 0,
+    tramo_asignacion_familiar: 'D',
+    subsidio_trabajador_joven: 0,
+    puesto_trabajo_pesado: '',
+    ahorro_previsional_voluntario: 0,
+    ahorro_previsional_colectivo: 0,
+    indemnizacion_a_todo_evento: 0,
+    tasa_indemnizacion: null as number | null,
+    dias_licencia_medica_mes: 0,
+    dias_vacaciones_mes: 0,
   })
 
   useEffect(() => {
@@ -218,6 +244,31 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           contract_other: data.contract_other || '',
           termination_date: data.termination_date || '',
           inactive_note: data.inactive_note || '',
+          // Campos LRE
+          dt_tipo_impuesto_renta: data.dt_tipo_impuesto_renta ?? 1,
+          dt_tecnico_extranjero: data.dt_tecnico_extranjero ?? 0,
+          dt_tipo_jornada_code: data.dt_tipo_jornada_code ?? null,
+          dt_discapacidad: data.dt_discapacidad ?? 0,
+          dt_pensionado_vejez: data.dt_pensionado_vejez ?? 0,
+          dt_afp_code: data.dt_afp_code ?? null,
+          dt_ips_code: data.dt_ips_code ?? null,
+          dt_isapre_fonasa_code: data.dt_isapre_fonasa_code ?? null,
+          dt_afc_code: data.dt_afc_code ?? (data.afc_applicable ? 1 : 0),
+          dt_ccaf_code: data.dt_ccaf_code ?? 0,
+          dt_mutual_code: data.dt_mutual_code ?? 0,
+          termination_cause_code: data.termination_cause_code ?? null,
+          cargas_familiares_legales: data.cargas_familiares_legales ?? 0,
+          cargas_familiares_maternales: data.cargas_familiares_maternales ?? 0,
+          cargas_familiares_invalidez: data.cargas_familiares_invalidez ?? 0,
+          tramo_asignacion_familiar: data.tramo_asignacion_familiar ?? 'D',
+          subsidio_trabajador_joven: data.subsidio_trabajador_joven ?? 0,
+          puesto_trabajo_pesado: data.puesto_trabajo_pesado ?? '',
+          ahorro_previsional_voluntario: data.ahorro_previsional_voluntario ?? 0,
+          ahorro_previsional_colectivo: data.ahorro_previsional_colectivo ?? 0,
+          indemnizacion_a_todo_evento: data.indemnizacion_a_todo_evento ?? 0,
+          tasa_indemnizacion: data.tasa_indemnizacion ?? null,
+          dias_licencia_medica_mes: data.dias_licencia_medica_mes ?? 0,
+          dias_vacaciones_mes: data.dias_vacaciones_mes ?? 0,
         })
       }
     } catch (error: any) {
@@ -309,6 +360,31 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
         contract_other: formData.contract_type === 'otro' ? (formData.contract_other?.trim() || null) : null,
         termination_date: (formData.status === 'renuncia' || formData.status === 'despido') ? (formData.termination_date?.trim() || null) : null,
         inactive_note: formData.status === 'inactive' ? (formData.inactive_note?.trim() || null) : null,
+        // Campos LRE
+        dt_tipo_impuesto_renta: formData.dt_tipo_impuesto_renta,
+        dt_tecnico_extranjero: formData.dt_tecnico_extranjero,
+        dt_tipo_jornada_code: formData.dt_tipo_jornada_code,
+        dt_discapacidad: formData.dt_discapacidad,
+        dt_pensionado_vejez: formData.dt_pensionado_vejez,
+        dt_afp_code: formData.dt_afp_code,
+        dt_ips_code: formData.dt_ips_code,
+        dt_isapre_fonasa_code: formData.dt_isapre_fonasa_code,
+        dt_afc_code: formData.dt_afc_code,
+        dt_ccaf_code: formData.dt_ccaf_code,
+        dt_mutual_code: formData.dt_mutual_code,
+        termination_cause_code: formData.termination_cause_code,
+        cargas_familiares_legales: formData.cargas_familiares_legales,
+        cargas_familiares_maternales: formData.cargas_familiares_maternales,
+        cargas_familiares_invalidez: formData.cargas_familiares_invalidez,
+        tramo_asignacion_familiar: formData.tramo_asignacion_familiar,
+        subsidio_trabajador_joven: formData.subsidio_trabajador_joven,
+        puesto_trabajo_pesado: formData.puesto_trabajo_pesado || null,
+        ahorro_previsional_voluntario: formData.ahorro_previsional_voluntario,
+        ahorro_previsional_colectivo: formData.ahorro_previsional_colectivo,
+        indemnizacion_a_todo_evento: formData.indemnizacion_a_todo_evento,
+        tasa_indemnizacion: formData.tasa_indemnizacion,
+        dias_licencia_medica_mes: formData.dias_licencia_medica_mes,
+        dias_vacaciones_mes: formData.dias_vacaciones_mes,
       }
       
       // Campos específicos según régimen
@@ -854,6 +930,13 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
               />
             </div>
           )}
+
+          {/* Sección LRE (Libro de Remuneraciones Electrónico - DT) */}
+          <LRESection
+            employeeId={params.id}
+            formData={formData}
+            onChange={(field, value) => setFormData({ ...formData, [field]: value })}
+          />
 
           <div style={{ marginTop: '32px', display: 'flex', gap: '16px' }}>
             <button type="submit" disabled={saving}>

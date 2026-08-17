@@ -377,12 +377,13 @@ export default function BulkPayrollPage() {
           // Crear ítems de liquidación
           const items = [
             // Haberes imponibles
-            { type: 'taxable_earning', category: 'sueldo_base', description: 'Sueldo Base Días Trabajados', amount: calculation.taxableEarnings.baseSalary },
-            { type: 'taxable_earning', category: 'gratificacion', description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
+            { type: 'taxable_earning', category: 'sueldo_base', lre_dt_code: 2101, description: 'Sueldo Base Días Trabajados', amount: calculation.taxableEarnings.baseSalary },
+            { type: 'taxable_earning', category: 'gratificacion', lre_dt_code: 2106, description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
             // Bono con nombre si fue seleccionado
             ...(formData.bonus_name && bonusAmount > 0 ? [{
               type: 'taxable_earning' as const,
               category: 'bono',
+              lre_dt_code: 2111,
               description: formData.bonus_name,
               amount: bonusAmount,
             }] : []),
@@ -390,34 +391,37 @@ export default function BulkPayrollPage() {
             ...(formData.overtime_hours > 0 && overtimeAmount > 0 ? [{
               type: 'taxable_earning' as const,
               category: 'horas_extras',
+              lre_dt_code: 2102,
               description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`,
               amount: overtimeAmount,
             }] : []),
-            { type: 'taxable_earning', category: 'vacaciones', description: 'Vacaciones', amount: calculation.taxableEarnings.vacation },
+            { type: 'taxable_earning', category: 'vacaciones', lre_dt_code: 2108, description: 'Vacaciones', amount: calculation.taxableEarnings.vacation },
             // Haberes no imponibles
-            { type: 'non_taxable_earning', category: 'movilizacion', description: 'Movilización', amount: calculation.nonTaxableEarnings.transportation },
-            { type: 'non_taxable_earning', category: 'colacion', description: 'Colación', amount: calculation.nonTaxableEarnings.mealAllowance },
-            { type: 'non_taxable_earning', category: 'aguinaldo', description: 'Aguinaldo', amount: calculation.nonTaxableEarnings.aguinaldo },
+            { type: 'non_taxable_earning', category: 'movilizacion', lre_dt_code: 2302, description: 'Movilización', amount: calculation.nonTaxableEarnings.transportation },
+            { type: 'non_taxable_earning', category: 'colacion', lre_dt_code: 2301, description: 'Colación', amount: calculation.nonTaxableEarnings.mealAllowance },
+            { type: 'non_taxable_earning', category: 'aguinaldo', lre_dt_code: 2110, description: 'Aguinaldo', amount: calculation.nonTaxableEarnings.aguinaldo },
             // Descuentos legales
-            { type: 'legal_deduction', category: 'afp', description: 'FONDO DE PENSIONES AFP', amount: calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional },
+            { type: 'legal_deduction', category: 'afp', lre_dt_code: 3141, description: 'FONDO DE PENSIONES AFP', amount: calculation.legalDeductions.afp10 + calculation.legalDeductions.afpAdditional },
             { 
               type: 'legal_deduction', 
               category: 'salud', 
+              lre_dt_code: 3143,
               description: employee.health_system === 'ISAPRE' 
                 ? `${employee.health_plan_percentage || 0} UF Salud ISAPRE` 
                 : '7% Salud FONASA', 
               amount: calculation.legalDeductions.health 
             },
-            { type: 'legal_deduction', category: 'cesantia', description: 'Seguro de Cesantía', amount: calculation.legalDeductions.unemploymentInsurance },
-            { type: 'legal_deduction', category: 'impuesto_unico', description: 'Impuesto Único', amount: calculation.legalDeductions.uniqueTax },
+            { type: 'legal_deduction', category: 'cesantia', lre_dt_code: 3151, description: 'Seguro de Cesantía', amount: calculation.legalDeductions.unemploymentInsurance },
+            { type: 'legal_deduction', category: 'impuesto_unico', lre_dt_code: 3161, description: 'Impuesto Único', amount: calculation.legalDeductions.uniqueTax },
             // Préstamos automáticos
             ...loansToPay.map((loan: any) => ({
               type: 'other_deduction' as const,
               category: 'prestamo',
+              lre_dt_code: 3188,
               description: `Préstamo (Cuota ${loan.installmentNumber}/${loan.installments})`,
               amount: loan.installment_amount,
             })),
-            { type: 'other_deduction', category: 'anticipo', description: 'Anticipo', amount: calculation.otherDeductions.advances },
+            { type: 'other_deduction', category: 'anticipo', lre_dt_code: 3188, description: 'Anticipo', amount: calculation.otherDeductions.advances },
           ].filter(item => item.amount > 0)
 
           const { error: itemsError } = await supabase
