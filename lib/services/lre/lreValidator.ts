@@ -64,6 +64,8 @@ interface CatalogValidationSets {
   tipoImpuestoCodes: Set<number>
   tecnicoExtranjeroCodes: Set<number>
   tramoAsignacionCodes: Set<string>
+  employeeRegionDtCodes: Map<string, number | null>
+  employeeCommuneDtCodes: Map<string, number | null>
 }
 
 type Severity = 'blocking' | 'warning'
@@ -106,13 +108,39 @@ export async function validateLREData(
 
   const employeeIds = (entries as any[] || []).map(e => e.employee_id)
 
-  const { data: employees } = await supabase
+  const { data: empRaw } = await supabase
     .from('employees')
     .select('*')
     .in('id', employeeIds)
 
-  if (!employees) {
+  if (!empRaw || empRaw.length === 0) {
     return { status: 'errors', blockingErrors: 1, warnings: 0, errors: [{ employee_id: '', employee_rut: '', employee_name: '', field_code: 0, field_name: 'Empleados', error_type: 'missing_mandatory', severity: 'blocking', message: 'No se pudieron cargar los datos de empleados' }] }
+  }
+
+  const employees = empRaw as any[]
+  const regionIds = [...new Set(employees.map(e => e.region_id).filter(Boolean) as string[])]
+  const communeIds = [...new Set(employees.map(e => e.commune_id).filter(Boolean) as string[])]
+
+  const { data: empRegions } = await supabase
+    .from('geo_regions')
+    .select('id, dt_code')
+    .in('id', regionIds.length > 0 ? regionIds : ['00000000-0000-0000-0000-000000000000'])
+
+  const { data: empCommunes } = await supabase
+    .from('geo_communes')
+    .select('id, dt_code')
+    .in('id', communeIds.length > 0 ? communeIds : ['00000000-0000-0000-0000-000000000000'])
+
+  const employeeRegionDtCodes = new Map<string, number | null>()
+  const regionDtMap = new Map((empRegions || []).map((r: any) => [r.id, r.dt_code]))
+  for (const e of employees) {
+    employeeRegionDtCodes.set(e.id, e.region_id ? (regionDtMap.get(e.region_id) ?? null) : null)
+  }
+
+  const employeeCommuneDtCodes = new Map<string, number | null>()
+  const communeDtMap = new Map((empCommunes || []).map((c: any) => [c.id, c.dt_code]))
+  for (const e of employees) {
+    employeeCommuneDtCodes.set(e.id, e.commune_id ? (communeDtMap.get(e.commune_id) ?? null) : null)
   }
 
   for (const emp of employees) {
@@ -129,15 +157,19 @@ export async function validateLREData(
       addError(errors, e.id, rut, e.full_name, 1102, 'Fecha inicio contrato', 'missing_mandatory', 'blocking', 'Fecha de inicio de contrato es obligatoria')
     }
 
-    if (e.region_id) {
-      if (!catalogs.regionCodes.has(0)) {
-      }
-    } else {
+    const empRegionDtCode = employeeRegionDtCodes.get(e.id)
+    const empCommuneDtCode = employeeCommuneDtCodes.get(e.id)
+
+    if (!e.region_id) {
       addError(errors, e.id, rut, e.full_name, 1105, 'Región servicios', 'missing_mandatory', 'blocking', 'Región de prestación de servicios es obligatoria')
+    } else if (empRegionDtCode === null || empRegionDtCode === undefined) {
+      addError(errors, e.id, rut, e.full_name, 1105, 'Región servicios', 'missing_mandatory', 'blocking', 'Región no tiene código DT asignado. Verifique que la región tenga dt_code en la tabla geo_regions')
     }
 
     if (!e.commune_id) {
       addError(errors, e.id, rut, e.full_name, 1106, 'Comuna servicios', 'missing_mandatory', 'blocking', 'Comuna de prestación de servicios es obligatoria')
+    } else if (empCommuneDtCode === null || empCommuneDtCode === undefined) {
+      addError(errors, e.id, rut, e.full_name, 1106, 'Comuna servicios', 'missing_mandatory', 'blocking', 'Comuna no tiene código DT asignado. Verifique que la comuna tenga dt_code en la tabla geo_communes')
     }
 
     if (e.dt_tipo_jornada_code === null) {
@@ -302,5 +334,7 @@ async function loadCatalogValidationSets(supabase: SupabaseClient<any, any, any>
     tipoImpuestoCodes: new Set((tipoImpuesto || []).map((t: any) => t.code)),
     tecnicoExtranjeroCodes: new Set((tecnicoExt || []).map((t: any) => t.code)),
     tramoAsignacionCodes: new Set((tramos || []).map((t: any) => t.code)),
+    employeeRegionDtCodes: new Map(),
+    employeeCommuneDtCodes: new Map(),
   }
 }
