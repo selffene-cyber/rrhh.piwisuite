@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { Employee, CostCenter } from '@/types'
-import { FaEye, FaPencilAlt, FaTrash, FaChevronDown, FaChevronUp } from 'react-icons/fa'
+import { FaEye, FaPencilAlt, FaTrash, FaChevronDown, FaChevronUp, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { getCostCenters, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
@@ -23,6 +23,19 @@ const STATUS_BADGE_STYLE: Record<string, { bg: string; color: string; border: st
 }
 
 const INACTIVE_STATUSES = ['inactive', 'renuncia', 'despido']
+
+const LRE_MANDATORY_FIELDS = [
+  'dt_tipo_impuesto_renta', 'dt_tipo_jornada_code', 'dt_afp_code',
+  'dt_isapre_fonasa_code', 'dt_ccaf_code', 'dt_mutual_code',
+  'dt_discapacidad', 'dt_pensionado_vejez', 'dt_tecnico_extranjero',
+  'dt_afc_code',
+]
+
+function getLREReadiness(emp: any): { ready: boolean; missing: number; total: number } {
+  const total = LRE_MANDATORY_FIELDS.length
+  const missing = LRE_MANDATORY_FIELDS.filter(f => emp[f] === null || emp[f] === undefined || emp[f] === '').length
+  return { ready: missing === 0, missing, total }
+}
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_BADGE_STYLE[status] || { bg: '#6b728020', color: '#6b7280', border: '#6b7280', label: status }
@@ -75,7 +88,7 @@ export default function EmployeesPage() {
 
       let query = supabase
         .from('employees')
-        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name), previsional_regime, other_regime_type', { count: 'exact' })
+        .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name), previsional_regime, other_regime_type, dt_tipo_jornada_code, dt_afp_code, dt_isapre_fonasa_code, dt_ccaf_code, dt_mutual_code, dt_discapacidad, dt_pensionado_vejez, dt_tipo_impuesto_renta, dt_tecnico_extranjero, dt_afc_code, dt_ips_code', { count: 'exact' })
         .eq('company_id', companyId)
 
       if (selectedCostCenterId) query = query.eq('cost_center_id', selectedCostCenterId)
@@ -285,6 +298,20 @@ export default function EmployeesPage() {
       <td><StatusBadge status={employee.status} /></td>
       <td>{getContractBadge(employee.id)}</td>
       <td>
+        {(() => {
+          const lre = getLREReadiness(employee)
+          return lre.ready ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '12px' }} title="Datos LRE completos">
+              <FaCheckCircle size={12} /> LRE
+            </span>
+          ) : (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontSize: '12px' }} title={`Faltan ${lre.missing} de ${lre.total} campos LRE obligatorios`}>
+              <FaExclamationTriangle size={12} /> {lre.missing}
+            </span>
+          )
+        })()}
+      </td>
+      <td>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button onClick={() => { setSelectedEmployeeId(employee.id); setIsSlideOpen(true) }} style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #d1d5db', background: '#fff', borderRadius: '4px' }} title="Ver"><FaEye style={{ fontSize: '14px', color: '#3b82f6' }} /></button>
           <Link href={`/employees/${employee.id}/edit`}>
@@ -375,6 +402,7 @@ export default function EmployeesPage() {
                     <th>Régimen Previsional</th>
                     <th>Detalle Salud</th>
                     <th>Sueldo Base</th>
+                    <th>LRE</th>
                     <th>Contrato</th>
                     <th>Acciones</th>
                   </tr>

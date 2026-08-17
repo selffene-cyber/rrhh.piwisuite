@@ -14,6 +14,7 @@ import PrevisionSelector, { PrevisionFormData } from '@/components/PrevisionSele
 import BankSelector from '@/components/BankSelector'
 import RegionCommuneSelector from '@/components/RegionCommuneSelector'
 import RutInput from '@/components/RutInput'
+import LRESection from '@/components/LRESection'
 import { normalizeRutForStorage } from '@/lib/utils/rutHelper'
 import { FaPlus, FaTimes } from 'react-icons/fa'
 
@@ -65,6 +66,31 @@ export default function NewEmployeePage() {
     contract_type: 'indefinido',
     contract_end_date: '',
     contract_other: '',
+    // Campos LRE (Libro de Remuneraciones Electrónico - DT)
+    dt_tipo_impuesto_renta: 1,
+    dt_tecnico_extranjero: 0,
+    dt_tipo_jornada_code: null as number | null,
+    dt_discapacidad: 0,
+    dt_pensionado_vejez: 0,
+    dt_afp_code: null as number | null,
+    dt_ips_code: null as number | null,
+    dt_isapre_fonasa_code: null as number | null,
+    dt_afc_code: null as number | null,
+    dt_ccaf_code: 0,
+    dt_mutual_code: 0,
+    termination_cause_code: null as number | null,
+    cargas_familiares_legales: 0,
+    cargas_familiares_maternales: 0,
+    cargas_familiares_invalidez: 0,
+    tramo_asignacion_familiar: 'D',
+    subsidio_trabajador_joven: 0,
+    puesto_trabajo_pesado: '',
+    ahorro_previsional_voluntario: 0,
+    ahorro_previsional_colectivo: 0,
+    indemnizacion_a_todo_evento: 0,
+    tasa_indemnizacion: null as number | null,
+    dias_licencia_medica_mes: 0,
+    dias_vacaciones_mes: 0,
   })
 
   useEffect(() => {
@@ -271,6 +297,32 @@ export default function NewEmployeePage() {
       if (formData.cost_center_id?.trim()) employeeData.cost_center_id = formData.cost_center_id.trim()
       if (formData.department_id?.trim()) employeeData.department_id = formData.department_id.trim()
       if (formData.health_plan?.trim()) employeeData.health_plan = formData.health_plan.trim()
+
+      // Campos LRE
+      employeeData.dt_tipo_impuesto_renta = formData.dt_tipo_impuesto_renta ?? 1
+      employeeData.dt_tecnico_extranjero = formData.dt_tecnico_extranjero ?? 0
+      if (formData.dt_tipo_jornada_code) employeeData.dt_tipo_jornada_code = formData.dt_tipo_jornada_code
+      employeeData.dt_discapacidad = formData.dt_discapacidad ?? 0
+      employeeData.dt_pensionado_vejez = formData.dt_pensionado_vejez ?? 0
+      if (formData.dt_afp_code) employeeData.dt_afp_code = formData.dt_afp_code
+      if (formData.dt_ips_code) employeeData.dt_ips_code = formData.dt_ips_code
+      if (formData.dt_isapre_fonasa_code) employeeData.dt_isapre_fonasa_code = formData.dt_isapre_fonasa_code
+      if (formData.dt_afc_code != null) employeeData.dt_afc_code = formData.dt_afc_code
+      if (formData.dt_ccaf_code) employeeData.dt_ccaf_code = formData.dt_ccaf_code
+      if (formData.dt_mutual_code) employeeData.dt_mutual_code = formData.dt_mutual_code
+      if (formData.termination_cause_code) employeeData.termination_cause_code = formData.termination_cause_code
+      employeeData.cargas_familiares_legales = formData.cargas_familiares_legales ?? 0
+      employeeData.cargas_familiares_maternales = formData.cargas_familiares_maternales ?? 0
+      employeeData.cargas_familiares_invalidez = formData.cargas_familiares_invalidez ?? 0
+      if (formData.tramo_asignacion_familiar) employeeData.tramo_asignacion_familiar = formData.tramo_asignacion_familiar
+      employeeData.subsidio_trabajador_joven = formData.subsidio_trabajador_joven ?? 0
+      if (formData.puesto_trabajo_pesado) employeeData.puesto_trabajo_pesado = formData.puesto_trabajo_pesado
+      employeeData.ahorro_previsional_voluntario = formData.ahorro_previsional_voluntario ?? 0
+      employeeData.ahorro_previsional_colectivo = formData.ahorro_previsional_colectivo ?? 0
+      employeeData.indemnizacion_a_todo_evento = formData.indemnizacion_a_todo_evento ?? 0
+      if (formData.tasa_indemnizacion != null) employeeData.tasa_indemnizacion = formData.tasa_indemnizacion
+      employeeData.dias_licencia_medica_mes = formData.dias_licencia_medica_mes ?? 0
+      employeeData.dias_vacaciones_mes = formData.dias_vacaciones_mes ?? 0
 
       console.log('Enviando datos:', employeeData)
 
@@ -746,6 +798,13 @@ export default function NewEmployeePage() {
               />
             </div>
           )}
+
+          {/* Sección LRE (Libro de Remuneraciones Electrónico - DT) */}
+          <LRESection
+            employeeId={undefined}
+            formData={formData}
+            onChange={(field, value) => setFormData({ ...formData, [field]: value })}
+          />
 
           <div style={{ marginTop: '32px', display: 'flex', gap: '16px' }}>
             <button type="submit" disabled={loading}>

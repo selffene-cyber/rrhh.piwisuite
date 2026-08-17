@@ -914,3 +914,169 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Partial<UserPermissions>> = {
     can_manage_company_settings: false, // DEPRECATED
   },
 }
+
+// =====================================================
+// Tipos LRE (Libro de Remuneraciones Electrónico - DT)
+// =====================================================
+
+export type LREValidationStatus = 'valid' | 'warnings' | 'errors'
+
+export type LREValidationError = {
+  employee_id: string
+  employee_rut: string
+  employee_name: string
+  field_code: number
+  field_name: string
+  error_type: 'missing_mandatory' | 'invalid_type' | 'invalid_size' | 'invalid_code' | 'invalid_business_rule'
+  severity: 'blocking' | 'warning'
+  message: string
+  current_value?: unknown
+}
+
+export type LREExportResult = {
+  success: boolean
+  validation_status: LREValidationStatus
+  blocking_errors: number
+  warnings: number
+  errors: LREValidationError[]
+  file_name?: string
+  file_content?: string
+  total_employees?: number
+}
+
+export type LREEmployeeRow = {
+  // Categoría 1: Identificación
+  rut_trabajador: string
+  fecha_inicio_contrato: string
+  fecha_termino_contrato?: string
+  causal_termino?: number
+  region_servicios: number
+  comuna_servicios: number
+  tipo_impuesto_renta: number
+  tecnico_extranjero: number
+  tipo_jornada: number
+  discapacidad: number
+  pensionado_vejez: number
+  afp: number
+  ips_exinp: number
+  fonasa_isapre: number
+  afc: number
+  ccaf: number
+  organismo_ley16744: number
+  cargas_familiares_legales?: number
+  cargas_familiares_maternales?: number
+  cargas_familiares_invalidez?: number
+  tramo_asignacion_familiar?: string
+  rut_sindicatos?: string[]
+  dias_trabajados: number
+  dias_licencia_medica?: number
+  dias_vacaciones?: number
+  subsidio_trabajador_joven: number
+  puesto_trabajo_pesado?: string
+  ahorro_previsional_voluntario: number
+  ahorro_previsional_colectivo: number
+  indemnizacion_a_todo_evento: number
+  tasa_indemnizacion?: number
+  // Categoría 2: Haberes
+  sueldo_base?: number
+  sobresueldo?: number
+  comisiones?: number
+  semana_corrida?: number
+  participacion?: number
+  gratificacion_mensual?: number
+  recargo_30_domingo?: number
+  rem_variable_vacaciones?: number
+  rem_variable_clausura?: number
+  aguinaldo_imp?: number
+  bonos_fijos_mensuales?: number
+  tratos?: number
+  bonos_variables?: number
+  ejercicio_opcion?: number
+  beneficios_especie?: number
+  rem_bimestrales?: number
+  rem_trimestrales?: number
+  rem_cuatrimestrales?: number
+  rem_semestrales?: number
+  rem_anuales?: number
+  participacion_anual?: number
+  gratificacion_anual?: number
+  otras_rem_mas_1_mes?: number
+  pago_horas_sindical?: number
+  sueldo_empresarial?: number
+  subsidio_incapacidad?: number
+  beca_estudio?: number
+  gratificacion_zona?: number
+  otros_ingresos_no_renta?: number
+  colacion?: number
+  movilizacion?: number
+  viaticos?: number
+  perdida_caja?: number
+  desgaste_herramienta?: number
+  asignacion_familiar_legal?: number
+  gastos_causa_trabajo?: number
+  gastos_cambio_residencia?: number
+  sala_cuna?: number
+  trabajo_distancia?: number
+  deposito_convenido_uf900?: number
+  alojamiento?: number
+  asignacion_traslacion?: number
+  indemnizacion_feriado_legal?: number
+  indemnizacion_anos_servicio?: number
+  indemnizacion_sustitutiva_aviso?: number
+  indemnizacion_fuero_maternal?: number
+  indemnizacion_a_todo_evento_no_trib?: number
+  indemnizacion_voluntaria_tributable?: number
+  indemnizacion_contractual_tributable?: number
+  // Categoría 3: Descuentos
+  cotizacion_obligatoria_afp?: number
+  cotizacion_obligatoria_salud?: number
+  cotizacion_voluntaria_salud?: number
+  cotizacion_afc_trabajador?: number
+  cotizacion_tecnico_extranjero?: number
+  descuento_deposito_convenido?: number
+  apv_individual_modalidad_a?: number
+  apv_individual_modalidad_b?: number
+  apv_colectivo_modalidad_a?: number
+  apv_colectivo_modalidad_b?: number
+  impuesto_retenido_remuneraciones?: number
+  impuesto_retenido_indemnizaciones?: number
+  mayor_retencion_solicitada?: number
+  reliquidacion_impuesto?: number
+  reliquidacion_indemnizaciones?: number
+  retencion_prestamo_clase_media?: number
+  rebaja_zona_extrema?: number
+  cuotas_sindicales?: number[]
+  credito_social_ccaf?: number
+  cuota_vivienda_educacion?: number
+  credito_cooperativas?: number
+  otros_descuentos_autorizados?: number
+  cotizacion_adicional_trabajo_pesado?: number
+  donaciones_culturales?: number
+  otros_descuentos_art58?: number
+  pensiones_alimentos?: number
+  descuento_mujer_casada?: number
+  descuentos_anticipos_prestamos?: number
+  // Categoría 4: Aportes empleador
+  aporte_afc_empleador?: number
+  aporte_seguro_accidentes?: number
+  aporte_seguro_invalidez?: number
+  aporte_indemnizacion_evento?: number
+  aporte_adicional_trabajo_pesado?: number
+  aporte_apv_colectivo_empleador?: number
+  // Categoría 5: Totales
+  total_haberes?: number
+  total_haberes_imp_trib?: number
+  total_haberes_imp_no_trib?: number
+  total_haberes_no_imp_no_trib?: number
+  total_haberes_no_imp_trib?: number
+  total_descuentos?: number
+  total_descuentos_impuestos_rem?: number
+  total_descuentos_impuestos_ind?: number
+  total_descuentos_cotizaciones?: number
+  total_otros_descuentos?: number
+  total_aportes_empleador?: number
+  total_liquido?: number
+  total_indemnizaciones?: number
+  total_indemnizaciones_tributables?: number
+  total_indemnizaciones_no_tributables?: number
+}

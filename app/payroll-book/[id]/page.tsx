@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatMonthYear, formatDate } from '@/lib/utils/date'
-import { FaFileCsv, FaFilePdf, FaLock, FaArrowLeft } from 'react-icons/fa'
-import { PayrollBook, PayrollBookEntry } from '@/types'
+import { FaFileCsv, FaFilePdf, FaLock, FaArrowLeft, FaExclamationTriangle, FaCheckCircle, FaDownload, FaTimes } from 'react-icons/fa'
+import { PayrollBook, PayrollBookEntry, LREValidationError } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Borrador',
@@ -21,6 +21,8 @@ const STATUS_COLORS: Record<string, string> = {
   sent_dt: '#3b82f6',
 }
 
+type LREValidationState = 'idle' | 'validating' | 'downloading'
+
 export default function PayrollBookDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -30,6 +32,11 @@ export default function PayrollBookDetailPage() {
   const [company, setCompany] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
+  const [lreState, setLreState] = useState<LREValidationState>('idle')
+  const [lreErrors, setLreErrors] = useState<LREValidationError[]>([])
+  const [lreBlockingErrors, setLreBlockingErrors] = useState(0)
+  const [lreWarnings, setLreWarnings] = useState(0)
+  const [showLreModal, setShowLreModal] = useState(false)
 
   useEffect(() => {
     if (currentCompany && params.id) {
@@ -123,6 +130,105 @@ export default function PayrollBookDetailPage() {
     window.open(`/api/payroll-book/${book.id}/export-pdf`, '_blank')
   }
 
+  const handleLREValidation = async () => {
+    if (!book || !currentCompany) return
+    setLreState('validating')
+    setShowLreModal(true)
+    setLreErrors([])
+    setLreBlockingErrors(0)
+    setLreWarnings(0)
+
+    try {
+      const response = await fetch('/api/lre/export-lre', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: currentCompany.id,
+          year: book.year,
+          month: book.month,
+          bookId: book.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.errors) {
+        setLreErrors(data.errors || [])
+        setLreBlockingErrors(data.blocking_errors || 0)
+        setLreWarnings(data.warnings || 0)
+      }
+
+      if (data.success && data.file_content) {
+        const blob = new Blob([data.file_content], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = data.file_name || `LRE_${book.year}${String(book.month).padStart(2, '0')}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setLreState('idle')
+        if (data.warnings > 0) {
+          setLreErrors(data.errors || [])
+          setLreBlockingErrors(0)
+          setLreWarnings(data.warnings)
+          setShowLreModal(true)
+        } else {
+          setShowLreModal(false)
+          alert('Archivo LRE descargado exitosamente')
+        }
+      } else if (data.blocking_errors > 0) {
+        setLreState('idle')
+      } else {
+        throw new Error(data.error || 'Error desconocido al generar archivo LRE')
+      }
+    } catch (error: any) {
+      alert('Error al validar LRE: ' + error.message)
+      setLreState('idle')
+    }
+  }
+
+  const handleDownloadLRE = async () => {
+    if (!book || !currentCompany) return
+    setLreState('downloading')
+
+    try {
+      const response = await fetch('/api/lre/export-lre', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: currentCompany.id,
+          year: book.year,
+          month: book.month,
+          bookId: book.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.file_content) {
+        const blob = new Blob([data.file_content], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = data.file_name || `LRE_${book.year}${String(book.month).padStart(2, '0')}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setShowLreModal(false)
+        alert('Archivo LRE descargado exitosamente')
+      } else {
+        throw new Error(data.error || 'Error al generar archivo LRE')
+      }
+    } catch (error: any) {
+      alert('Error al descargar LRE: ' + error.message)
+    } finally {
+      setLreState('idle')
+    }
+  }
+
   if (loading) {
     return (
       <div>
@@ -179,7 +285,23 @@ export default function PayrollBookDetailPage() {
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             <FaFileCsv size={16} />
-            Exportar CSV (LRE)
+            Exportar CSV
+          </button>
+          <button
+            onClick={handleLREValidation}
+            disabled={lreState !== 'idle' || book.status === 'draft'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: book.status === 'draft' ? '#9ca3af' : '#2563eb',
+              color: 'white', border: 'none', borderRadius: '4px',
+              cursor: book.status === 'draft' ? 'not-allowed' : 'pointer',
+              padding: '6px 12px',
+              opacity: book.status === 'draft' ? 0.5 : 1,
+            }}
+            title={book.status === 'draft' ? 'El libro debe estar cerrado para exportar a la DT' : 'Descargar archivo LRE para la Dirección del Trabajo'}
+          >
+            <FaDownload size={16} />
+            {lreState === 'validating' ? 'Validando...' : 'Descargar LRE-DT'}
           </button>
           {book.status === 'draft' && (
             <button
@@ -328,6 +450,117 @@ export default function PayrollBookDetailPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal de Validación LRE */}
+      {showLreModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '8px', padding: '24px',
+            maxWidth: '900px', width: '90%', maxHeight: '80vh', overflow: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0 }}>
+                {lreBlockingErrors > 0 ? 'Errores de Validación LRE' : 'Advertencias de Validación LRE'}
+              </h2>
+              <button onClick={() => setShowLreModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}>
+                <FaTimes />
+              </button>
+            </div>
+
+            {lreBlockingErrors > 0 && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '12px', marginBottom: '16px' }}>
+                <p style={{ color: '#dc2626', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+                  <FaExclamationTriangle style={{ marginRight: '8px' }} />
+                  Se encontraron {lreBlockingErrors} errores bloqueantes. Debe corregirlos antes de exportar.
+                </p>
+              </div>
+            )}
+
+            {lreWarnings > 0 && lreBlockingErrors === 0 && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '4px', padding: '12px', marginBottom: '16px' }}>
+                <p style={{ color: '#d97706', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+                  <FaExclamationTriangle style={{ marginRight: '8px' }} />
+                  Se encontraron {lreWarnings} advertencias. Puede exportar pero revise los datos.
+                </p>
+              </div>
+            )}
+
+            {lreBlockingErrors === 0 && lreWarnings === 0 && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', padding: '12px', marginBottom: '16px' }}>
+                <p style={{ color: '#16a34a', fontWeight: 'bold', margin: 0 }}>
+                  <FaCheckCircle style={{ marginRight: '8px' }} />
+                  Validación exitosa. No se encontraron errores ni advertencias.
+                </p>
+              </div>
+            )}
+
+            {lreErrors.length > 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: '#f3f4f6' }}>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>RUT</th>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Nombre</th>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Código</th>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Campo</th>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Severidad</th>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Mensaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lreErrors.map((err, idx) => (
+                      <tr key={idx} style={{ background: err.severity === 'blocking' ? '#fef2f2' : '#fffbeb' }}>
+                        <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{err.employee_rut || '-'}</td>
+                        <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{err.employee_name || '-'}</td>
+                        <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{err.field_code}</td>
+                        <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{err.field_name}</td>
+                        <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>
+                          <span style={{
+                            background: err.severity === 'blocking' ? '#dc2626' : '#f59e0b',
+                            color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
+                          }}>
+                            {err.severity === 'blocking' ? 'Bloqueante' : 'Advertencia'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{err.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+              {lreBlockingErrors === 0 && (
+                <button
+                  onClick={handleDownloadLRE}
+                  disabled={lreState !== 'idle'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    background: '#2563eb', color: 'white', border: 'none',
+                    borderRadius: '4px', cursor: lreState === 'idle' ? 'pointer' : 'not-allowed',
+                    padding: '8px 16px',
+                  }}
+                >
+                  <FaDownload size={14} />
+                  {lreState === 'downloading' ? 'Descargando...' : 'Descargar archivo LRE'}
+                </button>
+              )}
+              <button
+                onClick={() => setShowLreModal(false)}
+                className="secondary"
+                style={{ padding: '8px 16px' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
