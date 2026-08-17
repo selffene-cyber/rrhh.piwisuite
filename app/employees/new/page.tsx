@@ -254,23 +254,29 @@ export default function NewEmployeePage() {
         employeeData.afc_applicable = true // AFP sí tiene AFC
         if (formData.health_system === 'ISAPRE') {
           employeeData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
+        } else {
+          employeeData.health_plan_percentage = 0
         }
+        employeeData.other_regime_type = null
+        employeeData.manual_regime_label = null
+        employeeData.manual_pension_rate = null
+        employeeData.manual_health_rate = null
+        employeeData.manual_base_type = null
+        employeeData.manual_employer_rate = null
       } else {
         // Régimen especial
         employeeData.other_regime_type = formData.other_regime_type || 'OTRO'
         employeeData.afc_applicable = false // Regímenes especiales NO tienen AFC
+        employeeData.manual_pension_rate = parseFloat(formData.manual_pension_rate) || 0
+        employeeData.manual_health_rate = parseFloat(formData.manual_health_rate) || 0
+        employeeData.manual_base_type = formData.manual_base_type || 'imponible'
+        employeeData.manual_employer_rate = parseFloat(formData.manual_employer_rate) || 0
+        employeeData.afp = null
+        employeeData.health_system = null
+        employeeData.health_plan = null
+        employeeData.health_plan_percentage = null
         if (formData.manual_regime_label?.trim()) {
           employeeData.manual_regime_label = formData.manual_regime_label.trim()
-        }
-        if (formData.manual_pension_rate) {
-          employeeData.manual_pension_rate = parseFloat(formData.manual_pension_rate)
-        }
-        if (formData.manual_health_rate) {
-          employeeData.manual_health_rate = parseFloat(formData.manual_health_rate)
-        }
-        employeeData.manual_base_type = formData.manual_base_type || 'imponible'
-        if (formData.manual_employer_rate) {
-          employeeData.manual_employer_rate = parseFloat(formData.manual_employer_rate)
         }
       }
 
