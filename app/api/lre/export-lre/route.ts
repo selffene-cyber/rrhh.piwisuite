@@ -147,9 +147,8 @@ export async function POST(request: NextRequest) {
       csvContent += row.join(SEPARATOR) + '\n'
     }
 
-    const BOM = '\uFEFF'
-    const fullContent = BOM + csvContent
-    const fileHash = crypto.createHash('sha256').update(fullContent).digest('hex')
+    const ansiContent = Buffer.from(csvContent, 'latin1').toString('latin1')
+    const fileHash = crypto.createHash('sha256').update(csvContent).digest('hex')
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData?.user?.id || 'unknown'
@@ -162,7 +161,7 @@ export async function POST(request: NextRequest) {
       period_month: month,
       file_name: fileName,
       file_hash: fileHash,
-      file_size: Buffer.byteLength(fullContent, 'utf8'),
+      file_size: Buffer.byteLength(ansiContent, 'latin1'),
       total_employees: csvRows.length,
       validation_status: validation.status,
       blocking_errors: validation.blockingErrors,
@@ -177,7 +176,7 @@ export async function POST(request: NextRequest) {
       warnings: validation.warnings,
       errors: validation.errors,
       file_name: fileName,
-      file_content: fullContent,
+      file_content: ansiContent,
       total_employees: csvRows.length,
     })
 
@@ -207,7 +206,7 @@ function buildCSVHeaders(): string[] {
     '3161', '3162', '3163', '3164', '3165', '3166', '3167',
     '3171', '3172', '3173', '3174', '3175', '3176', '3177', '3178', '3179', '3180',
     '3110', '3181', '3182', '3183', '3154', '3184', '3185', '3186', '3187', '3188',
-    '4151', '4155', '4131', '4154',
+    '4151', '4152', '4155', '4131', '4154',
     '5201', '5210', '5220', '5230', '5240',
     '5301', '5361', '5362', '5341', '5302',
     '5410',
@@ -250,6 +249,7 @@ function buildLREmployeeRow(
 
   // Aportes del empleador (no están en payroll_items, vienen de payroll_book_entries)
   lreAmounts[4151] = Math.round(Number(entry.employer_afc_contribution) || 0)
+  lreAmounts[4152] = 0 // SAT + Ley SANNA 0,03% - no implementado aún
   lreAmounts[4155] = Math.round(Number(entry.employer_sis_contribution) || 0)
   lreAmounts[4131] = Math.round(Number(entry.employer_afp_account) || 0)
   lreAmounts[4154] = Math.round(Number(entry.employer_afp_contribution) || 0)
@@ -375,6 +375,7 @@ function buildLREmployeeRow(
     (lreAmounts[3187] || 0).toString(),
     (lreAmounts[3188] || 0).toString(),
     (lreAmounts[4151] || 0).toString(),
+    (lreAmounts[4152] || 0).toString(),
     (lreAmounts[4155] || 0).toString(),
     (lreAmounts[4131] || 0).toString(),
     (lreAmounts[4154] || 0).toString(),

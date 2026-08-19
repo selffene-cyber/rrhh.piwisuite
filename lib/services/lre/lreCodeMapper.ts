@@ -111,7 +111,7 @@ export function calculateLTRETotals(lreAmounts: Record<number, number>): Record<
   const descuentoImpuestosRemCodes = [3161, 3162, 3163, 3164, 3165, 3166]
   const descuentoImpuestosIndCodes = [3162]
   const otrosDescuentosCodes = [3171, 3172, 3173, 3174, 3175, 3176, 3177, 3178, 3179, 3180, 3110, 3181, 3182, 3183, 3184, 3185, 3186, 3187, 3188, 3167]
-  const aportesEmpleadorCodes = [4151, 4155, 4131, 4154]
+  const aportesEmpleadorCodes = [4151, 4152, 4155, 4131, 4154]
 
   totals[5210] = sumByCategory(haberImpTribCodes)
   totals[5220] = sumByCategory(haberImpNoTribCodes)
