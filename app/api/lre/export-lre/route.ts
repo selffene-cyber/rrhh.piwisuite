@@ -207,7 +207,7 @@ function buildCSVHeaders(): string[] {
     '3161', '3162', '3163', '3164', '3165', '3166', '3167',
     '3171', '3172', '3173', '3174', '3175', '3176', '3177', '3178', '3179', '3180',
     '3110', '3181', '3182', '3183', '3154', '3184', '3185', '3186', '3187', '3188',
-    '4151', '4152', '4155', '4131', '4154', '4157',
+    '4151', '4155', '4131', '4154',
     '5201', '5210', '5220', '5230', '5240',
     '5301', '5361', '5362', '5341', '5302',
     '5410',
@@ -250,11 +250,9 @@ function buildLREmployeeRow(
 
   // Aportes del empleador (no están en payroll_items, vienen de payroll_book_entries)
   lreAmounts[4151] = Math.round(Number(entry.employer_afc_contribution) || 0)
-  lreAmounts[4152] = Math.round(Number(entry.employer_sis_contribution) || 0)
-  lreAmounts[4155] = Math.round(Number(entry.employer_rentabilidad_protegida) || 0)
+  lreAmounts[4155] = Math.round(Number(entry.employer_sis_contribution) || 0)
   lreAmounts[4131] = Math.round(Number(entry.employer_afp_account) || 0)
   lreAmounts[4154] = Math.round(Number(entry.employer_afp_contribution) || 0)
-  lreAmounts[4157] = 0
 
   const totals = calculateLTRETotals(lreAmounts)
 
@@ -377,11 +375,9 @@ function buildLREmployeeRow(
     (lreAmounts[3187] || 0).toString(),
     (lreAmounts[3188] || 0).toString(),
     (lreAmounts[4151] || 0).toString(),
-    (lreAmounts[4152] || 0).toString(),
     (lreAmounts[4155] || 0).toString(),
     (lreAmounts[4131] || 0).toString(),
     (lreAmounts[4154] || 0).toString(),
-    (lreAmounts[4157] || 0).toString(),
     (totals[5201] || 0).toString(),
     (totals[5210] || 0).toString(),
     (totals[5220] || 0).toString(),
