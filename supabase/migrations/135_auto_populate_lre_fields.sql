@@ -45,8 +45,17 @@ UPDATE employees SET dt_ccaf_code = 0 WHERE dt_ccaf_code IS NULL OR dt_ccaf_code
 -- 10. dt_mutual_code: 0 = No aplica (default)
 UPDATE employees SET dt_mutual_code = 0 WHERE dt_mutual_code IS NULL OR dt_mutual_code = 0;
 
--- 11. dt_ips_code: mapear desde previsional_regime
-UPDATE employees SET dt_ips_code = 1 WHERE previsional_regime = 'AFP' AND dt_ips_code IS NULL;
+-- 11. dt_ips_code: 0 = No pertenece a IPS (default para AFP), solo DIPRECA/CAPREDENA tienen código IPS
+-- Corregir empleados AFP que quedaron con dt_ips_code = 1 (de migración 133)
+UPDATE employees SET dt_ips_code = 0 WHERE previsional_regime = 'AFP' AND dt_ips_code = 1;
+UPDATE employees SET dt_ips_code = 0 WHERE previsional_regime = 'AFP' AND dt_ips_code IS NULL;
+UPDATE employees SET dt_ips_code = 111 WHERE other_regime_type = 'DIPRECA' AND dt_ips_code IS NULL;
+UPDATE employees SET dt_ips_code = 112 WHERE other_regime_type = 'CAPREDENA' AND dt_ips_code IS NULL;
+
+-- 11b. Agregar código 0 a tabla lre_ips_exinp (No pertenece a IPS)
+INSERT INTO lre_ips_exinp (id, code, name, label, description) VALUES
+(0, 0, 'No pertenece a IPS', 'No pertenece a IPS', 'Trabajadores con régimen AFP que no cotizan en IPS')
+ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, label = EXCLUDED.label;
 UPDATE employees SET dt_ips_code = 111 WHERE other_regime_type = 'DIPRECA' AND dt_ips_code IS NULL;
 UPDATE employees SET dt_ips_code = 112 WHERE other_regime_type = 'CAPREDENA' AND dt_ips_code IS NULL;
 

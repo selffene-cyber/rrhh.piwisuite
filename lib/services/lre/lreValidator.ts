@@ -218,7 +218,9 @@ export async function validateLREData(
       addError(errors, e.id, rut, e.full_name, 1110, 'CCAF', 'invalid_code', 'blocking', `Código CCAF ${e.dt_ccaf_code} no existe en Tabla N°13`)
     }
 
-    if (!catalogs.mutualCodes.has(e.dt_mutual_code)) {
+    if (e.dt_mutual_code === 0 || e.dt_mutual_code === null) {
+      addError(errors, e.id, rut, e.full_name, 1152, 'Org. Ley 16.744', 'missing_mandatory', 'warning', 'Código mutual es obligatorio. Configure el organismo administrador de la Ley 16.744 en la ficha del trabajador.')
+    } else if (!catalogs.mutualCodes.has(e.dt_mutual_code)) {
       addError(errors, e.id, rut, e.full_name, 1152, 'Org. Ley 16.744', 'invalid_code', 'blocking', `Código mutual ${e.dt_mutual_code} no existe en Tabla N°14`)
     }
 
