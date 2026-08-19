@@ -409,10 +409,10 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
         updateData.other_regime_type = formData.other_regime_type || 'OTRO'
         updateData.afc_applicable = false // Regímenes especiales NO tienen AFC
         updateData.manual_regime_label = formData.manual_regime_label?.trim() || null
-        updateData.manual_pension_rate = formData.manual_pension_rate ? parseFloat(formData.manual_pension_rate) : null
-        updateData.manual_health_rate = formData.manual_health_rate ? parseFloat(formData.manual_health_rate) : null
+        updateData.manual_pension_rate = parseFloat(formData.manual_pension_rate) || 0
+        updateData.manual_health_rate = parseFloat(formData.manual_health_rate) || 0
         updateData.manual_base_type = formData.manual_base_type || 'imponible'
-        updateData.manual_employer_rate = formData.manual_employer_rate ? parseFloat(formData.manual_employer_rate) : null
+        updateData.manual_employer_rate = formData.manual_employer_rate ? parseFloat(formData.manual_employer_rate) : 0
         // Limpiar campos AFP
         updateData.afp = null
         updateData.health_system = null
