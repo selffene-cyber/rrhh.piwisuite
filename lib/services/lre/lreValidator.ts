@@ -85,6 +85,14 @@ export async function validateLREData(
 
   const catalogs = await loadCatalogValidationSets(supabase)
 
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('mutual_ley16744_code, sat_accident_rate')
+    .eq('id', companyId)
+    .single()
+
+  const companyMutualCode = companyData?.mutual_ley16744_code ?? 0
+
   const { data: bookData, error: bookError } = await supabase
     .from('payroll_books')
     .select('id')
@@ -218,10 +226,10 @@ export async function validateLREData(
       addError(errors, e.id, rut, e.full_name, 1110, 'CCAF', 'invalid_code', 'blocking', `Código CCAF ${e.dt_ccaf_code} no existe en Tabla N°13`)
     }
 
-    if (e.dt_mutual_code === 0 || e.dt_mutual_code === null) {
-      addError(errors, e.id, rut, e.full_name, 1152, 'Org. Ley 16.744', 'missing_mandatory', 'warning', 'Código mutual es obligatorio. Configure el organismo administrador de la Ley 16.744 en la ficha del trabajador.')
-    } else if (!catalogs.mutualCodes.has(e.dt_mutual_code)) {
-      addError(errors, e.id, rut, e.full_name, 1152, 'Org. Ley 16.744', 'invalid_code', 'blocking', `Código mutual ${e.dt_mutual_code} no existe en Tabla N°14`)
+    if (companyMutualCode === 0) {
+      addError(errors, '', '', '', 1152, 'Org. Ley 16.744', 'missing_mandatory', 'warning', 'No se ha configurado el organismo administrador Ley 16.744 a nivel de empresa. Configure el código mutual en Configuración de Empresa.')
+    } else if (!catalogs.mutualCodes.has(companyMutualCode)) {
+      addError(errors, '', '', '', 1152, 'Org. Ley 16.744', 'invalid_code', 'blocking', `Código mutual ${companyMutualCode} no existe en Tabla N°14`)
     }
 
     if (e.tramo_asignacion_familiar && !catalogs.tramoAsignacionCodes.has(e.tramo_asignacion_familiar)) {
@@ -246,6 +254,12 @@ export async function validateLREData(
         addError(errors, e.id, rut, e.full_name, 1131, 'Indemnización a todo evento', 'invalid_business_rule', 'warning', msg)
       }
     }
+  }
+
+  // Validacion a nivel de empresa: SAT + Ley SANNA (4152)
+  const period202608 = year > 2026 || (year === 2026 && month >= 8)
+  if (period202608 && (!companyData?.sat_accident_rate || companyData.sat_accident_rate === 0)) {
+    addError(errors, '', '', '', 4152, 'SAT + Ley SANNA', 'missing_mandatory', 'warning', 'No se ha configurado la tasa SAT en la empresa. El cálculo de 4152 será 0 (solo Ley SANNA 0,03%). Configure la tasa en Configuración de Empresa.')
   }
 
   const blockingErrors = errors.filter(e => e.severity === 'blocking').length

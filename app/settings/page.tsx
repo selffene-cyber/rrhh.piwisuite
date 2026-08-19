@@ -21,6 +21,8 @@ export default function SettingsPage() {
     address: '',
     city: '',
     logo_url: '',
+    mutual_ley16744_code: 0,
+    sat_accident_rate: 0,
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -90,6 +92,8 @@ export default function SettingsPage() {
           address: data.address || '',
           city: data.city || '',
           logo_url: data.logo_url || '',
+          mutual_ley16744_code: data.mutual_ley16744_code ?? 0,
+          sat_accident_rate: data.sat_accident_rate ?? 0,
         })
         if (data.logo_url) {
           setLogoPreview(data.logo_url)
@@ -252,6 +256,8 @@ export default function SettingsPage() {
           address: formData.address,
           city: formData.city,
           logo_url: formData.logo_url,
+          mutual_ley16744_code: formData.mutual_ley16744_code,
+          sat_accident_rate: formData.sat_accident_rate,
         })
         .eq('id', companyId)
 
@@ -487,6 +493,45 @@ export default function SettingsPage() {
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="Dirección completa"
             />
+          </div>
+
+          <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid #e5e7eb' }}>
+            <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Configuración LRE - Dirección del Trabajo</h3>
+            <p style={{ marginBottom: '16px', color: '#6b7280', fontSize: '14px' }}>
+              Estos datos se utilizan para la generación del Libro de Remuneraciones Electrónico (LRE).
+            </p>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Organismo Administrador Ley 16.744 (Código 1152)</label>
+                <select
+                  value={formData.mutual_ley16744_code}
+                  onChange={(e) => setFormData({ ...formData, mutual_ley16744_code: parseInt(e.target.value) || 0 })}
+                >
+                  <option value={0}>Sin Mutual / No aplica</option>
+                  <option value={1}>ACHS (1)</option>
+                  <option value={2}>Mutual CCHC (2)</option>
+                  <option value={3}>IST (3)</option>
+                </select>
+                <small style={{ display: 'block', color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
+                  Organismo administrador del Seguro contra Accidentes del Trabajo y Enfermedades Profesionales.
+                </small>
+              </div>
+              <div className="form-group">
+                <label>Tasa SAT (%) - Seguro Accidentes del Trabajo</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  max="100"
+                  value={formData.sat_accident_rate}
+                  onChange={(e) => setFormData({ ...formData, sat_accident_rate: parseFloat(e.target.value) || 0 })}
+                  placeholder="Ej: 0.93"
+                />
+                <small style={{ display: 'block', color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
+                  Tasa porcentual del SAT (Ley 16.744). Se suma a Ley SANNA (0,03%) para el código 4152. Válido desde agosto 2026.
+                </small>
+              </div>
+            </div>
           </div>
 
           <div style={{ marginTop: '32px' }}>

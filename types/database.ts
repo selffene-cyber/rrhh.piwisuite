@@ -15,6 +15,8 @@ export type Database = {
           subscription_tier: 'basic' | 'pro' | 'enterprise'
           max_users: number | null
           max_employees: number | null
+          mutual_ley16744_code: number | null
+          sat_accident_rate: number | null
           created_at: string
           updated_at: string
         }
@@ -31,6 +33,8 @@ export type Database = {
           subscription_tier?: 'basic' | 'pro' | 'enterprise'
           max_users?: number | null
           max_employees?: number | null
+          mutual_ley16744_code?: number | null
+          sat_accident_rate?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -47,6 +51,8 @@ export type Database = {
           subscription_tier?: 'basic' | 'pro' | 'enterprise'
           max_users?: number | null
           max_employees?: number | null
+          mutual_ley16744_code?: number | null
+          sat_accident_rate?: number | null
           created_at?: string
           updated_at?: string
         }

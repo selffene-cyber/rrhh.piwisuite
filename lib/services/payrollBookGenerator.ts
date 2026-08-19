@@ -194,7 +194,7 @@ export async function generatePayrollBook(
       .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
 
     const bonuses = items
-      .filter((i: any) => i.type === 'taxable_earning' && i.category === 'bonos')
+      .filter((i: any) => i.type === 'taxable_earning' && i.category === 'bono')
       .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
 
     const overtime = items
@@ -207,7 +207,7 @@ export async function generatePayrollBook(
 
     const otherTaxableEarnings = items
       .filter((i: any) => i.type === 'taxable_earning' && 
-        !['sueldo_base', 'gratificacion', 'bonos', 'horas_extras', 'vacaciones'].includes(i.category))
+        !['sueldo_base', 'gratificacion', 'bono', 'horas_extras', 'vacaciones'].includes(i.category))
       .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
 
     const totalTaxableEarningsEntry = Number(slip.total_taxable_earnings) || 0
@@ -253,16 +253,16 @@ export async function generatePayrollBook(
 
     // Otros descuentos
     const loansDeduction = items
-      .filter((i: any) => i.type === 'other_deduction' && i.category === 'prestamos')
+      .filter((i: any) => i.type === 'other_deduction' && i.category === 'prestamo')
       .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
 
     const advancesDeduction = items
-      .filter((i: any) => i.type === 'other_deduction' && i.category === 'anticipos')
+      .filter((i: any) => i.type === 'other_deduction' && i.category === 'anticipo')
       .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
 
     const otherDeductions = items
       .filter((i: any) => i.type === 'other_deduction' && 
-        !['prestamos', 'anticipos'].includes(i.category))
+        !['prestamo', 'anticipo'].includes(i.category))
       .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
 
     const totalOtherDeductionsEntry = Number(slip.total_other_deductions) || 0

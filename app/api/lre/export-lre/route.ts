@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const { data: company } = await supabase
       .from('companies')
-      .select('rut')
+      .select('rut, mutual_ley16744_code, sat_accident_rate')
       .eq('id', companyId)
       .single()
 
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       const emp = employeeMap.get(entry.employee_id)
       if (!emp) continue
 
-      const row = buildLREmployeeRow(entry, emp, sindicatosMap.get(entry.employee_id) || [], year, month, regionDTCodeMap, communeDTCodeMap, itemsBySlip.get(entry.payroll_slip_id) || [], fieldMappings || [])
+      const row = buildLREmployeeRow(entry, emp, sindicatosMap.get(entry.employee_id) || [], year, month, regionDTCodeMap, communeDTCodeMap, itemsBySlip.get(entry.payroll_slip_id) || [], fieldMappings || [], company?.mutual_ley16744_code ?? 0, company?.sat_accident_rate ?? 0)
       csvRows.push(row)
     }
 
@@ -223,7 +223,9 @@ function buildLREmployeeRow(
   regionDTCodeMap: Map<string, number | null>,
   communeDTCodeMap: Map<string, number | null>,
   payrollItems: any[],
-  fieldMappings: any[]
+  fieldMappings: any[],
+  companyMutualCode: number,
+  companySatRate: number
 ): string[] {
   const empty = ''
 
@@ -249,7 +251,20 @@ function buildLREmployeeRow(
 
   // Aportes del empleador (no están en payroll_items, vienen de payroll_book_entries)
   lreAmounts[4151] = Math.round(Number(entry.employer_afc_contribution) || 0)
-  lreAmounts[4152] = 0 // SAT + Ley SANNA 0,03% - no implementado aún
+
+  // 4152: SAT + Ley SANNA (0,03%). Solo desde agosto 2026 en adelante.
+  // Ley SANNA = base_imponible * 0.0003 (0.03%)
+  // SAT = base_imponible * tasa_empresa (configurada en companies.sat_accident_rate)
+  const period202608 = year > 2026 || (year === 2026 && month >= 8)
+  if (period202608) {
+    const taxableBase4152 = lreAmounts[5210] || 0
+    const leySanna = Math.round(taxableBase4152 * 0.0003)
+    const sat = Math.round(taxableBase4152 * (Number(companySatRate) / 100))
+    lreAmounts[4152] = leySanna + sat
+  } else {
+    lreAmounts[4152] = 0
+  }
+
   lreAmounts[4155] = Math.round(Number(entry.employer_sis_contribution) || 0)
   lreAmounts[4131] = Math.round(Number(entry.employer_afp_account) || 0)
   lreAmounts[4154] = Math.round(Number(entry.employer_afp_contribution) || 0)
@@ -273,7 +288,7 @@ function buildLREmployeeRow(
     (emp.dt_isapre_fonasa_code || empty).toString(),
     (emp.dt_afc_code ?? (emp.afc_applicable ? 1 : 0)).toString(),
     (emp.dt_ccaf_code ?? 0).toString(),
-    (emp.dt_mutual_code ?? 0).toString(),
+    (companyMutualCode || 0).toString(),
     (emp.cargas_familiares_legales ?? 0).toString(),
     (emp.cargas_familiares_maternales ?? 0).toString(),
     (emp.cargas_familiares_invalidez ?? 0).toString(),

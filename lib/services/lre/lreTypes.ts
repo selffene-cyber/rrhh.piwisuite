@@ -174,7 +174,7 @@ export const CONTRACT_TYPE_TO_DT_JORNADA: Record<string, number> = {
 }
 
 export const PREVISION_REGIME_TO_DT_IPS: Record<string, number> = {
-  'AFP': 1,
+  'AFP': 0,
   'DIPRECA': 111,
   'CAPREDENA': 112,
 }
