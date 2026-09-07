@@ -66,6 +66,13 @@ export default function NewEmployeePage() {
     contract_type: 'indefinido',
     contract_end_date: '',
     contract_other: '',
+    // Tipo de trabajador y casa particular
+    worker_type: 'REGULAR' as 'REGULAR' | 'DOMESTIC_WORKER',
+    domestic_worker_mode: 'LIVE_OUT' as 'LIVE_IN' | 'LIVE_OUT',
+    gratification_type: 'LEGAL_ARTICLE_50' as 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL',
+    weekly_hours: '',
+    law16744_organism: 'ISL' as 'MUTUAL' | 'ISL',
+    law16744_rate: '0.93',
     // Campos LRE (Libro de Remuneraciones Electrónico - DT)
     dt_tipo_impuesto_renta: 1,
     dt_tecnico_extranjero: 0,
@@ -245,13 +252,22 @@ export default function NewEmployeePage() {
         contract_other: formData.contract_type === 'otro' ? (formData.contract_other?.trim() || null) : null,
         // Régimen previsional
         previsional_regime: formData.previsional_regime || 'AFP',
+        // Tipo de trabajador
+        worker_type: formData.worker_type || 'REGULAR',
+        gratification_type: formData.gratification_type || (formData.worker_type === 'DOMESTIC_WORKER' ? 'NONE' : 'LEGAL_ARTICLE_50'),
+        domestic_worker_mode: formData.worker_type === 'DOMESTIC_WORKER' ? (formData.domestic_worker_mode || 'LIVE_OUT') : null,
+        weekly_hours: formData.weekly_hours ? parseFloat(formData.weekly_hours) : null,
+        minimum_wage_type: formData.worker_type === 'DOMESTIC_WORKER' ? 'PROPORTIONAL' : 'FULL',
+        law16744_organism: formData.worker_type === 'DOMESTIC_WORKER' ? (formData.law16744_organism || 'ISL') : null,
+        law16744_rate: formData.worker_type === 'DOMESTIC_WORKER' ? (parseFloat(formData.law16744_rate) || 0.93) : null,
       }
       
       // Campos específicos según régimen
       if (formData.previsional_regime === 'AFP') {
         employeeData.afp = formData.afp || 'PROVIDA'
         employeeData.health_system = formData.health_system || 'FONASA'
-        employeeData.afc_applicable = true // AFP sí tiene AFC
+        // AFC: regular=true, DOMESTIC_WORKER=false
+        employeeData.afc_applicable = formData.worker_type === 'DOMESTIC_WORKER' ? false : true
         if (formData.health_system === 'ISAPRE') {
           employeeData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
         } else {

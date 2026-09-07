@@ -55,6 +55,17 @@ export interface EmployeeWithPrevision {
   // Control de AFC
   afc_applicable: boolean
   
+  // Tipo de trabajador (casa particular)
+  worker_type?: 'REGULAR' | 'DOMESTIC_WORKER'
+  domestic_worker_mode?: 'LIVE_IN' | 'LIVE_OUT'
+  gratification_type?: 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL'
+  weekly_hours?: number
+  max_weekly_hours?: number
+  minimum_wage_type?: 'FULL' | 'PROPORTIONAL'
+  law16744_organism?: 'MUTUAL' | 'ISL'
+  law16744_rate?: number
+  law16744_additional_rate?: number
+  
   // Otros campos necesarios para liquidación
   contract_type?: string
   transportation?: number
@@ -158,6 +169,11 @@ export function validateOtherRegimeConfig(config: Partial<OtherRegimeConfig>): s
 export function shouldCalculateAFC(employee: EmployeeWithPrevision): boolean {
   // OTRO_REGIMEN nunca tiene AFC
   if (employee.previsional_regime === 'OTRO_REGIMEN') {
+    return false
+  }
+  
+  // DOMESTIC_WORKER nunca tiene AFC trabajador
+  if (employee.worker_type === 'DOMESTIC_WORKER') {
     return false
   }
   
