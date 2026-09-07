@@ -60,14 +60,19 @@ const CONCEPT_TO_LIMIT_CODE: Record<PrevisionalConceptCode, string> = {
   'AFC_TRABAJADOR_INDEFINIDO': 'RTI_SEG_CES',
   'AFC_TRABAJADOR_PLAZO_FIJO': 'RTI_SEG_CES',
   'AFC_TRABAJADOR_TEMPORAL': 'RTI_SEG_CES',
+  'AFC_TRABAJADOR_CASA_PARTICULAR': 'RTI_SEG_CES',
   'AFC_EMPLEADOR_INDEFINIDO': 'RTI_SEG_CES',
   'AFC_EMPLEADOR_PLAZO_FIJO': 'RTI_SEG_CES',
   'AFC_EMPLEADOR_TEMPORAL': 'RTI_SEG_CES',
+  'AFC_EMPLEADOR_CASA_PARTICULAR': 'RTI_SEG_CES',
+  'INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR': 'RTI_SEG_CES',
+  'EMPLOYER_PENSION_REFORM_TOTAL': 'RTI_AFP',
   'FONASA': 'RTI_IPS',
   'ISAPRE': 'RTI_IPS',
   'IMPUESTO_UNICO': 'RTI_IPS',
   'MUTUAL': 'RTI_AFP',
   'LEY_SANNA': 'RTI_AFP',
+  'LEY16744_ISL_CASA_PARTICULAR': 'RTI_AFP',
   'CAJA_COMPENSACION': 'RTI_IPS',
 }
 
@@ -87,14 +92,19 @@ const CONCEPT_TO_TAXABLE_BASE_TYPE: Record<PrevisionalConceptCode, TaxableBaseTy
   'AFC_TRABAJADOR_INDEFINIDO': 'imponible_seg_ces',
   'AFC_TRABAJADOR_PLAZO_FIJO': 'imponible_seg_ces',
   'AFC_TRABAJADOR_TEMPORAL': 'imponible_seg_ces',
+  'AFC_TRABAJADOR_CASA_PARTICULAR': 'imponible_seg_ces',
   'AFC_EMPLEADOR_INDEFINIDO': 'imponible_seg_ces',
   'AFC_EMPLEADOR_PLAZO_FIJO': 'imponible_seg_ces',
   'AFC_EMPLEADOR_TEMPORAL': 'imponible_seg_ces',
+  'AFC_EMPLEADOR_CASA_PARTICULAR': 'imponible_seg_ces',
+  'INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR': 'imponible_seg_ces',
+  'EMPLOYER_PENSION_REFORM_TOTAL': 'imponible_afp',
   'FONASA': 'imponible_ips',
   'ISAPRE': 'imponible_ips',
   'IMPUESTO_UNICO': 'imponible_ips',
   'MUTUAL': 'imponible_afp',
   'LEY_SANNA': 'imponible_afp',
+  'LEY16744_ISL_CASA_PARTICULAR': 'imponible_afp',
   'CAJA_COMPENSACION': 'imponible_ips',
 }
 
@@ -137,6 +147,7 @@ export async function calculatePrevisional(
   const supabaseOverride = context.supabaseClient || undefined
 
   const isSpecialRegime = employee.previsionalRegime === 'OTRO_REGIMEN'
+  const isDomesticWorker = employee.workerType === 'DOMESTIC_WORKER'
   const blockedConcepts: string[] = []
   const warnings: string[] = []
   const rates: PrevisionalRateResult[] = []
@@ -148,6 +159,11 @@ export async function calculatePrevisional(
   // Resultado por defecto para regimenes especiales
   if (isSpecialRegime) {
     return calculateOtherRegime(context, bases, rates, limits, blockedConcepts, warnings)
+  }
+
+  // Trabajador de casa particular con AFP
+  if (isDomesticWorker) {
+    return calculateDomesticWorkerRegime(context, bases, rates, limits, blockedConcepts, warnings)
   }
 
   return calculateAFPRegime(context, bases, rates, limits, blockedConcepts, warnings)
@@ -528,6 +544,325 @@ async function calculateOtherRegime(
     blocked: false,
     blockedConcepts: [],
     warnings,
+  }
+}
+
+// ============================================
+// CALCULO TRABAJADOR DE CASA PARTICULAR
+// ============================================
+
+async function calculateDomesticWorkerRegime(
+  context: CalculationContext,
+  bases: Awaited<ReturnType<typeof calculateTaxableBases>>,
+  rates: PrevisionalRateResult[],
+  limits: PrevisionalLimitResult[],
+  blockedConcepts: string[],
+  warnings: string[],
+): Promise<PrevisionalCalculationResult> {
+  const { year, month, employee, indicators } = context
+  const { imponibleAFP, imponibleIPS, imponibleSegCes, imponibleGeneral } = bases
+
+  const afpName = employee.afp || 'UNO'
+
+  // ==========================================
+  // 1. AFP TRABAJADOR (ahorro obligatorio + comision)
+  // Casa particular usa el mismo sistema AFP que trabajadores regulares
+  // ==========================================
+  const afpConceptCode = mapAFPNameToConceptCode(afpName)
+  const afpTrabResult = await getPrevisionalRate(afpConceptCode, year, month, indicators ?? null, context.supabaseClient)
+  rates.push(afpTrabResult)
+
+  if (afpTrabResult.blocked) {
+    blockedConcepts.push(afpConceptCode)
+  }
+
+  const afpTrabRate = afpTrabResult.rate
+  const afpTrabAmount = Math.ceil(imponibleAFP * (afpTrabRate / 100))
+  const afp10Rate = 10.0
+  const afp10Amount = Math.ceil(imponibleAFP * (afp10Rate / 100))
+  const afpComisionAmount = Math.ceil(afpTrabAmount - afp10Amount)
+
+  // ==========================================
+  // 2. SALUD (FONASA o ISAPRE - desde tasas versionadas)
+  // ==========================================
+  let healthAmount = 0
+  let healthLabel = ''
+  if (employee.healthSystem === 'FONASA') {
+    const fonasaResult = await getPrevisionalRate('FONASA', year, month, indicators ?? null, context.supabaseClient)
+    rates.push(fonasaResult)
+    if (fonasaResult.blocked) blockedConcepts.push('FONASA')
+    const fonasaRate = fonasaResult.rate
+    healthLabel = `FONASA ${fonasaRate}%`
+    healthAmount = Math.ceil(imponibleIPS * (fonasaRate / 100))
+  } else if (employee.healthSystem === 'ISAPRE') {
+    healthLabel = `ISAPRE ${employee.healthPlan || ''}`
+    const ufValue = indicators ? parseChileanNumber(indicators.UFValPeriodo) : 0
+    const healthPlanUF = employee.healthPlanPercentage || 0
+    if (healthPlanUF > 0 && ufValue > 0) {
+      healthAmount = Math.ceil(healthPlanUF * ufValue)
+    } else {
+      // Fallback a FONASA si no hay datos de ISAPRE
+      const fonasaResult = await getPrevisionalRate('FONASA', year, month, indicators ?? null, context.supabaseClient)
+      rates.push(fonasaResult)
+      if (fonasaResult.blocked) blockedConcepts.push('FONASA')
+      healthAmount = Math.ceil(imponibleIPS * (fonasaResult.rate / 100))
+    }
+  }
+
+  // ==========================================
+  // 3. AFC TRABAJADOR = 0% (NO aplica para casa particular)
+  // ==========================================
+  const afcTrabAmount = 0
+  const afcTrabRate = 0
+  const afcTrabLabel = 'AFC Trabajador Casa Particular (0%)'
+
+  // ==========================================
+  // 4. SIS y CRP - PATRONAL TOTAL UNIFICADA
+  // Para casa particular desde agosto 2026, la tasa patronal previsional
+  // total es 3.5% (EMPLOYER_PENSION_REFORM_TOTAL) que incluye SIS + CRP + Cuenta Individual.
+  // NO se deben sumar SIS y CRP por separado.
+  // ==========================================
+
+  const crpNotApplicable = isConceptNotYetApplicable('CRP', year, month)
+  const pensionReformNotApplicable = isConceptNotYetApplicable('EMPLOYER_PENSION_REFORM_TOTAL', year, month)
+
+  let sisRate = 0
+  let sisAmount = 0
+  let crpRate = 0
+  let crpAmount = 0
+  let afpEmplRate = 0
+  let afpEmplAmount = 0
+  let pensionReformTotalRate = 0
+  let pensionReformTotalAmount = 0
+  let pensionReformIncludesSis = false
+
+  if (pensionReformNotApplicable) {
+    // Antes de agosto 2026: usar SIS + CRP + Cuenta Individual por separado
+    warnings.push('EMPLOYER_PENSION_REFORM_TOTAL no aplica para periodos anteriores a agosto 2026, usando SIS + CRP + Cuenta Individual separados')
+
+    // AFP Empleador Cuenta Individual
+    const afpEmplNotApplicable = isConceptNotYetApplicable('AFP_EMPLEADOR_CUENTA_INDIVIDUAL', year, month)
+    if (!afpEmplNotApplicable) {
+      const afpEmplResult = await getPrevisionalRate('AFP_EMPLEADOR_CUENTA_INDIVIDUAL', year, month, indicators ?? null, context.supabaseClient)
+      rates.push(afpEmplResult)
+      if (afpEmplResult.blocked) blockedConcepts.push('AFP_EMPLEADOR_CUENTA_INDIVIDUAL')
+      afpEmplRate = afpEmplResult.rate
+      afpEmplAmount = Math.ceil(imponibleAFP * (afpEmplRate / 100))
+    }
+
+    // SIS
+    const sisResult = await getPrevisionalRate('SIS', year, month, indicators ?? null, context.supabaseClient)
+    rates.push(sisResult)
+    if (sisResult.blocked) blockedConcepts.push('SIS')
+    sisRate = sisResult.rate
+    sisAmount = Math.ceil(imponibleAFP * (sisRate / 100))
+
+    // CRP (si aplica)
+    if (!crpNotApplicable) {
+      const crpResult = await getPrevisionalRate('CRP', year, month, indicators ?? null, context.supabaseClient)
+      rates.push(crpResult)
+      if (crpResult.blocked) blockedConcepts.push('CRP')
+      crpRate = crpResult.rate
+      crpAmount = Math.ceil(imponibleAFP * (crpRate / 100))
+    }
+
+    pensionReformIncludesSis = false
+  } else {
+    // Desde agosto 2026: usar tasa patronal total unificada (3.5%)
+    const pensionReformResult = await getPrevisionalRate('EMPLOYER_PENSION_REFORM_TOTAL', year, month, indicators ?? null, context.supabaseClient)
+    rates.push(pensionReformResult)
+    if (pensionReformResult.blocked) blockedConcepts.push('EMPLOYER_PENSION_REFORM_TOTAL')
+    pensionReformTotalRate = pensionReformResult.rate
+    pensionReformTotalAmount = Math.ceil(imponibleAFP * (pensionReformTotalRate / 100))
+    pensionReformIncludesSis = true
+
+    // No se suman SIS, CRP ni Cuenta Individual por separado
+    warnings.push('EMPLOYER_PENSION_REFORM_TOTAL (3.5%) incluye SIS + CRP + Cuenta Individual - no se suman por separado')
+  }
+
+  // ==========================================
+  // 5. AFC EMPLEADOR CASA PARTICULAR (3%)
+  // ==========================================
+  const afcEmplResult = await getPrevisionalRate('AFC_EMPLEADOR_CASA_PARTICULAR', year, month, indicators ?? null, context.supabaseClient)
+  rates.push(afcEmplResult)
+  if (afcEmplResult.blocked) blockedConcepts.push('AFC_EMPLEADOR_CASA_PARTICULAR')
+
+  const afcEmplRate = afcEmplResult.rate
+  const afcEmplAmount = Math.ceil(imponibleSegCes * (afcEmplRate / 100))
+  const afcEmplLabel = 'AFC Empleador Casa Particular 3%'
+
+  // ==========================================
+  // 6. INDEMNIZACION A TODO EVENTO (1.11%)
+  // ==========================================
+  const indemnizationResult = await getPrevisionalRate('INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR', year, month, indicators ?? null, context.supabaseClient)
+  rates.push(indemnizationResult)
+  if (indemnizationResult.blocked) blockedConcepts.push('INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR')
+
+  const indemnizationRate = indemnizationResult.rate
+  const indemnizationAmount = Math.ceil(imponibleSegCes * (indemnizationRate / 100))
+
+  // ==========================================
+  // 7. LEY 16.744 ISL (desde tasas versionadas)
+  // ==========================================
+  const law16744Result = await getPrevisionalRate('LEY16744_ISL_CASA_PARTICULAR', year, month, indicators ?? null, context.supabaseClient)
+  rates.push(law16744Result)
+  if (law16744Result.blocked) blockedConcepts.push('LEY16744_ISL_CASA_PARTICULAR')
+
+  const law16744BaseRate = law16744Result.rate
+  const law16744AdditionalRate = employee.law16744AdditionalRate ?? 0
+  const totalLaw16744Rate = law16744BaseRate + law16744AdditionalRate
+  const law16744Amount = Math.ceil(imponibleAFP * (totalLaw16744Rate / 100))
+
+  // ==========================================
+  // APORTES DEL EMPLEADOR
+  // ==========================================
+  const employerContributions: EmployerContribution[] = []
+
+  // AFC Empleador 3%
+  employerContributions.push({
+    concept_code: 'AFC_EMPLEADOR_CASA_PARTICULAR',
+    base_amount: imponibleSegCes,
+    rate: afcEmplRate,
+    amount: afcEmplAmount,
+    taxable_base_type: 'imponible_seg_ces',
+    source: 'calculation',
+  })
+
+  // Indemnizacion a todo evento 1.11%
+  employerContributions.push({
+    concept_code: 'INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR',
+    base_amount: imponibleSegCes,
+    rate: indemnizationRate,
+    amount: indemnizationAmount,
+    taxable_base_type: 'imponible_seg_ces',
+    source: 'calculation',
+  })
+
+  // Ley 16.744 ISL
+  employerContributions.push({
+    concept_code: 'LEY16744_ISL_CASA_PARTICULAR',
+    base_amount: imponibleAFP,
+    rate: totalLaw16744Rate,
+    amount: law16744Amount,
+    taxable_base_type: 'imponible_afp',
+    source: 'calculation',
+  })
+
+  // Aporte previsional patronal
+  if (pensionReformIncludesSis) {
+    // Tasa total unificada (3.5%)
+    employerContributions.push({
+      concept_code: 'EMPLOYER_PENSION_REFORM_TOTAL',
+      base_amount: imponibleAFP,
+      rate: pensionReformTotalRate,
+      amount: pensionReformTotalAmount,
+      taxable_base_type: 'imponible_afp',
+      source: 'calculation',
+    })
+  } else {
+    // Componentes separados (pre agosto 2026)
+    if (afpEmplAmount > 0) {
+      employerContributions.push({
+        concept_code: 'AFP_EMPLEADOR_CUENTA_INDIVIDUAL',
+        base_amount: imponibleAFP,
+        rate: afpEmplRate,
+        amount: afpEmplAmount,
+        taxable_base_type: 'imponible_afp',
+        source: 'calculation',
+      })
+    }
+    if (sisAmount > 0) {
+      employerContributions.push({
+        concept_code: 'SIS',
+        base_amount: imponibleAFP,
+        rate: sisRate,
+        amount: sisAmount,
+        taxable_base_type: 'imponible_afp',
+        source: 'calculation',
+      })
+    }
+    if (crpAmount > 0) {
+      employerContributions.push({
+        concept_code: 'CRP',
+        base_amount: imponibleAFP,
+        rate: crpRate,
+        amount: crpAmount,
+        taxable_base_type: 'imponible_afp',
+        source: 'calculation',
+      })
+    }
+  }
+
+  const employerContributionsTotal = employerContributions.reduce((sum, c) => sum + c.amount, 0)
+
+  // ==========================================
+  // DESCUENTOS DEL TRABAJADOR
+  // SIS NO se incluye - es del empleador
+  // AFC trabajador = 0 para casa particular
+  // ==========================================
+  const employeeDeductions = {
+    pension: afpTrabAmount,
+    pensionObligatorio: afp10Amount,
+    pensionComision: afpComisionAmount,
+    health: healthAmount,
+    healthLabel,
+    afcTrabajador: 0,
+    afcTrabajadorLabel: 'No aplica (Casa Particular)',
+    uniqueTax: 0,
+    total: afpTrabAmount + healthAmount,
+  }
+
+  const domesticWorkerContributions = {
+    afcEmployer: afcEmplAmount,
+    afcEmployerRate: afcEmplRate,
+    afcEmployerLabel: afcEmplLabel,
+    indemnization: indemnizationAmount,
+    indemnizationRate,
+    indemnizationLabel: `Indemnizacion a todo evento ${indemnizationRate}%`,
+    law16744: law16744Amount,
+    law16744Rate: totalLaw16744Rate,
+    law16744Label: `Ley 16.744 ISL ${totalLaw16744Rate}%`,
+    pensionReform: pensionReformTotalAmount,
+    pensionReformRate: pensionReformTotalRate,
+    pensionReformLabel: pensionReformIncludesSis
+      ? `Aporte previsional patronal ${pensionReformTotalRate}% (incluye SIS + CRP + Cta. Individual)`
+      : `Aporte previsional patronal componentes separados`,
+    pensionReformIncludesSis,
+    total: afcEmplAmount + indemnizationAmount + law16744Amount + pensionReformTotalAmount,
+  }
+
+  const isBlocked = blockedConcepts.length > 0
+
+  return {
+    regime: 'AFP',
+    regimeType: afpName,
+    regimeLabel: `AFP ${afpName} (Casa Particular)`,
+    baseImponibleAFP: imponibleAFP,
+    baseImponibleIPS: imponibleIPS,
+    baseImponibleSegCes: imponibleSegCes,
+    baseImponibleGeneral: imponibleGeneral,
+    employeeDeductions,
+    employerContributions,
+    employerContributionsTotal,
+    sisAmount: pensionReformIncludesSis ? 0 : sisAmount,
+    sisRate: pensionReformIncludesSis ? 0 : sisRate,
+    sisBase: pensionReformIncludesSis ? 0 : imponibleAFP,
+    crpAmount: pensionReformIncludesSis ? 0 : crpAmount,
+    crpRate: pensionReformIncludesSis ? 0 : crpRate,
+    crpBase: pensionReformIncludesSis ? 0 : imponibleAFP,
+    afpEmployerAccountAmount: pensionReformIncludesSis ? 0 : afpEmplAmount,
+    afpEmployerAccountRate: pensionReformIncludesSis ? 0 : afpEmplRate,
+    afpEmployerAccountBase: pensionReformIncludesSis ? 0 : imponibleAFP,
+    afcEmployerAmount: afcEmplAmount,
+    afcEmployerRate: afcEmplRate,
+    afcEmployerLabel: afcEmplLabel,
+    afcEmployerBase: imponibleSegCes,
+    rates,
+    limits,
+    blocked: isBlocked,
+    blockedConcepts,
+    warnings,
+    domesticWorkerContributions,
   }
 }
 

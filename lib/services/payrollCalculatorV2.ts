@@ -55,6 +55,11 @@ export interface PayrollCalculationInputV2 {
   permissionDiscount?: number
   otherDeductions?: number
   
+  // Tipo de trabajador y gratificación
+  workerType?: 'REGULAR' | 'DOMESTIC_WORKER'
+  gratificationType?: 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL'
+  gratificationAmount?: number
+  
   // Indicadores (opcional, se obtienen automáticamente si no se proveen)
   indicators?: PreviredIndicators | null
 }
@@ -219,20 +224,35 @@ async function calculateAFPRegimeLegacy(
   // 1. HABERES IMPONIBLES
   const baseSalaryProportional = Math.ceil((baseSalary / 30) * daysWorked)
   
-  // Gratificación mensual (25% con tope legal)
+  // Gratificación mensual - depende del tipo configurado
   let monthlyGratification = 0
-  if (previredIndicators?.RMITrabDepeInd) {
-    const parseChileanNumber = (str: string): number => {
-      if (!str) return 0
-      return parseFloat(str.replace(/\./g, '').replace(',', '.'))
-    }
-    const ingresoMinimo = parseChileanNumber(previredIndicators.RMITrabDepeInd)
-    const topeGratificacion = (4.75 * ingresoMinimo) / 12
+  const gratificationType = input.gratificationType ?? 'LEGAL_ARTICLE_50'
+  
+  if (gratificationType === 'NONE') {
+    // Sin gratificación (ej: casa particular, persona natural)
+    monthlyGratification = 0
+  } else if (gratificationType === 'CONTRACTUAL' && input.gratificationAmount) {
+    // Gratificación pactada contractualmente
+    monthlyGratification = Math.ceil(input.gratificationAmount)
+  } else if (gratificationType === 'LEGAL_ARTICLE_47') {
+    // Art. 47: 25% SIN tope
     const gratificacion25Porciento = baseSalary * 0.25
-    const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
-    monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
+    monthlyGratification = Math.ceil((gratificacion25Porciento / 30) * daysWorked)
   } else {
-    monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+    // LEGAL_ARTICLE_50 (default): 25% con tope legal
+    if (previredIndicators?.RMITrabDepeInd) {
+      const parseChileanNumber = (str: string): number => {
+        if (!str) return 0
+        return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+      }
+      const ingresoMinimo = parseChileanNumber(previredIndicators.RMITrabDepeInd)
+      const topeGratificacion = (4.75 * ingresoMinimo) / 12
+      const gratificacion25Porciento = baseSalary * 0.25
+      const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
+      monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
+    } else {
+      monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+    }
   }
   
   const taxableEarnings = {
@@ -459,21 +479,32 @@ async function calculateOtherRegimeLegacy(
   // 1. HABERES IMPONIBLES
   const baseSalaryProportional = Math.ceil((baseSalary / 30) * daysWorked)
   
-  // Para regímenes especiales, la gratificación puede o no aplicar
-  // Por ahora la calculamos igual que AFP
+  // Gratificación - depende del tipo configurado
   let monthlyGratification = 0
-  if (indicators?.RMITrabDepeInd) {
-    const parseChileanNumber = (str: string): number => {
-      if (!str) return 0
-      return parseFloat(str.replace(/\./g, '').replace(',', '.'))
-    }
-    const ingresoMinimo = parseChileanNumber(indicators.RMITrabDepeInd)
-    const topeGratificacion = (4.75 * ingresoMinimo) / 12
+  const gratificationType = input.gratificationType ?? 'LEGAL_ARTICLE_50'
+  
+  if (gratificationType === 'NONE') {
+    monthlyGratification = 0
+  } else if (gratificationType === 'CONTRACTUAL' && input.gratificationAmount) {
+    monthlyGratification = Math.ceil(input.gratificationAmount)
+  } else if (gratificationType === 'LEGAL_ARTICLE_47') {
     const gratificacion25Porciento = baseSalary * 0.25
-    const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
-    monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
+    monthlyGratification = Math.ceil((gratificacion25Porciento / 30) * daysWorked)
   } else {
-    monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+    // LEGAL_ARTICLE_50: 25% con tope legal
+    if (indicators?.RMITrabDepeInd) {
+      const parseChileanNumber = (str: string): number => {
+        if (!str) return 0
+        return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+      }
+      const ingresoMinimo = parseChileanNumber(indicators.RMITrabDepeInd)
+      const topeGratificacion = (4.75 * ingresoMinimo) / 12
+      const gratificacion25Porciento = baseSalary * 0.25
+      const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
+      monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
+    } else {
+      monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+    }
   }
   
   const taxableEarnings = {

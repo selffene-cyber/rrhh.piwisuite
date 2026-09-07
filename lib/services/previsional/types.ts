@@ -26,9 +26,14 @@ export type PrevisionalConceptCode =
   | 'AFC_TRABAJADOR_INDEFINIDO'
   | 'AFC_TRABAJADOR_PLAZO_FIJO'
   | 'AFC_TRABAJADOR_TEMPORAL'
+  | 'AFC_TRABAJADOR_CASA_PARTICULAR'
   | 'AFC_EMPLEADOR_INDEFINIDO'
   | 'AFC_EMPLEADOR_PLAZO_FIJO'
   | 'AFC_EMPLEADOR_TEMPORAL'
+  | 'AFC_EMPLEADOR_CASA_PARTICULAR'
+  | 'INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR'
+  | 'LEY16744_ISL_CASA_PARTICULAR'
+  | 'EMPLOYER_PENSION_REFORM_TOTAL'
   | 'FONASA'
   | 'ISAPRE'
   | 'IMPUESTO_UNICO'
@@ -121,6 +126,12 @@ export interface EmployerContribution {
 // CONTEXTO DE CALCULO (entrada del motor central)
 // ============================================
 
+export type WorkerType = 'REGULAR' | 'DOMESTIC_WORKER'
+export type DomesticWorkerMode = 'LIVE_IN' | 'LIVE_OUT'
+export type GratificationType = 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL'
+export type MinimumWageType = 'FULL' | 'PROPORTIONAL'
+export type Law16744Organism = 'MUTUAL' | 'ISL'
+
 export interface CalculationContext {
   year: number
   month: number
@@ -139,6 +150,15 @@ export interface CalculationContext {
     manualRegimeLabel?: string | null
     contractType?: string | null
     afcApplicable: boolean
+    workerType?: WorkerType
+    domesticWorkerMode?: DomesticWorkerMode
+    gratificationType?: GratificationType
+    weeklyHours?: number
+    maxWeeklyHours?: number
+    minimumWageType?: MinimumWageType
+    law16744Organism?: Law16744Organism
+    law16744Rate?: number
+    law16744AdditionalRate?: number
   }
   taxableEarnings: number
   baseSalaryProportional?: number
@@ -200,6 +220,23 @@ export interface PrevisionalCalculationResult {
   blocked: boolean
   blockedConcepts: string[]
   warnings: string[]
+
+  domesticWorkerContributions?: {
+    afcEmployer: number
+    afcEmployerRate: number
+    afcEmployerLabel: string
+    indemnization: number
+    indemnizationRate: number
+    indemnizationLabel: string
+    law16744: number
+    law16744Rate: number
+    law16744Label: string
+    pensionReform: number
+    pensionReformRate: number
+    pensionReformLabel: string
+    pensionReformIncludesSis: boolean
+    total: number
+  }
 }
 
 // ============================================
