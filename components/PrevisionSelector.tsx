@@ -16,6 +16,15 @@ export interface PrevisionFormData {
   // Régimen
   previsional_regime?: 'AFP' | 'OTRO_REGIMEN'
   
+  // Tipo de trabajador
+  worker_type?: 'REGULAR' | 'DOMESTIC_WORKER'
+  domestic_worker_mode?: 'LIVE_IN' | 'LIVE_OUT'
+  gratification_type?: 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL'
+  weekly_hours?: string
+  law16744_organism?: 'MUTUAL' | 'ISL'
+  law16744_rate?: string
+  afc_applicable?: boolean
+  
   // Campos AFP
   afp?: string
   health_system?: string
@@ -100,10 +109,158 @@ export default function PrevisionSelector({
     <div style={{ marginTop: '32px' }}>
       <h2>Régimen Previsional</h2>
       
-      {/* Selector de Régimen */}
+      {/* Selector de Tipo de Trabajador */}
       <div className="form-row">
         <div className="form-group">
-          <label>Tipo de Régimen *</label>
+          <label>Tipo de Trabajador *</label>
+          <select
+            required={required}
+            value={value.worker_type || 'REGULAR'}
+            onChange={(e) => {
+              const workerType = e.target.value as 'REGULAR' | 'DOMESTIC_WORKER'
+              if (workerType === 'DOMESTIC_WORKER') {
+                onChange({
+                  ...value,
+                  worker_type: 'DOMESTIC_WORKER',
+                  domestic_worker_mode: value.domestic_worker_mode || 'LIVE_OUT',
+                  gratification_type: 'NONE',
+                  law16744_organism: value.law16744_organism || 'ISL',
+                  law16744_rate: value.law16744_rate || '0.93',
+                  previsional_regime: 'AFP',
+                  afc_applicable: false as any,
+                })
+              } else {
+                onChange({
+                  ...value,
+                  worker_type: 'REGULAR',
+                  domestic_worker_mode: undefined,
+                  gratification_type: value.gratification_type || 'LEGAL_ARTICLE_50',
+                  law16744_organism: undefined,
+                  law16744_rate: undefined,
+                  weekly_hours: undefined,
+                  afc_applicable: undefined as any,
+                })
+              }
+            }}
+            style={{
+              padding: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+          >
+            <option value="REGULAR">Trabajador Dependiente Regular</option>
+            <option value="DOMESTIC_WORKER">Trabajadora de Casa Particular</option>
+          </select>
+          <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+            {value.worker_type === 'DOMESTIC_WORKER' 
+              ? 'Persona natural que contrata asesora de hogar. Sin gratificación, sin AFC trabajador, con reglas especiales.' 
+              : 'Trabajador dependiente regular con gratificación legal y AFC.'}
+          </small>
+        </div>
+      </div>
+      
+      {/* Campos de Casa Particular */}
+      {value.worker_type === 'DOMESTIC_WORKER' && (
+        <>
+          <div className="form-row" style={{ marginTop: '12px' }}>
+            <div className="form-group">
+              <label>Modalidad *</label>
+              <select
+                required={required}
+                value={value.domestic_worker_mode || 'LIVE_OUT'}
+                onChange={(e) => onChange({ ...value, domestic_worker_mode: e.target.value as 'LIVE_IN' | 'LIVE_OUT' })}
+                style={{ padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px' }}
+              >
+                <option value="LIVE_OUT">Puertas Afuera</option>
+                <option value="LIVE_IN">Puertas Adentro</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Horas Semanales Efectivas</label>
+              <input
+                type="number"
+                min="1"
+                max="45"
+                step="0.25"
+                value={value.weekly_hours || ''}
+                onChange={(e) => onChange({ ...value, weekly_hours: e.target.value })}
+                placeholder="Ej: 26.25"
+              />
+              <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                Horas efectivas (sin colación). Para calcular salario mínimo proporcional.
+              </small>
+            </div>
+            <div className="form-group">
+              <label>Gratificación</label>
+              <select
+                value={value.gratification_type || 'NONE'}
+                onChange={(e) => onChange({ ...value, gratification_type: e.target.value as any })}
+                style={{ padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px' }}
+              >
+                <option value="NONE">Sin Gratificación (recomendado)</option>
+                <option value="LEGAL_ARTICLE_47">Art. 47 (25% sin tope)</option>
+                <option value="LEGAL_ARTICLE_50">Art. 50 (25% con tope)</option>
+                <option value="CONTRACTUAL">Contractual (monto pactado)</option>
+              </select>
+              <small style={{ color: '#dc2626', fontSize: '12px' }}>
+                Casa particular: normalmente SIN gratificación.
+              </small>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Organismo Ley 16.744</label>
+              <select
+                value={value.law16744_organism || 'ISL'}
+                onChange={(e) => onChange({ ...value, law16744_organism: e.target.value as 'MUTUAL' | 'ISL' })}
+                style={{ padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px' }}
+              >
+                <option value="ISL">ISL - Instituto de Seguridad Laboral (0.93%)</option>
+                <option value="MUTUAL">Mutual de Seguridad</option>
+              </select>
+              <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                Cargo del empleador. Casa particular suele usar ISL.
+              </small>
+            </div>
+            <div className="form-group">
+              <label>Tasa Ley 16.744 (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="5"
+                step="0.01"
+                value={value.law16744_rate || '0.93'}
+                onChange={(e) => onChange({ ...value, law16744_rate: e.target.value })}
+                placeholder="0.93"
+              />
+              <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                Tasa base + adicional si corresponde. ISL: 0.93%
+              </small>
+            </div>
+          </div>
+          <div style={{
+            background: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '6px',
+            padding: '12px',
+            marginTop: '12px',
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-start'
+          }}>
+            <FaExclamationTriangle style={{ color: '#f59e0b', marginTop: '2px', flexShrink: 0 }} />
+            <div style={{ fontSize: '13px', color: '#92400e' }}>
+              <strong>Casa Particular:</strong> No se aplica AFC al trabajador (0%). AFC empleador: 3%. Indemnización a todo evento: 1.11%. Gratificación: deshabilitada por defecto. Ley 16.744: cargo empleador.
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Selector de Régimen */}
+      <div className="form-row" style={{ marginTop: '16px' }}>
+        <div className="form-group">
+          <label>Tipo de Régimen Previsional *</label>
           <select
             required={required}
             value={regime}
