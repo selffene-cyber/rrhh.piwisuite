@@ -176,21 +176,29 @@ CREATE INDEX IF NOT EXISTS idx_employees_gratification_type
 -- ==============================================================================
 
 -- AFC Trabajador Casa Particular: 0% (NO descuenta al trabajador)
-INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
-VALUES ('AFC_TRABAJADOR_CASA_PARTICULAR', '2025-01-01', NULL, 0.00, 'trabajador', 'imponible_seg_ces', 'AFC', 'Ley 19.728 Art 15 - Casa particular no cotiza AFC trabajador', 'internal_validated', 'validated');
+DO $$ BEGIN
+  INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
+  VALUES ('AFC_TRABAJADOR_CASA_PARTICULAR', '2025-01-01', NULL, 0.00, 'trabajador', 'imponible_seg_ces', 'AFC', 'Ley 19.728 Art 15 - Casa particular no cotiza AFC trabajador', 'internal_validated', 'validated');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- AFC Empleador Casa Particular: 3.0%
 -- Desglose: 2.2% Cuenta Individual + 0.8% Fondo Solidario
-INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
-VALUES ('AFC_EMPLEADOR_CASA_PARTICULAR', '2025-01-01', NULL, 3.00, 'empleador', 'imponible_seg_ces', 'AFC', 'Ley 19.728 Art 15 - Casa particular empleador 3%', 'internal_validated', 'validated');
+DO $$ BEGIN
+  INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
+  VALUES ('AFC_EMPLEADOR_CASA_PARTICULAR', '2025-01-01', NULL, 3.00, 'empleador', 'imponible_seg_ces', 'AFC', 'Ley 19.728 Art 15 - Casa particular empleador 3%', 'internal_validated', 'validated');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- Indemnizacion a todo evento Casa Particular: 1.11%
-INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
-VALUES ('INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR', '2025-01-01', NULL, 1.11, 'empleador', 'imponible_seg_ces', 'AFC', 'Ley 19.728 - Indemnizacion a todo evento casa particular', 'internal_validated', 'validated');
+DO $$ BEGIN
+  INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
+  VALUES ('INDEMNIZACION_A_TODO_EVENTO_CASA_PARTICULAR', '2025-01-01', NULL, 1.11, 'empleador', 'imponible_seg_ces', 'AFC', 'Ley 19.728 - Indemnizacion a todo evento casa particular', 'internal_validated', 'validated');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- Ley 16.744 ISL para Casa Particular: 0.93%
-INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
-VALUES ('LEY16744_ISL_CASA_PARTICULAR', '2025-01-01', NULL, 0.93, 'empleador', 'imponible_afp', 'ISL', 'Ley 16.744 - ISL casa particular 0.93%', 'internal_validated', 'validated');
+DO $$ BEGIN
+  INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
+  VALUES ('LEY16744_ISL_CASA_PARTICULAR', '2025-01-01', NULL, 0.93, 'empleador', 'imponible_afp', 'ISL', 'Ley 16.744 - ISL casa particular 0.93%', 'internal_validated', 'validated');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- ============================================
 -- PASO 12: Tasa patronal total Reforma Previsional (agosto 2026+)
@@ -202,25 +210,41 @@ VALUES ('LEY16744_ISL_CASA_PARTICULAR', '2025-01-01', NULL, 0.93, 'empleador', '
 -- Tasa patronal previsional total desde agosto 2026: 3.5%
 -- Esto REEMPLAZA a SIS (2.00%), AFP_EMPLEADOR_CUENTA_INDIVIDUAL (0.10%) y CRP (0.90%)
 -- que individualmente suman 3.0%. La tasa de 3.5% incluye un incremento adicional.
-INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
-VALUES ('EMPLOYER_PENSION_REFORM_TOTAL', '2026-08-01', NULL, 3.50, 'empleador', 'imponible_afp', 'AFP', 'Ley 21.735 - Aporte previsional patronal total agosto 2026', 'internal_validated', 'pending');
+DO $$ BEGIN
+  INSERT INTO prevision_rates (concept_code, valid_from, valid_to, rate, financing_party, taxable_base_type, collection_entity, legal_reference, data_source, validation_status)
+  VALUES ('EMPLOYER_PENSION_REFORM_TOTAL', '2026-08-01', NULL, 3.50, 'empleador', 'imponible_afp', 'AFP', 'Ley 21.735 - Aporte previsional patronal total agosto 2026', 'internal_validated', 'pending');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- ============================================
 -- PASO 13: Salario minimo para casa particular
 -- ==============================================================================
 
 -- Ingreso Minimo Mensual para Trabajador de Casa Particular (mayo 2026+)
-INSERT INTO prevision_limits (limit_code, valid_from, valid_to, amount, unit, legal_reference, validation_status)
-VALUES ('RMI_TRAB_CASA_PART', '2026-05-01', NULL, 553553, 'pesos', 'Ley 21.587 - Ingreso minimo casa particular', 'pending');
+DO $$ BEGIN
+  INSERT INTO prevision_limits (limit_code, valid_from, valid_to, amount, unit, legal_reference, validation_status)
+  VALUES ('RMI_TRAB_CASA_PART', '2026-05-01', NULL, 553553, 'pesos', 'Ley 21.587 - Ingreso minimo casa particular', 'pending');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- Ingreso Minimo Mensual para Trabajador Dependiente (mayo 2026+)
--- Actualizar el existente si es necesario, pero no modificar el historical
-INSERT INTO prevision_limits (limit_code, valid_from, valid_to, amount, unit, legal_reference, validation_status)
-VALUES ('RMI_TRAB_DEPE', '2026-05-01', NULL, 553553, 'pesos', 'Ley 21.587 - Ingreso minimo dependiente', 'pending');
+-- Primero cerrar el rango del registro existente que tiene valid_to = NULL
+-- (Si el UPDATE ya se ejecuto manualmente, no hace nada)
+UPDATE prevision_limits
+SET valid_to = '2026-04-30'
+WHERE limit_code = 'RMI_TRAB_DEPE'
+  AND valid_from = '2026-01-01'
+  AND valid_to IS NULL;
+
+-- (Si el INSERT ya se ejecuto manualmente, se ignora por EXCEPTION)
+DO $$ BEGIN
+  INSERT INTO prevision_limits (limit_code, valid_from, valid_to, amount, unit, legal_reference, validation_status)
+  VALUES ('RMI_TRAB_DEPE', '2026-05-01', NULL, 553553, 'pesos', 'Ley 21.587 - Ingreso minimo dependiente', 'pending');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- Jornada ordinaria maxima semanal (referencia)
-INSERT INTO prevision_limits (limit_code, valid_from, valid_to, amount, unit, legal_reference, validation_status)
-VALUES ('MAX_WEEKLY_HOURS', '2025-01-01', NULL, 42, 'horas', 'Codigo del Trabajo Art 22 - Jornada ordinaria maxima', 'validated');
+DO $$ BEGIN
+  INSERT INTO prevision_limits (limit_code, valid_from, valid_to, amount, unit, legal_reference, validation_status)
+  VALUES ('MAX_WEEKLY_HOURS', '2025-01-01', NULL, 42, 'horas', 'Codigo del Trabajo Art 22 - Jornada ordinaria maxima', 'validated');
+EXCEPTION WHEN others THEN RAISE NOTICE 'Skipped: %', SQLERRM; END; $$;
 
 -- ============================================
 -- NOTAS IMPORTANTES
