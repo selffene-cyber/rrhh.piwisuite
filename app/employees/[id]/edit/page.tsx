@@ -73,6 +73,13 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     contract_other: '',
     termination_date: '',
     inactive_note: '',
+    // Tipo de trabajador y casa particular
+    worker_type: 'REGULAR' as 'REGULAR' | 'DOMESTIC_WORKER',
+    domestic_worker_mode: 'LIVE_OUT' as 'LIVE_IN' | 'LIVE_OUT',
+    gratification_type: 'LEGAL_ARTICLE_50' as 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL',
+    weekly_hours: '',
+    law16744_organism: 'ISL' as 'MUTUAL' | 'ISL',
+    law16744_rate: '0.93',
     // Campos LRE (Libro de Remuneraciones Electrónico - DT)
     dt_tipo_impuesto_renta: 1,
     dt_tecnico_extranjero: 0,
@@ -232,6 +239,13 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           manual_health_rate: (data.manual_health_rate || '').toString(),
           manual_base_type: data.manual_base_type || 'imponible',
           manual_employer_rate: (data.manual_employer_rate || '').toString(),
+          // Tipo de trabajador y casa particular
+          worker_type: data.worker_type || 'REGULAR',
+          domestic_worker_mode: data.domestic_worker_mode || 'LIVE_OUT',
+          gratification_type: data.gratification_type || (data.worker_type === 'DOMESTIC_WORKER' ? 'NONE' : 'LEGAL_ARTICLE_50'),
+          weekly_hours: data.weekly_hours ? data.weekly_hours.toString() : '',
+          law16744_organism: data.law16744_organism || 'ISL',
+          law16744_rate: (data.law16744_rate ?? 0.93).toString(),
           // Otros campos
           base_salary: data.base_salary.toString(),
           transportation: (data.transportation || 0).toString(),
@@ -391,7 +405,8 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
       if (formData.previsional_regime === 'AFP') {
         updateData.afp = formData.afp || 'PROVIDA'
         updateData.health_system = formData.health_system || 'FONASA'
-        updateData.afc_applicable = true // AFP sí tiene AFC
+        // AFC: regular=true, DOMESTIC_WORKER=false
+        updateData.afc_applicable = formData.worker_type === 'DOMESTIC_WORKER' ? false : true
         if (formData.health_system === 'ISAPRE') {
           updateData.health_plan_percentage = parseFloat(formData.health_plan_percentage) || 0
         } else {
@@ -419,6 +434,16 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
         updateData.health_plan = null
         updateData.health_plan_percentage = null
       }
+      
+      // Campos de tipo de trabajador y casa particular
+      updateData.worker_type = formData.worker_type || 'REGULAR'
+      updateData.gratification_type = formData.gratification_type || (formData.worker_type === 'DOMESTIC_WORKER' ? 'NONE' : 'LEGAL_ARTICLE_50')
+      updateData.domestic_worker_mode = formData.worker_type === 'DOMESTIC_WORKER' ? (formData.domestic_worker_mode || 'LIVE_OUT') : null
+      updateData.weekly_hours = formData.weekly_hours ? parseFloat(formData.weekly_hours) : null
+      updateData.minimum_wage_type = formData.worker_type === 'DOMESTIC_WORKER' ? 'PROPORTIONAL' : 'FULL'
+      updateData.law16744_organism = formData.worker_type === 'DOMESTIC_WORKER' ? (formData.law16744_organism || 'ISL') : null
+      updateData.law16744_rate = formData.worker_type === 'DOMESTIC_WORKER' ? (parseFloat(formData.law16744_rate) || 0.93) : null
+      updateData.law16744_additional_rate = null
 
       const { error } = await supabase
         .from('employees')
@@ -841,6 +866,12 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
               manual_health_rate: formData.manual_health_rate,
               manual_base_type: formData.manual_base_type,
               manual_employer_rate: formData.manual_employer_rate,
+              worker_type: formData.worker_type as any,
+              domestic_worker_mode: formData.domestic_worker_mode as any,
+              gratification_type: formData.gratification_type as any,
+              weekly_hours: formData.weekly_hours,
+              law16744_organism: formData.law16744_organism as any,
+              law16744_rate: formData.law16744_rate,
             }}
             onChange={(previsionData) => setFormData({ ...formData, ...previsionData })}
             required

@@ -759,6 +759,12 @@ export default function NewEmployeePage() {
               manual_health_rate: formData.manual_health_rate,
               manual_base_type: formData.manual_base_type,
               manual_employer_rate: formData.manual_employer_rate,
+              worker_type: formData.worker_type as any,
+              domestic_worker_mode: formData.domestic_worker_mode as any,
+              gratification_type: formData.gratification_type as any,
+              weekly_hours: formData.weekly_hours,
+              law16744_organism: formData.law16744_organism as any,
+              law16744_rate: formData.law16744_rate,
             }}
             onChange={(previsionData) => setFormData({ ...formData, ...previsionData })}
             required
