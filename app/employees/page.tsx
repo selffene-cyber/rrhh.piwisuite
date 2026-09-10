@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { Employee, CostCenter } from '@/types'
-import { FaEye, FaPencilAlt, FaTrash, FaChevronDown, FaChevronUp, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa'
+import { FaEye, FaPencilAlt, FaTrash, FaChevronDown, FaChevronUp, FaCheckCircle, FaExclamationTriangle, FaFileExcel } from 'react-icons/fa'
+import * as XLSX from 'xlsx'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { getCostCenters, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
@@ -251,6 +252,74 @@ export default function EmployeesPage() {
 
   const hasActiveFilters = selectedCostCenterId || selectedStatus || selectedRegime || selectedAFP || selectedHealthSystem || selectedPosition
 
+  const exportToExcel = async () => {
+    if (!companyId) return
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('full_name')
+
+      if (fetchError) throw fetchError
+      if (!data || data.length === 0) {
+        alert('No hay trabajadores para exportar')
+        return
+      }
+
+      const rows = data.map((emp: any) => ({
+        'Nombre Completo': emp.full_name || '',
+        'RUT': emp.rut || '',
+        'Fecha Nacimiento': emp.birth_date || '',
+        'Dirección': emp.address || '',
+        'Teléfono': emp.phone || '',
+        'Email': emp.email || '',
+        'Cargo': emp.position || '',
+        'Centro de Costo': emp.cost_center_id || '',
+        'Departamento': emp.department_id || '',
+        'Sueldo Base': emp.base_salary || 0,
+        'Movilización': emp.transportation || 0,
+        'Colación': emp.meal_allowance || 0,
+        'Fecha Ingreso': emp.hire_date || '',
+        'Tipo Contrato': emp.contract_type || '',
+        'Fecha Término Contrato': emp.contract_end_date || '',
+        'Estado': emp.status || '',
+        'Régimen Previsional': emp.previsional_regime || '',
+        'AFP': emp.afp || '',
+        'Sistema de Salud': emp.health_system || '',
+        'Plan Salud': emp.health_plan || '',
+        '% Plan Salud': emp.health_plan_percentage || 0,
+        'Tipo Trabajador': emp.worker_type || 'REGULAR',
+        'Modalidad Casa Particular': emp.domestic_worker_mode || '',
+        'Tipo Gratificación': emp.gratification_type || '',
+        'Horas Semanales': emp.weekly_hours || '',
+        'Tipo Sueldo Mínimo': emp.minimum_wage_type || 'FULL',
+        'Organismo Ley 16.744': emp.law16744_organism || '',
+        'Tasa Ley 16.744': emp.law16744_rate || '',
+        'AFC Aplicable': emp.afc_applicable ? 'Sí' : 'No',
+        'Régimen Otro Tipo': emp.other_regime_type || '',
+        'Banco': emp.bank_name || '',
+        'Tipo Cuenta': emp.account_type || '',
+        'Número Cuenta': emp.account_number || '',
+        'Solicita Anticipo': emp.requests_advance ? 'Sí' : 'No',
+        'Monto Anticipo': emp.advance_amount || 0,
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const colWidths = Object.keys(rows[0]).map((key) => {
+        const maxLen = Math.max(key.length, ...rows.map((r: any) => String(r[key as keyof typeof r] || '').length))
+        return { wch: Math.min(maxLen + 2, 40) }
+      })
+      ws['!cols'] = colWidths
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Trabajadores')
+      XLSX.writeFile(wb, `trabajadores_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    } catch (err: any) {
+      alert('Error al exportar Excel: ' + (err.message || 'Error desconocido'))
+    }
+  }
+
   if (loading) {
     return <div><h1>Trabajadores</h1><div className="card"><p>Cargando trabajadores...</p></div></div>
   }
@@ -368,6 +437,7 @@ export default function EmployeesPage() {
           </Link>
           <Link href="/employees/new"><button>Nuevo Trabajador</button></Link>
           <Link href="/employees/form-pdf"><button style={{ background: '#10b981', color: 'white' }}>Formulario de Registro (PDF)</button></Link>
+          <button onClick={exportToExcel} style={{ background: '#217346', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}><FaFileExcel /> Descargar Excel</button>
         </div>
       </div>
 
