@@ -443,7 +443,6 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
       updateData.minimum_wage_type = formData.worker_type === 'DOMESTIC_WORKER' ? 'PROPORTIONAL' : 'FULL'
       updateData.law16744_organism = formData.worker_type === 'DOMESTIC_WORKER' ? (formData.law16744_organism || 'ISL') : null
       updateData.law16744_rate = formData.worker_type === 'DOMESTIC_WORKER' ? (parseFloat(formData.law16744_rate) || 0.93) : null
-      updateData.law16744_additional_rate = null
 
       const { error } = await supabase
         .from('employees')
