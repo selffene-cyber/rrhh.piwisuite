@@ -64,7 +64,6 @@ export interface EmployeeWithPrevision {
   minimum_wage_type?: 'FULL' | 'PROPORTIONAL'
   law16744_organism?: 'MUTUAL' | 'ISL'
   law16744_rate?: number
-  law16744_additional_rate?: number
   
   // Otros campos necesarios para liquidación
   contract_type?: string
