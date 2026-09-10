@@ -203,6 +203,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     if (companyId) {
+      setLoading(true)
       loadAllEmployees()
     } else {
       setEmployees([])
