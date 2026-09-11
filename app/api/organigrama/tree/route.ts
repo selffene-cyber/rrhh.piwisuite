@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClientForAPI } from '@/lib/supabase/server-api'
+import { ACTIVE_STATUSES } from '@/lib/utils/employeeStatus'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // Obtener todos los empleados activos de la empresa con información completa
+    // Obtener solo empleados operacionalmente activos de la empresa
     const { data: employees, error } = await supabase
       .from('employees')
       .select(`
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('company_id', company_id)
+      .in('status', ACTIVE_STATUSES)
       .order('full_name')
 
     if (error) throw error

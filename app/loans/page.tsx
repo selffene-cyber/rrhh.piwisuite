@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { FaHandHoldingUsd, FaChartLine, FaFileInvoiceDollar, FaTrash, FaPlus } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import { ACTIVE_STATUSES } from '@/lib/utils/employeeStatus'
 
 export default function LoansManagementPage() {
   const { companyId } = useCurrentCompany()
@@ -41,6 +42,7 @@ export default function LoansManagementPage() {
         .from('employees')
         .select('id')
         .eq('company_id', companyId)
+        .in('status', ACTIVE_STATUSES)
 
       if (employeesError) throw employeesError
 

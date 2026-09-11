@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/utils/date'
 import { FaStethoscope, FaEye, FaPlus, FaTrash, FaTimes } from 'react-icons/fa'
+import { ACTIVE_STATUSES } from '@/lib/utils/employeeStatus'
 
 const LEAVE_TYPES = [
   { value: 'enfermedad_comun', label: 'Enfermedad Común' },
@@ -54,6 +55,7 @@ export default function MedicalLeavesManagementPage() {
         .from('employees')
         .select('id, full_name, rut, position')
         .eq('company_id', companyId)
+        .in('status', ACTIVE_STATUSES)
 
       if (!employeesData) return
 
