@@ -196,6 +196,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         { href: '/payroll', label: 'Liquidaciones', icon: FaFileInvoiceDollar },
         { href: '/payroll/reliquidations', label: 'Reliquidaciones', icon: FaRedo },
         { href: '/loans', label: 'Gestionar Préstamos', icon: FaHandHoldingUsd },
+        { href: '/attendance', label: 'Asistencia', icon: FaCalendarAlt },
         { href: '/overtime', label: 'Gestión Horas Extras', icon: FaClock },
         { href: '/settlements', label: 'Finiquitos', icon: FaFileContract },
       ]

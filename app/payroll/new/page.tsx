@@ -10,6 +10,8 @@ import { getCachedIndicators } from '@/lib/services/indicatorsCache'
 import { formatNumberForInput, parseFormattedNumber } from '@/lib/utils/formatNumber'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { createValidationServices } from '@/lib/services/validationHelpers'
+import { calculateAttendanceSummary, type AttendanceSummary } from '@/lib/services/attendanceSummary'
+import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS } from '@/lib/utils/attendanceTypes'
 
 export default function NewPayrollPage() {
   const { companyId } = useCurrentCompany()
@@ -66,6 +68,9 @@ export default function NewPayrollPage() {
     startDate: string | null
     endDate: string | null
   } | null>(null)
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null)
+  const [attendanceVerified, setAttendanceVerified] = useState(false)
+  const [showAttendanceDetail, setShowAttendanceDetail] = useState(false)
 
   // Verificar pacto de horas extra cuando se ingresan horas o cambia el trabajador/período
   useEffect(() => {
@@ -115,6 +120,25 @@ export default function NewPayrollPage() {
 
     checkOvertimePact()
   }, [selectedEmployee, formData.overtime_hours, formData.year, formData.month])
+
+  // Cargar resumen de asistencia cuando se selecciona empleado y período
+  useEffect(() => {
+    const loadAttendance = async () => {
+      if (!selectedEmployee || !companyId) {
+        setAttendanceSummary(null)
+        setAttendanceVerified(false)
+        return
+      }
+      try {
+        const summary = await calculateAttendanceSummary(selectedEmployee.id, companyId, formData.year, formData.month)
+        setAttendanceSummary(summary)
+      } catch (err) {
+        console.error('Error loading attendance summary:', err)
+        setAttendanceSummary(null)
+      }
+    }
+    loadAttendance()
+  }, [selectedEmployee, companyId, formData.year, formData.month])
 
   // En Chile, la convención legal es usar siempre 30 días para el cálculo mensual
   // Independientemente de si el mes tiene 28, 29, 30 o 31 días
@@ -1766,6 +1790,118 @@ export default function NewPayrollPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Attendance Verification Section */}
+          {attendanceSummary && attendanceSummary.records.length > 0 && (
+            <div className="card" style={{ marginTop: '16px', borderLeft: '4px solid #3b82f6' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '15px' }}>📋 Verificación de Asistencia — {MONTHS[formData.month - 1]} {formData.year}</h3>
+                <button
+                  className="secondary"
+                  onClick={() => setShowAttendanceDetail(!showAttendanceDetail)}
+                  style={{ padding: '4px 12px', fontSize: '12px' }}
+                >
+                  {showAttendanceDetail ? 'Ocultar Detalle' : 'Ver Detalle'}
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#f0fdf4', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>{attendanceSummary.days_present + attendanceSummary.days_late + attendanceSummary.days_early_departure}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Presentes</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#fffbeb', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>{attendanceSummary.days_late}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Atrasos</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#fef2f2', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>{attendanceSummary.days_absent}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Ausentes</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#f5f3ff', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#8b5cf6' }}>{attendanceSummary.days_medical_leave}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Lic. Médica</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#ecfeff', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#06b6d4' }}>{attendanceSummary.days_vacation}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Vacaciones</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#dbeafe', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#3b82f6' }}>{attendanceSummary.days_permission_without_pay}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Perm. s/Goce</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700' }}>{attendanceSummary.total_hours_worked > 0 ? attendanceSummary.total_hours_worked.toFixed(1) : '—'}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Horas Total</div>
+                </div>
+              </div>
+
+              {attendanceSummary.total_late_minutes > 0 && (
+                <div style={{ padding: '8px', background: '#fffbeb', borderRadius: '4px', marginBottom: '8px', fontSize: '13px' }}>
+                  ⏱ <strong>Total minutos de atraso:</strong> {attendanceSummary.total_late_minutes} min ({(attendanceSummary.total_late_minutes / 60).toFixed(1)} hrs)
+                </div>
+              )}
+              {attendanceSummary.total_overtime_minutes > 0 && (
+                <div style={{ padding: '8px', background: '#f0fdf4', borderRadius: '4px', marginBottom: '8px', fontSize: '13px' }}>
+                  ⏰ <strong>Total horas extras:</strong> {attendanceSummary.total_overtime_minutes} min ({(attendanceSummary.total_overtime_minutes / 60).toFixed(1)} hrs)
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: attendanceVerified ? '#f0fdf4' : '#fef3c7', borderRadius: '6px', border: `1px solid ${attendanceVerified ? '#10b981' : '#f59e0b'}` }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={attendanceVerified}
+                    onChange={(e) => setAttendanceVerified(e.target.checked)}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span style={{ fontWeight: '600' }}>
+                    {attendanceVerified ? '✓ Asistencia verificada' : 'Verificar datos de asistencia'}
+                  </span>
+                </label>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {attendanceVerified ? 'Los datos de asistencia han sido revisados y confirmados.' : 'Revisa los datos de asistencia antes de generar la liquidación.'}
+                </span>
+              </div>
+
+              {showAttendanceDetail && (
+                <div style={{ marginTop: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb' }}>
+                        <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Fecha</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Estado</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Ingreso</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Salida</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Horas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceSummary.records.map((rec) => {
+                        const statusColor = ATTENDANCE_STATUS_COLORS[rec.status as keyof typeof ATTENDANCE_STATUS_COLORS]
+                        return (
+                          <tr key={rec.date} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '4px 8px' }}>{rec.date}</td>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                              <span style={{
+                                padding: '2px 6px', borderRadius: '8px', fontSize: '11px', fontWeight: '500',
+                                background: statusColor?.bg || '#f3f4f6', color: statusColor?.color || '#6b7280',
+                              }}>
+                                {ATTENDANCE_STATUS_LABELS[rec.status as keyof typeof ATTENDANCE_STATUS_LABELS] || rec.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>{rec.clock_in || '—'}</td>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>{rec.clock_out || '—'}</td>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>{rec.hours_worked !== null ? `${rec.hours_worked}h` : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
