@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
-import { FaClock, FaSignOutAlt, FaHistory, FaExclamationTriangle } from 'react-icons/fa'
+import { FaClock, FaSignOutAlt, FaHistory, FaExclamationTriangle, FaEdit } from 'react-icons/fa'
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_COLORS,
@@ -24,6 +24,9 @@ export default function EmployeeAttendancePage() {
   const [clocking, setClocking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [schedule, setSchedule] = useState<{ start: string; end: string; weeklyHours: number } | null>(null)
+  const [showCorrection, setShowCorrection] = useState(false)
+  const [correctionForm, setCorrectionForm] = useState({ record_date: '', requested_clock_in: '', requested_clock_out: '', reason: '' })
+  const [submittingCorrection, setSubmittingCorrection] = useState(false)
 
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
@@ -244,6 +247,45 @@ export default function EmployeeAttendancePage() {
     return `${h}:${m.toString().padStart(2, '0')}`
   }
 
+  const handleCorrectionRequest = async () => {
+    if (!employeeId || !companyId || !correctionForm.record_date || !correctionForm.reason) return
+    setSubmittingCorrection(true)
+    try {
+      const record = weeklyRecords.find(r => r.date === correctionForm.record_date) || todayRecord?.date === correctionForm.record_date ? todayRecord : null
+
+      const { error } = await supabase
+        .from('attendance_corrections')
+        .insert({
+          employee_id: employeeId,
+          company_id: companyId,
+          record_date: correctionForm.record_date,
+          current_clock_in: record?.clock_in || null,
+          current_clock_out: record?.clock_out || null,
+          requested_clock_in: correctionForm.requested_clock_in || null,
+          requested_clock_out: correctionForm.requested_clock_out || null,
+          reason: correctionForm.reason,
+          status: 'pending',
+        })
+
+      if (error) throw error
+
+      if (record) {
+        await supabase
+          .from('attendance_records')
+          .update({ correction_requested: true })
+          .eq('id', record.id)
+      }
+
+      setShowCorrection(false)
+      setCorrectionForm({ record_date: '', requested_clock_in: '', requested_clock_out: '', reason: '' })
+      alert('Solicitud de corrección enviada correctamente.')
+    } catch (err: any) {
+      alert('Error al enviar corrección: ' + (err.message || 'Error desconocido'))
+    } finally {
+      setSubmittingCorrection(false)
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -366,6 +408,55 @@ export default function EmployeeAttendancePage() {
             }}>
               {ATTENDANCE_STATUS_LABELS[todayRecord.status] || todayRecord.status}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Correction Request Button */}
+      <button
+        onClick={() => setShowCorrection(true)}
+        style={{
+          width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb',
+          background: 'white', cursor: 'pointer', marginBottom: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          fontSize: '14px', color: '#3b82f6',
+        }}
+      >
+        <FaEdit /> Solicitar Corrección de Horario
+      </button>
+
+      {/* Correction Request Modal */}
+      {showCorrection && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px' }}>Solicitar Corrección</h3>
+              <button onClick={() => setShowCorrection(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>&times;</button>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Fecha *</label>
+              <input type="date" value={correctionForm.record_date} onChange={(e) => setCorrectionForm({ ...correctionForm, record_date: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Ingreso Correcto</label>
+                <input type="time" value={correctionForm.requested_clock_in} onChange={(e) => setCorrectionForm({ ...correctionForm, requested_clock_in: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Salida Correcta</label>
+                <input type="time" value={correctionForm.requested_clock_out} onChange={(e) => setCorrectionForm({ ...correctionForm, requested_clock_out: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb' }} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Motivo *</label>
+              <textarea value={correctionForm.reason} onChange={(e) => setCorrectionForm({ ...correctionForm, reason: e.target.value })} rows={2} placeholder="Explica por qué necesitas la corrección..." style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb', resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="secondary" onClick={() => setShowCorrection(false)} style={{ flex: 1 }}>Cancelar</button>
+              <button onClick={handleCorrectionRequest} disabled={submittingCorrection || !correctionForm.record_date || !correctionForm.reason} style={{ flex: 1 }}>
+                {submittingCorrection ? 'Enviando...' : 'Enviar Solicitud'}
+              </button>
+            </div>
           </div>
         </div>
       )}
