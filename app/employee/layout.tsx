@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { FaHome, FaFileAlt, FaListAlt, FaSignOutAlt, FaShieldAlt } from 'react-icons/fa'
+import { FaHome, FaFileAlt, FaListAlt, FaSignOutAlt, FaShieldAlt, FaClock } from 'react-icons/fa'
 import PWAUpdateBanner from '@/components/PWAUpdateBanner'
 import './employee-portal-tailwind.css'
 
@@ -139,7 +139,7 @@ export default function EmployeeLayout({
       {/* Navegación inferior con Preline UI */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
         <div className="max-w-2xl mx-auto">
-          <div className="grid grid-cols-4 gap-0">
+          <div className="grid grid-cols-5 gap-0">
             <Link
               href="/employee"
               className={`flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
@@ -150,6 +150,17 @@ export default function EmployeeLayout({
             >
               <FaHome className="text-lg" />
               <span>Inicio</span>
+            </Link>
+            <Link
+              href="/employee/attendance"
+              className={`flex flex-col items-center gap-1 py-3 px-2 text-xs font-medium transition-colors ${
+                pathname.startsWith('/employee/attendance')
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              <FaClock className="text-lg" />
+              <span>Asistencia</span>
             </Link>
             <Link
               href="/employee/requests"
