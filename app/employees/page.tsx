@@ -138,6 +138,7 @@ export default function EmployeesPage() {
   const loadAllEmployees = useCallback(async () => {
     if (!companyId) return
     try {
+      setLoading(true)
       const { data, error: fetchError } = await supabase
         .from('employees')
         .select('id, full_name, rut, position, afp, health_system, base_salary, status, company_id, cost_center_id, cost_centers(code, name), previsional_regime, other_regime_type')
@@ -154,6 +155,8 @@ export default function EmployeesPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Error desconocido')
+    } finally {
+      setLoading(false)
     }
   }, [companyId])
 
@@ -204,7 +207,6 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     if (companyId) {
-      setLoading(true)
       loadAllEmployees()
     } else {
       setEmployees([])
