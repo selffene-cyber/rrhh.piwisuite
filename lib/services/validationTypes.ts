@@ -9,7 +9,7 @@ export type ValidationResult = {
   details?: Record<string, any>
 }
 
-export type EmployeeStatus = 'active' | 'inactive' | 'renuncia' | 'despido'
+export type EmployeeStatus = 'active' | 'inactive' | 'licencia_medica' | 'renuncia' | 'despido'
 export type ContractStatus = 'draft' | 'issued' | 'signed' | 'active' | 'terminated' | 'cancelled'
 export type AnnexStatus = 'draft' | 'issued' | 'signed' | 'active' | 'cancelled'
 export type ContractType = 'indefinido' | 'plazo_fijo' | 'obra_faena' | 'part_time'

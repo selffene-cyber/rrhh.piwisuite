@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
@@ -21,6 +21,13 @@ export default function NewPayrollPage() {
   const [saving, setSaving] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
+  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false)
+  const filteredEmployees = employees.filter((emp: any) => {
+    if (!employeeSearch) return true
+    const search = employeeSearch.toLowerCase()
+    return emp.full_name?.toLowerCase().includes(search) || emp.rut?.toLowerCase().includes(search)
+  })
   const [formData, setFormData] = useState({
     employee_id: employeeIdParam || '',
     year: getCurrentMonthYear().year,
@@ -1516,18 +1523,60 @@ export default function NewPayrollPage() {
           <div className="form-row">
             <div className="form-group">
               <label>Trabajador *</label>
-              <select
-                required
-                value={formData.employee_id}
-                onChange={(e) => handleEmployeeChange(e.target.value)}
-              >
-                <option value="">Seleccionar trabajador</option>
-                {employees.map((emp: any) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} - {emp.rut}
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o RUT..."
+                  value={employeeSearch}
+                  onChange={(e) => {
+                    setEmployeeSearch(e.target.value)
+                    setShowEmployeeDropdown(true)
+                  }}
+                  onFocus={() => setShowEmployeeDropdown(true)}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px' }}
+                />
+                {selectedEmployee && (
+                  <div style={{ position: 'absolute', right: '40px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#10b981', fontWeight: '600' }}>
+                    {selectedEmployee.status === 'active' ? '● Activo' : selectedEmployee.status === 'licencia_medica' ? '● Licencia Médica' : selectedEmployee.status === 'renuncia' ? '● Renuncia' : selectedEmployee.status === 'despido' ? '● Despido' : '● Inactivo'}
+                  </div>
+                )}
+                {selectedEmployee && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEmployee(null)
+                      setFormData({ ...formData, employee_id: '' })
+                      setEmployeeSearch('')
+                    }}
+                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }}
+                    title="Limpiar selección"
+                  >
+                    ×
+                  </button>
+                )}
+                {showEmployeeDropdown && filteredEmployees.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e5e7eb', borderRadius: '0 0 6px 6px', maxHeight: '250px', overflowY: 'auto', zIndex: 50, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    {filteredEmployees.map((emp: any) => (
+                      <div
+                        key={emp.id}
+                        onClick={() => {
+                          handleEmployeeChange(emp.id)
+                          setEmployeeSearch(`${emp.full_name} - ${emp.rut}`)
+                          setShowEmployeeDropdown(false)
+                        }}
+                        style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: selectedEmployee?.id === emp.id ? '#f0fdf4' : 'white' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#f9fafb' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = selectedEmployee?.id === emp.id ? '#f0fdf4' : 'white' }}
+                      >
+                        <span>{emp.full_name} <span style={{ color: '#6b7280', fontSize: '13px' }}>({emp.rut})</span></span>
+                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: emp.status === 'active' ? '#10b98120' : emp.status === 'licencia_medica' ? '#f59e0b20' : '#6b728020', color: emp.status === 'active' ? '#10b981' : emp.status === 'licencia_medica' ? '#f59e0b' : '#6b7280' }}>
+                          {emp.status === 'active' ? 'Activo' : emp.status === 'licencia_medica' ? 'Lic. Médica' : emp.status === 'renuncia' ? 'Renuncia' : emp.status === 'despido' ? 'Despido' : 'Inactivo'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {selectedEmployee && (
                 <button
                   type="button"

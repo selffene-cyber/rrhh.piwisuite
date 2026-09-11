@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Employee, CostCenter } from '@/types'
 import { FaEye, FaPencilAlt, FaTrash, FaChevronDown, FaChevronUp, FaCheckCircle, FaExclamationTriangle, FaFileExcel } from 'react-icons/fa'
 import * as XLSX from 'xlsx'
+import { ACTIVE_STATUSES, NON_OPERATIONAL_STATUSES, STATUS_LABELS, ALL_STATUSES, EmployeeStatus } from '@/lib/utils/employeeStatus'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { getCostCenters, isCompanyAdmin } from '@/lib/services/costCenterService'
 import { AVAILABLE_AFPS, AVAILABLE_HEALTH_SYSTEMS } from '@/lib/services/previredAPI'
@@ -253,18 +254,32 @@ export default function EmployeesPage() {
 
   const hasActiveFilters = selectedCostCenterId || selectedStatus || selectedRegime || selectedAFP || selectedHealthSystem || selectedPosition
 
+  const [exportFilter, setExportFilter] = useState<'active' | 'inactive' | 'all'>('active')
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
   const exportToExcel = async () => {
     if (!companyId) return
     try {
-      const { data, error: fetchError } = await supabase
+      setExporting(true)
+      let query = supabase
         .from('employees')
         .select('*')
         .eq('company_id', companyId)
         .order('full_name')
 
+      if (exportFilter === 'active') {
+        query = query.in('status', ACTIVE_STATUSES)
+      } else if (exportFilter === 'inactive') {
+        query = query.in('status', NON_OPERATIONAL_STATUSES)
+      }
+
+      const { data, error: fetchError } = await query
+
       if (fetchError) throw fetchError
       if (!data || data.length === 0) {
-        alert('No hay trabajadores para exportar')
+        alert('No hay trabajadores para exportar con el filtro seleccionado')
+        setExporting(false)
         return
       }
 
@@ -284,7 +299,7 @@ export default function EmployeesPage() {
         'Fecha Ingreso': emp.hire_date || '',
         'Tipo Contrato': emp.contract_type || '',
         'Fecha Término Contrato': emp.contract_end_date || '',
-        'Estado': emp.status || '',
+        'Estado': STATUS_LABELS[emp.status as EmployeeStatus] || emp.status || '',
         'Régimen Previsional': emp.previsional_regime || '',
         'AFP': emp.afp || '',
         'Sistema de Salud': emp.health_system || '',
@@ -315,9 +330,13 @@ export default function EmployeesPage() {
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Trabajadores')
-      XLSX.writeFile(wb, `trabajadores_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      const filterLabel = exportFilter === 'active' ? 'activos' : exportFilter === 'inactive' ? 'inactivos' : 'todos'
+      XLSX.writeFile(wb, `trabajadores_${filterLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      setShowExportModal(false)
     } catch (err: any) {
       alert('Error al exportar Excel: ' + (err.message || 'Error desconocido'))
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -438,7 +457,7 @@ export default function EmployeesPage() {
           </Link>
           <Link href="/employees/new"><button>Nuevo Trabajador</button></Link>
           <Link href="/employees/form-pdf"><button style={{ background: '#10b981', color: 'white' }}>Formulario de Registro (PDF)</button></Link>
-          <button onClick={exportToExcel} style={{ background: '#217346', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}><FaFileExcel /> Descargar Excel</button>
+          <button onClick={() => setShowExportModal(true)} style={{ background: '#217346', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}><FaFileExcel /> Descargar Excel</button>
         </div>
       </div>
 
@@ -603,6 +622,44 @@ export default function EmployeesPage() {
           </>
         )}
       </div>
+
+      {showExportModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '90%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 16px 0' }}>Descargar Listado de Trabajadores</h3>
+            <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>Selecciona qué trabajadores incluir en el archivo Excel:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 12px', borderRadius: '8px', background: exportFilter === 'active' ? '#10b98120' : '#f9fafb', border: exportFilter === 'active' ? '2px solid #10b981' : '2px solid #e5e7eb' }}>
+                <input type="radio" name="exportFilter" value="active" checked={exportFilter === 'active'} onChange={() => setExportFilter('active')} style={{ accentColor: '#10b981' }} />
+                <div>
+                  <div style={{ fontWeight: '600' }}>Solo Activos</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>Trabajadores activos y en licencia médica</div>
+                </div>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 12px', borderRadius: '8px', background: exportFilter === 'inactive' ? '#6b728020' : '#f9fafb', border: exportFilter === 'inactive' ? '2px solid #6b7280' : '2px solid #e5e7eb' }}>
+                <input type="radio" name="exportFilter" value="inactive" checked={exportFilter === 'inactive'} onChange={() => setExportFilter('inactive')} style={{ accentColor: '#6b7280' }} />
+                <div>
+                  <div style={{ fontWeight: '600' }}>Solo Inactivos</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>Trabajadores inactivos, renunciados y desvinculados</div>
+                </div>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 12px', borderRadius: '8px', background: exportFilter === 'all' ? '#3b82f620' : '#f9fafb', border: exportFilter === 'all' ? '2px solid #3b82f6' : '2px solid #e5e7eb' }}>
+                <input type="radio" name="exportFilter" value="all" checked={exportFilter === 'all'} onChange={() => setExportFilter('all')} style={{ accentColor: '#3b82f6' }} />
+                <div>
+                  <div style={{ fontWeight: '600' }}>Todos</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>Incluir todos los trabajadores sin filtro</div>
+                </div>
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="secondary" onClick={() => setShowExportModal(false)} disabled={exporting}>Cancelar</button>
+              <button onClick={exportToExcel} disabled={exporting} style={{ background: '#217346', color: 'white' }}>
+                {exporting ? 'Exportando...' : 'Descargar Excel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <EmployeeDetailSlide
         employeeId={selectedEmployeeId}

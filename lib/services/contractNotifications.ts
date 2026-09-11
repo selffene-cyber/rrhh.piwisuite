@@ -4,6 +4,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
+import { ACTIVE_STATUSES } from '@/lib/utils/employeeStatus'
 
 export type ContractExpirationStatus = 
   | 'active' 
@@ -150,7 +151,8 @@ export async function getContractNotifications(
         employees (
           id,
           full_name,
-          rut
+          rut,
+          status
         )
       `)
       .eq('company_id', companyId)
@@ -164,9 +166,16 @@ export async function getContractNotifications(
     if (!contracts || contracts.length === 0) {
       return []
     }
+
+    // Filtrar: solo notificar contratos de empleados operacionalmente activos
+    const activeContractsWithActiveEmployees = contracts.filter((contract: any) => {
+      const employeeStatus = contract.employees?.[0]?.status
+        ?? (contract.employees as any)?.status
+      return !employeeStatus || ACTIVE_STATUSES.includes(employeeStatus)
+    })
     
     // Procesar cada contrato y generar notificación
-    const notifications: ContractNotification[] = contracts
+    const notifications: ContractNotification[] = activeContractsWithActiveEmployees
       .map((contract: any) => {
         const expiration = calculateExpirationStatus(
           contract.end_date,
