@@ -313,6 +313,27 @@ export async function calculateReliquidation(
     })
   }
 
+  // Gratificación (efecto cascada: cambia cuando cambian los haberes imponibles)
+  const origGratification = originalItems
+    .filter(i => i.type === 'taxable_earning' && i.category === 'gratificacion')
+    .reduce((sum, i) => sum + Number(i.amount), 0)
+  const correctedGratification = correctedResultV2.taxableEarnings.monthlyGratification
+  if (origGratification !== correctedGratification) {
+    items.push({
+      original_item_id: originalItems.find(i => i.type === 'taxable_earning' && i.category === 'gratificacion')?.id || null,
+      type: 'taxable_earning',
+      category: 'gratificacion',
+      description: 'Gratificación',
+      original_amount: origGratification,
+      corrected_amount: correctedGratification,
+      difference: correctedGratification - origGratification,
+      is_taxable: true,
+      is_tributable: true,
+      affects_deductions: true,
+      affects_gratification: false,
+    })
+  }
+
   // Haberes no imponibles
   const origTransportation = originalItems
     .filter(i => i.type === 'non_taxable_earning' && i.category === 'movilizacion')
