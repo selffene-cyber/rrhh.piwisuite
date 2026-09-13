@@ -127,6 +127,7 @@ export async function calculateReliquidation(
     transportation: (employee as any).transportation ?? undefined,
     meal_allowance: (employee as any).meal_allowance ?? undefined,
     status: employee.status,
+    worker_type: (employee as any).worker_type ?? undefined,
   }
 
   // Preparar input para V2
@@ -161,6 +162,7 @@ export async function calculateReliquidation(
     advances: modifications.advances ?? originalAdvances,
     permissionDiscount: modifications.permission_discount ?? 0,
     indicators,
+    gratificationType: (employee as any).worker_type === 'DOMESTIC_WORKER' ? 'NONE' : ((employee as any).gratification_type ?? undefined),
   }
 
   // Calcular liquidacion corregida usando V2 (que delega al motor central)
