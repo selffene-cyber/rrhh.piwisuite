@@ -111,6 +111,10 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
             <p>{employee.birth_date ? formatDate(employee.birth_date) : '-'}</p>
           </div>
           <div className="form-group">
+            <label>Nacionalidad</label>
+            <p>{employee.nationality || 'Chilena'}</p>
+          </div>
+          <div className="form-group">
             <label>Teléfono</label>
             <p>{employee.phone || '-'}</p>
           </div>

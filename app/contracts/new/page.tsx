@@ -117,10 +117,19 @@ export default function NewContractPage() {
     end_date: '',
     position: '',
     position_description: '',
-    work_schedule_type: 'unified' as 'unified' | 'separated',
+    work_schedule_type: 'custom' as 'unified' | 'separated' | 'custom',
     work_schedule: 'Lunes a Viernes, 09:00 a 18:00',
     work_schedule_monday_thursday: 'Lunes a Jueves, 09:00 a 18:00',
     work_schedule_friday: 'Viernes, 09:00 a 18:00',
+    schedule_days: {
+      lunes: { enabled: true, start: '09:00', end: '18:00' },
+      martes: { enabled: true, start: '09:00', end: '18:00' },
+      miercoles: { enabled: true, start: '09:00', end: '18:00' },
+      jueves: { enabled: true, start: '09:00', end: '18:00' },
+      viernes: { enabled: true, start: '09:00', end: '18:00' },
+      sabado: { enabled: false, start: '09:00', end: '13:00' },
+      domingo: { enabled: false, start: '09:00', end: '13:00' },
+    } as Record<string, { enabled: boolean; start: string; end: string }>,
     lunch_break_duration: '60',
     schedule_regime: 'ordinary' as 'ordinary' | 'partial' | 'excluded_art22',
     work_location: '',
@@ -167,9 +176,21 @@ export default function NewContractPage() {
         if (formData.schedule_regime === 'excluded_art22') {
           return `Jornada de trabajo.\n\n${generateArt22ClauseText()}`
         }
-        const scheduleText = formData.work_schedule_type === 'unified' 
-          ? formData.work_schedule 
-          : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`
+        let scheduleText = ''
+        if (formData.work_schedule_type === 'custom') {
+          const dayLabels: Record<string, string> = {
+            lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles',
+            jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
+          }
+          const enabledDays = Object.entries(formData.schedule_days)
+            .filter(([_, v]) => v.enabled)
+            .map(([day, v]) => `${dayLabels[day]}, ${v.start} a ${v.end}`)
+          scheduleText = enabledDays.join('; ')
+        } else {
+          scheduleText = formData.work_schedule_type === 'unified' 
+            ? formData.work_schedule 
+            : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`
+        }
         const timeMatch = scheduleText.match(/(\d{1,2}:\d{2})\s*a\s*(\d{1,2}:\d{2})/i)
         const startTime = timeMatch ? timeMatch[1] : '08:00'
         const lunchMinutes = parseInt(formData.lunch_break_duration) || 60
@@ -510,9 +531,20 @@ export default function NewContractPage() {
         position_description: formData.position_description || null,
         work_schedule: formData.schedule_regime === 'excluded_art22' 
           ? null 
-          : (formData.work_schedule_type === 'unified' 
-            ? formData.work_schedule 
-            : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`),
+          : (formData.work_schedule_type === 'custom'
+            ? (() => {
+                const dayLabels: Record<string, string> = {
+                  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles',
+                  jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
+                }
+                return Object.entries(formData.schedule_days)
+                  .filter(([_, v]) => v.enabled)
+                  .map(([day, v]) => `${dayLabels[day]}, ${v.start} a ${v.end}`)
+                  .join('; ')
+              })()
+            : (formData.work_schedule_type === 'unified' 
+              ? formData.work_schedule 
+              : `${formData.work_schedule_monday_thursday}; ${formData.work_schedule_friday}`)),
         work_location: formData.work_location,
         lunch_break_duration: formData.schedule_regime === 'excluded_art22' 
           ? null 
@@ -816,12 +848,13 @@ export default function NewContractPage() {
                   value={formData.work_schedule_type}
                   onChange={(e) => setFormData({ 
                     ...formData, 
-                    work_schedule_type: e.target.value as 'unified' | 'separated' 
+                    work_schedule_type: e.target.value as 'unified' | 'separated' | 'custom'
                   })}
                   required
                 >
                   <option value="unified">Lunes a Viernes (mismo horario)</option>
                   <option value="separated">Lunes a Jueves y Viernes (horarios diferentes)</option>
+                  <option value="custom">Personalizado (seleccionar días y horarios)</option>
                 </select>
               </div>
               
@@ -836,7 +869,7 @@ export default function NewContractPage() {
                     required
                   />
                 </div>
-              ) : (
+              ) : formData.work_schedule_type === 'separated' ? (
                 <div className="form-row">
                   <div className="form-group">
                     <label>Horario Lunes a Jueves *</label>
@@ -858,6 +891,80 @@ export default function NewContractPage() {
                       required
                     />
                   </div>
+                </div>
+              ) : (
+                <div style={{ marginTop: '12px' }}>
+                  <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
+                    Selecciona los días y horarios de trabajo:
+                  </div>
+                  {(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'] as const).map(day => {
+                    const dayLabels: Record<string, string> = {
+                      lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles',
+                      jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
+                    }
+                    const dayData = formData.schedule_days[day] || { enabled: false, start: '09:00', end: '18:00' }
+                    return (
+                      <div key={day} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px', 
+                        padding: '8px 0',
+                        borderBottom: '1px solid #f0f0f0'
+                      }}>
+                        <label style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '6px',
+                          minWidth: '120px',
+                          cursor: 'pointer',
+                          color: dayData.enabled ? '#1a1a1a' : '#999',
+                          fontWeight: dayData.enabled ? 600 : 400
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={dayData.enabled}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              schedule_days: {
+                                ...formData.schedule_days,
+                                [day]: { ...dayData, enabled: e.target.checked }
+                              }
+                            })}
+                          />
+                          {dayLabels[day]}
+                        </label>
+                        {dayData.enabled && (
+                          <>
+                            <input
+                              type="time"
+                              value={dayData.start}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                schedule_days: {
+                                  ...formData.schedule_days,
+                                  [day]: { ...dayData, start: e.target.value }
+                                }
+                              })}
+                              style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            />
+                            <span style={{ color: '#666' }}>a</span>
+                            <input
+                              type="time"
+                              value={dayData.end}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                schedule_days: {
+                                  ...formData.schedule_days,
+                                  [day]: { ...dayData, end: e.target.value }
+                                }
+                              })}
+                              style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               
@@ -927,6 +1034,22 @@ export default function NewContractPage() {
                       }
                       
                       return mondayThursdayHours + fridayHours
+                    } else if (formData.work_schedule_type === 'custom') {
+                      const lunchMinutes = parseInt(formData.lunch_break_duration) || 60
+                      let totalHours = 0
+                      for (const [day, dayData] of Object.entries(formData.schedule_days)) {
+                        if (dayData.enabled && dayData.start && dayData.end) {
+                          const [startH, startM] = dayData.start.split(':').map(Number)
+                          const [endH, endM] = dayData.end.split(':').map(Number)
+                          const startTotal = startH * 60 + startM
+                          const endTotal = endH * 60 + endM
+                          const dailyMinutes = endTotal - startTotal - lunchMinutes
+                          if (dailyMinutes > 0) {
+                            totalHours += dailyMinutes / 60
+                          }
+                        }
+                      }
+                      return totalHours > 0 ? totalHours : null
                     }
                   } catch (error) {
                     return null
