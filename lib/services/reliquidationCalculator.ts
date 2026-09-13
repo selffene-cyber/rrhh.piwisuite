@@ -131,14 +131,14 @@ export async function calculateReliquidation(
   // Preparar input para V2
   // Obtener valores originales de los items para fallback
   const originalItems = originalSlip.payroll_items || []
-  const originalBonuses = originalItems.filter((i: any) => i.type === 'taxable_earning' && i.category === 'bonos').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalBonuses = originalItems.filter((i: any) => i.type === 'taxable_earning' && (i.category === 'bono' || i.category === 'bonos' || i.category === 'bono_asistencia' || i.category === 'bono_puntualidad')).reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalOvertime = originalItems.filter((i: any) => i.type === 'taxable_earning' && i.category === 'horas_extras').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalVacation = originalItems.filter((i: any) => i.type === 'taxable_earning' && i.category === 'vacaciones').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalTransportation = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'movilizacion').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalMealAllowance = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'colacion').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalAguinaldo = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'aguinaldo').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
-  const originalLoans = originalItems.filter((i: any) => i.type === 'other_deduction' && i.category === 'prestamos').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
-  const originalAdvances = originalItems.filter((i: any) => i.type === 'other_deduction' && i.category === 'anticipos').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalLoans = originalItems.filter((i: any) => i.type === 'other_deduction' && (i.category === 'prestamos' || i.category === 'otros_prestamos')).reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalAdvances = originalItems.filter((i: any) => i.type === 'other_deduction' && (i.category === 'anticipos' || i.category === 'anticipo')).reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
 
   const correctedInputV2: PayrollCalculationInputV2 = {
     employee: employeeWithPrevision,
@@ -254,13 +254,13 @@ export async function calculateReliquidation(
   }
 
   const origBonuses = originalItems
-    .filter(i => i.type === 'taxable_earning' && i.category === 'bonos')
+    .filter(i => i.type === 'taxable_earning' && (i.category === 'bono' || i.category === 'bonos' || i.category === 'bono_asistencia' || i.category === 'bono_puntualidad'))
     .reduce((sum, i) => sum + Number(i.amount), 0)
   if (origBonuses !== correctedInputV2.bonuses || modifications.bonuses !== undefined) {
     items.push({
-      original_item_id: originalItems.find(i => i.type === 'taxable_earning' && i.category === 'bonos')?.id || null,
+      original_item_id: originalItems.find(i => i.type === 'taxable_earning' && (i.category === 'bono' || i.category === 'bonos'))?.id || null,
       type: 'taxable_earning',
-      category: 'bonos',
+      category: 'bono',
       description: 'Bonos',
       original_amount: origBonuses,
       corrected_amount: correctedInputV2.bonuses || 0,

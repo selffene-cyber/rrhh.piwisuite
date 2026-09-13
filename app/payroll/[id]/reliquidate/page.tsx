@@ -61,18 +61,19 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
       setOriginalSlip(data as PayrollSlipWithDetails)
 
       // Inicializar modificaciones con valores originales (sumar si hay multiples items de la misma categoria)
+      // Categorias en DB: 'bono' (no 'bonos'), 'anticipo' (no 'anticipos'), 'otros_prestamos' (no 'prestamos')
       const items = data.payroll_items || []
       const initialMods: ReliquidationModifications = {}
       
       for (const item of items) {
         if (item.type === 'taxable_earning') {
-          if (item.category === 'bonos') {
+          if (item.category === 'bono' || item.category === 'bonos' || item.category === 'bono_asistencia' || item.category === 'bono_puntualidad') {
             initialMods.bonuses = (initialMods.bonuses || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'horas_extras') {
             initialMods.overtime = (initialMods.overtime || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'vacaciones') {
             initialMods.vacation = (initialMods.vacation || 0) + (Number(item.amount) || 0)
-          } else if (item.category !== 'sueldo_base' && item.category !== 'gratificacion' && item.category !== 'bono_asistencia' && item.category !== 'bono_puntualidad') {
+          } else if (item.category !== 'sueldo_base' && item.category !== 'gratificacion') {
             initialMods.other_taxable_earnings = (initialMods.other_taxable_earnings || 0) + (Number(item.amount) || 0)
           }
         } else if (item.type === 'non_taxable_earning') {
@@ -84,9 +85,9 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
             initialMods.aguinaldo = (initialMods.aguinaldo || 0) + (Number(item.amount) || 0)
           }
         } else if (item.type === 'other_deduction') {
-          if (item.category === 'prestamos') {
+          if (item.category === 'prestamos' || item.category === 'otros_prestamos') {
             initialMods.loans = (initialMods.loans || 0) + (Number(item.amount) || 0)
-          } else if (item.category === 'anticipos') {
+          } else if (item.category === 'anticipos' || item.category === 'anticipo') {
             initialMods.advances = (initialMods.advances || 0) + (Number(item.amount) || 0)
           }
         }
@@ -351,7 +352,7 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
             />
             <small style={{ color: '#6b7280' }}>
               Original: ${originalItems
-                .filter(i => i.type === 'taxable_earning' && i.category === 'bonos')
+                .filter(i => i.type === 'taxable_earning' && (i.category === 'bono' || i.category === 'bonos' || i.category === 'bono_asistencia' || i.category === 'bono_puntualidad'))
                 .reduce((sum, i) => sum + Number(i.amount), 0)
                 .toLocaleString('es-CL')}
             </small>
@@ -454,7 +455,7 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
             />
             <small style={{ color: '#6b7280' }}>
               Original: ${originalItems
-                .filter(i => i.type === 'other_deduction' && i.category === 'prestamos')
+                .filter(i => i.type === 'other_deduction' && (i.category === 'prestamos' || i.category === 'otros_prestamos'))
                 .reduce((sum, i) => sum + Number(i.amount), 0)
                 .toLocaleString('es-CL')}
             </small>
@@ -473,7 +474,7 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
             />
             <small style={{ color: '#6b7280' }}>
               Original: ${originalItems
-                .filter(i => i.type === 'other_deduction' && i.category === 'anticipos')
+                .filter(i => i.type === 'other_deduction' && (i.category === 'anticipos' || i.category === 'anticipo'))
                 .reduce((sum, i) => sum + Number(i.amount), 0)
                 .toLocaleString('es-CL')}
             </small>
