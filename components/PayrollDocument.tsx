@@ -594,7 +594,11 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                   <View style={[styles.row, { marginBottom: 3 }]}>
                     <Text style={{ width: '55%', fontSize: 7, fontFamily: 'Helvetica-Bold' }}>SEGURO DE CESANTIA EMPRESA:</Text>
                     <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>
-                      {formatCurrency((slip.taxable_base * 0.024) || 0)}
+                      {formatCurrency((slip.taxable_base * (() => {
+                        if (slip.employees?.worker_type === 'DOMESTIC_WORKER') return 0.03
+                        if (slip.employees?.contract_type === 'plazo_fijo') return 0.03
+                        return 0.024
+                      })()) || 0)}
                     </Text>
                   </View>
                 </View>
