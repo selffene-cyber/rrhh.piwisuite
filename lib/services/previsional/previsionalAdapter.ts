@@ -163,22 +163,34 @@ function calculateTaxableEarnings(input: PayrollCalculationInputV2): number {
     overtime = 0,
     vacation = 0,
     otherTaxableEarnings = 0,
+    gratificationType,
+    gratificationAmount,
   } = input
 
   const baseSalaryProportional = daysWorked < 30
     ? Math.ceil((baseSalary / 30) * daysWorked)
     : baseSalary
 
+  // Art. 50: 25% de las remuneraciones imponibles (no solo sueldo base)
+  const taxableBeforeGratification = baseSalaryProportional + Math.ceil(bonuses) + Math.ceil(overtime) + Math.ceil(vacation) + Math.ceil(otherTaxableEarnings)
+
   let monthlyGratification = 0
-  monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+  if (gratificationType === 'NONE') {
+    monthlyGratification = 0
+  } else if (gratificationType === 'CONTRACTUAL' && gratificationAmount) {
+    monthlyGratification = Math.ceil(gratificationAmount)
+  } else {
+    // LEGAL_ARTICLE_50 o LEGAL_ARTICLE_47: 25% con/sin tope
+    monthlyGratification = Math.ceil((taxableBeforeGratification * 0.25 / 30) * daysWorked)
+  }
 
   return Math.ceil(
     baseSalaryProportional +
-    bonuses +
+    Math.ceil(bonuses) +
     monthlyGratification +
-    overtime +
-    vacation +
-    otherTaxableEarnings
+    Math.ceil(overtime) +
+    Math.ceil(vacation) +
+    Math.ceil(otherTaxableEarnings)
   )
 }
 
@@ -193,15 +205,18 @@ export function mergePrevisionalResultIntoV2(
   const merged = { ...v2Result }
 
   // 1. CORREGIR legalDeductions: SIS ya NO va en descuentos del trabajador
+  // NOTA: El motor previsional NO calcula impuesto unico (uniqueTax=0), asi que
+  // conservamos el uniqueTax calculado por V2 legacy
   const prevDeductions = prevResult.employeeDeductions
+  const legacyUniqueTax = v2Result.legalDeductions.uniqueTax ?? 0
   merged.legalDeductions = {
     ...merged.legalDeductions,
     pension: prevDeductions.pension,
     health: prevDeductions.health,
     sis: 0,
     afc: prevDeductions.afcTrabajador,
-    uniqueTax: prevDeductions.uniqueTax,
-    total: prevDeductions.pension + prevDeductions.health + prevDeductions.afcTrabajador + prevDeductions.uniqueTax,
+    uniqueTax: legacyUniqueTax,
+    total: prevDeductions.pension + prevDeductions.health + prevDeductions.afcTrabajador + legacyUniqueTax,
   }
 
   // 2. ACTUALIZAR employerContributions con todos los conceptos del motor central
