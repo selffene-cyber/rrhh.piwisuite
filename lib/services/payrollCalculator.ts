@@ -30,6 +30,9 @@ export async function calculatePayroll(
     loans = 0,
     advances = 0,
     permissionDiscount = 0,
+    workerType = 'REGULAR',
+    gratificationType = 'LEGAL_ARTICLE_50',
+    gratificationAmount,
   } = input
 
   // Sueldo base proporcional a días trabajados (redondear hacia arriba)
@@ -52,49 +55,43 @@ export async function calculatePayroll(
   // IMPORTANTE: Los montos ya están proporcionalizados a días trabajados, NO se debe volver a proporcionalizar
   const totalRemunerationsWithoutGratification = baseSalaryProportional + bonusesRounded + overtimeRounded + vacationRounded + otherTaxableEarnings
 
-  // Gratificación mensual legal
-  // Según normativa chilena (Art. 50 Código del Trabajo):
-  // - La gratificación es el 25% del TOTAL de remuneraciones imponibles del mes
-  // - PERO tiene un tope legal: (4,75 × Ingreso Mínimo Mensual) / 12
-  // - El Ingreso Mínimo Mensual está en los indicadores como RMITrabDepeInd
-  // - IMPORTANTE: La gratificación debe usar el sueldo mínimo del MES DE LA LIQUIDACIÓN, no del mes anterior
-  // - Se usa el MENOR entre el 25% del total y el tope legal
-  // - Los haberes ya están proporcionalizados a días trabajados, así que la gratificación resultante
-  //   NO necesita volver a proporcionalizarse
+  // Gratificación mensual
+  // Trabajadoras de casa particular NO tienen gratificación legal (gratificationType = 'NONE')
+  // Según normativa chilena: Las trabajadoras de casa particular están excluidas del régimen de gratificación
+  // legal del Art. 47/50 del Código del Trabajo (Art. 147 bis y Art. 2 Ley 19.738)
   let monthlyGratification = 0
-  
-  // Obtener indicadores del mes ACTUAL para la gratificación (no del mes anterior)
-  // Los indicadores pasados como parámetro son del mes anterior (para AFP, salud, etc.)
-  let gratificationIndicators: PreviredIndicators | null = null
-  if (year && month) {
-    gratificationIndicators = await getCachedIndicators(year, month)
-  }
-  
-  // Si no hay indicadores del mes actual, usar los pasados como parámetro como fallback
-  const indicatorsForGratification = gratificationIndicators || indicators
-  
-  if (indicatorsForGratification && indicatorsForGratification.RMITrabDepeInd) {
-    // Parsear número chileno (puntos para miles, coma para decimales)
-    const parseChileanNumber = (str: string): number => {
-      if (!str) return 0
-      return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+
+  if (gratificationType === 'NONE') {
+    // Sin gratificación (trabajadoras de casa particular, etc.)
+    monthlyGratification = 0
+  } else if (gratificationType === 'CONTRACTUAL' && gratificationAmount) {
+    monthlyGratification = Math.ceil(gratificationAmount)
+  } else if (gratificationType === 'LEGAL_ARTICLE_47') {
+    // Art. 47: 25% sin tope
+    monthlyGratification = Math.ceil(totalRemunerationsWithoutGratification * 0.25)
+  } else {
+    // Art. 50 (default): 25% con tope = (4.75 × Ingreso Mínimo) / 12
+    let gratificationIndicators: PreviredIndicators | null = null
+    if (year && month) {
+      gratificationIndicators = await getCachedIndicators(year, month)
     }
     
-    const ingresoMinimo = parseChileanNumber(indicatorsForGratification.RMITrabDepeInd)
-    const topeGratificacion = (4.75 * ingresoMinimo) / 12
+    const indicatorsForGratification = gratificationIndicators || indicators
     
-    // Calcular sobre el total de remuneraciones imponibles (ya proporcionalizadas a días trabajados)
-    const gratificacion25Porciento = totalRemunerationsWithoutGratification * 0.25
-    
-    // La gratificación es el menor entre el tope legal y el 25% del total
-    const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
-    
-    // NO se vuelve a proporcionalizar: los haberes ya están en base a días trabajados
-    monthlyGratification = Math.ceil(gratificacionMensual)
-  } else {
-    // Si no hay indicadores, usar cálculo tradicional (25% del total)
-    // Los haberes ya están proporcionalizados a días trabajados, no se vuelve a proporcionalizar
-    monthlyGratification = Math.ceil(totalRemunerationsWithoutGratification * 0.25)
+    if (indicatorsForGratification && indicatorsForGratification.RMITrabDepeInd) {
+      const parseChileanNumber = (str: string): number => {
+        if (!str) return 0
+        return parseFloat(str.replace(/\./g, '').replace(',', '.'))
+      }
+      
+      const ingresoMinimo = parseChileanNumber(indicatorsForGratification.RMITrabDepeInd)
+      const topeGratificacion = (4.75 * ingresoMinimo) / 12
+      const gratificacion25Porciento = totalRemunerationsWithoutGratification * 0.25
+      const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
+      monthlyGratification = Math.ceil(gratificacionMensual)
+    } else {
+      monthlyGratification = Math.ceil(totalRemunerationsWithoutGratification * 0.25)
+    }
   }
 
   // Haberes imponibles (ya redondeados)

@@ -42,6 +42,9 @@ export type PayrollCalculationInput = {
   loans?: number
   advances?: number
   permissionDiscount?: number // Descuento por permisos sin goce de sueldo
+  workerType?: 'REGULAR' | 'DOMESTIC_WORKER'
+  gratificationType?: 'NONE' | 'LEGAL_ARTICLE_47' | 'LEGAL_ARTICLE_50' | 'CONTRACTUAL'
+  gratificationAmount?: number
 }
 
 export type PayrollCalculationResult = {

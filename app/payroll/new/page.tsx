@@ -189,7 +189,7 @@ export default function NewPayrollPage() {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type, status, termination_date, previsional_regime, other_regime_type, manual_pension_rate, manual_health_rate, manual_employer_rate, manual_base_type, manual_regime_label, afc_applicable')
+        .select('id, full_name, rut, base_salary, transportation, meal_allowance, requests_advance, advance_amount, afp, health_system, health_plan_percentage, contract_type, status, termination_date, previsional_regime, other_regime_type, manual_pension_rate, manual_health_rate, manual_employer_rate, manual_base_type, manual_regime_label, afc_applicable, worker_type, gratification_type')
         .in('status', ['active', 'licencia_medica', 'renuncia', 'despido']) // Incluir renuncia/despido para validar después
         .eq('company_id', companyId)
         .order('full_name')
@@ -1104,6 +1104,8 @@ export default function NewPayrollPage() {
         manualHealthRate: selectedEmployee.manual_health_rate || null,
         manualBaseType: selectedEmployee.manual_base_type || null,
         afcApplicable: selectedEmployee.afc_applicable !== false, // Por defecto true
+        workerType: selectedEmployee.worker_type || 'REGULAR',
+        gratificationType: selectedEmployee.gratification_type || (selectedEmployee.worker_type === 'DOMESTIC_WORKER' ? 'NONE' : 'LEGAL_ARTICLE_50'),
         bonuses: totalBonuses,
         overtime: overtimeAmount,
         vacation: totalVacationAmount, // Vacaciones como remuneración íntegra (concepto separado) - usar variable local
@@ -1375,7 +1377,7 @@ export default function NewPayrollPage() {
           description: `Vacaciones (${vacationDays} día${vacationDays > 1 ? 's' : ''})`,
           amount: calculation.taxableEarnings.vacation
         }] : []),
-        { type: 'taxable_earning', category: 'gratificacion', lre_dt_code: 2106, description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification },
+        ...(calculation.taxableEarnings.monthlyGratification > 0 ? [{ type: 'taxable_earning' as const, category: 'gratificacion', lre_dt_code: 2106, description: 'Gratificación Mensual', amount: calculation.taxableEarnings.monthlyGratification }] : []),
         // Bonos individuales
         ...bonuses.filter(b => b.name && b.amount > 0).map(bonus => ({
           type: 'taxable_earning' as const,
