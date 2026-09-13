@@ -324,8 +324,10 @@ async function calculateAFPRegimeLegacy(
     afcAmount = Math.ceil(taxableBase * (afcRate / 100))
   }
   
-  // 4. IMPUESTO ÚNICO (usando la lógica existente)
-  const uniqueTax = await calculateUniqueTax(taxableBase, year, month)
+  // 4. IMPUESTO ÚNICO - Se calcula sobre la Renta Líquida Imponible (RLI)
+  // RLI = Haberes Imponibles - Cotizaciones del trabajador (AFP + Salud + AFC)
+  const taxableForTax = Math.max(0, taxableBase - afpTotal - healthAmount - afcAmount)
+  const uniqueTax = await calculateUniqueTax(taxableForTax, year, month)
   
   // 5. DESCUENTOS LEGALES TOTALES
   const legalDeductions = {
@@ -574,9 +576,10 @@ async function calculateOtherRegimeLegacy(
   const sisAmount = 0
   const afcAmount = 0
   
-  // 5. IMPUESTO ÚNICO
+  // 5. IMPUESTO ÚNICO - Se calcula sobre la Renta Líquida Imponible (RLI)
   const taxableBase = taxableEarnings.total
-  const uniqueTax = await calculateUniqueTax(taxableBase, year, month)
+  const taxableForTax = Math.max(0, taxableBase - pensionAmount - healthAmount - afcAmount)
+  const uniqueTax = await calculateUniqueTax(taxableForTax, year, month)
   
   // 6. DESCUENTOS LEGALES TOTALES
   const legalDeductions = {
