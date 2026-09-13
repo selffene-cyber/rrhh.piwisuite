@@ -34,6 +34,7 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     full_name: '',
     rut: '',
     birth_date: '',
+    nationality: 'Chilena',
     address: '',
     region_id: null as string | null,
     commune_id: null as string | null,
@@ -212,6 +213,7 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
           full_name: data.full_name,
           rut: data.rut,
           birth_date: data.birth_date || '',
+          nationality: data.nationality || 'Chilena',
           address: data.address || '',
           region_id: data.region_id || null,
           commune_id: data.commune_id || null,
@@ -547,6 +549,30 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
                 value={formData.birth_date}
                 onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
               />
+            </div>
+            <div className="form-group">
+              <label>Nacionalidad</label>
+              <select
+                value={formData.nationality}
+                onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+              >
+                <option value="Chilena">Chilena</option>
+                <option value="Argentina">Argentina</option>
+                <option value="Boliviana">Boliviana</option>
+                <option value="Brasileña">Brasileña</option>
+                <option value="Colombiana">Colombiana</option>
+                <option value="Ecuatoriana">Ecuatoriana</option>
+                <option value="Española">Española</option>
+                <option value="Estadounidense">Estadounidense</option>
+                <option value="Mexicana">Mexicana</option>
+                <option value="Peruana">Peruana</option>
+                <option value="Uruguaya">Uruguaya</option>
+                <option value="Venezolana">Venezolana</option>
+                <option value="Haitiana">Haitiana</option>
+                <option value="Dominicana">Dominicana</option>
+                <option value="Cubana">Cubana</option>
+                <option value="Otra">Otra</option>
+              </select>
             </div>
           </div>
           {/* Fila 2: Dirección, Teléfono, Correo electrónico */}
