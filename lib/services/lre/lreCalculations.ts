@@ -151,12 +151,13 @@ export function calcularTramoAsignacionFamiliar(
   return 'S'
 }
 
-export function validarTasaIndemnizacion(tasa: number | null | undefined): { valid: boolean; message?: string } {
+export function validarTasaIndemnizacion(tasa: number | null | undefined, workerType?: string): { valid: boolean; message?: string } {
   if (tasa === null || tasa === undefined) {
     return { valid: true }
   }
-  if (tasa < 4.11) {
-    return { valid: false, message: `La tasa de indemnización a todo evento (${tasa}%) es inferior al mínimo legal de 4.11%` }
+  const minRate = workerType === 'DOMESTIC_WORKER' ? 1.11 : 4.11
+  if (tasa < minRate) {
+    return { valid: false, message: `La tasa de indemnización a todo evento (${tasa}%) es inferior al mínimo legal de ${minRate}%` }
   }
   return { valid: true }
 }
@@ -224,14 +225,16 @@ export function validarConsistenciaAPV(
 export function validarConsistenciaIndemnizacion(
   indemnizacionATodoEvento: number,
   tasaIndemnizacion: number | null,
-  aporteIndemnizacion: number
+  aporteIndemnizacion: number,
+  workerType?: string
 ): { valid: boolean; messages: string[] } {
   const messages: string[] = []
+  const minRate = workerType === 'DOMESTIC_WORKER' ? 1.11 : 4.11
   if (indemnizacionATodoEvento === 1) {
     if (tasaIndemnizacion === null || tasaIndemnizacion === undefined) {
       messages.push('Indemnización a todo evento=1 pero no hay tasa (código 1132)')
-    } else if (tasaIndemnizacion < 4.11) {
-      messages.push(`Tasa de indemnización (${tasaIndemnizacion}%) inferior al mínimo legal de 4.11%`)
+    } else if (tasaIndemnizacion < minRate) {
+      messages.push(`Tasa de indemnización (${tasaIndemnizacion}%) inferior al mínimo legal de ${minRate}%`)
     }
     if (aporteIndemnizacion === 0) {
       messages.push('Indemnización a todo evento=1 pero no hay aporte del empleador en código 4131')
