@@ -345,7 +345,7 @@ async function calculateAFPRegime(
   }
 
   const afcTrabRate = afcTrabResult.rate
-  const afcTrabAmount = employee.afcApplicable
+  const afcTrabAmount = employee.afcApplicable !== false
     ? Math.ceil(imponibleSegCes * (afcTrabRate / 100))
     : 0
   const afcTrabLabel = `AFC Trabajador ${contractType}`
@@ -360,7 +360,7 @@ async function calculateAFPRegime(
   }
 
   const afcEmplRate = afcEmplResult.rate
-  const afcEmplAmount = employee.afcApplicable
+  const afcEmplAmount = employee.afcApplicable !== false
     ? Math.ceil(imponibleSegCes * (afcEmplRate / 100))
     : 0
   const afcEmplLabel = `AFC Empleador ${contractType}`
