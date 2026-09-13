@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { formatMonthYear, formatDate } from '@/lib/utils/date'
-import { FaArrowLeft, FaRedo, FaFilePdf, FaCheck, FaTimes } from 'react-icons/fa'
+import { FaArrowLeft, FaRedo, FaFilePdf, FaCheck, FaTimes, FaTrash, FaEdit } from 'react-icons/fa'
 import { PayrollReliquidationWithDetails, RELIQUIDATION_REASON_CATEGORIES } from '@/types'
 
 export default function ReliquidationDetailPage({ params }: { params: { id: string } }) {
@@ -82,6 +82,29 @@ export default function ReliquidationDetailPage({ params }: { params: { id: stri
       paid: 'Pagada'
     }
     return labels[status] || status
+  }
+
+  const handleDelete = async () => {
+    if (!reliquidation) return
+    if (reliquidation.status === 'issued' || reliquidation.status === 'paid') {
+      alert('No se pueden eliminar reliquidaciones emitidas o pagadas.')
+      return
+    }
+    if (!confirm('¿Estás seguro de que deseas eliminar esta reliquidación? Esta acción no se puede deshacer.')) return
+
+    try {
+      setUpdating(true)
+      const response = await fetch(`/api/payroll/reliquidations/${reliquidation.id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Error al eliminar')
+      }
+      router.push('/payroll/reliquidations')
+    } catch (error: any) {
+      alert('Error al eliminar: ' + error.message)
+    } finally {
+      setUpdating(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -193,6 +216,31 @@ export default function ReliquidationDetailPage({ params }: { params: { id: stri
               Ver PDF
             </button>
           </Link>
+          {reliquidation.status === 'draft' && (
+            <Link href={`/payroll/${reliquidation.reference_payroll_slip_id}/reliquidate?edit=${reliquidation.id}`}>
+              <button className="secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FaEdit size={14} />
+                Editar
+              </button>
+            </Link>
+          )}
+          {(reliquidation.status === 'draft' || reliquidation.status === 'approved') && (
+            <button
+              onClick={handleDelete}
+              disabled={updating}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: 'none'
+              }}
+            >
+              <FaTrash size={14} />
+              Eliminar
+            </button>
+          )}
         </div>
       </div>
 

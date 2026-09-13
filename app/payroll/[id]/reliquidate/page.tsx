@@ -60,32 +60,34 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
 
       setOriginalSlip(data as PayrollSlipWithDetails)
 
-      // Inicializar modificaciones con valores originales
+      // Inicializar modificaciones con valores originales (sumar si hay multiples items de la misma categoria)
       const items = data.payroll_items || []
       const initialMods: ReliquidationModifications = {}
       
       for (const item of items) {
         if (item.type === 'taxable_earning') {
           if (item.category === 'bonos') {
-            initialMods.bonuses = Number(item.amount) || 0
+            initialMods.bonuses = (initialMods.bonuses || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'horas_extras') {
-            initialMods.overtime = Number(item.amount) || 0
+            initialMods.overtime = (initialMods.overtime || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'vacaciones') {
-            initialMods.vacation = Number(item.amount) || 0
+            initialMods.vacation = (initialMods.vacation || 0) + (Number(item.amount) || 0)
+          } else if (item.category !== 'sueldo_base' && item.category !== 'gratificacion' && item.category !== 'bono_asistencia' && item.category !== 'bono_puntualidad') {
+            initialMods.other_taxable_earnings = (initialMods.other_taxable_earnings || 0) + (Number(item.amount) || 0)
           }
         } else if (item.type === 'non_taxable_earning') {
           if (item.category === 'movilizacion') {
-            initialMods.transportation = Number(item.amount) || 0
+            initialMods.transportation = (initialMods.transportation || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'colacion') {
-            initialMods.meal_allowance = Number(item.amount) || 0
+            initialMods.meal_allowance = (initialMods.meal_allowance || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'aguinaldo') {
-            initialMods.aguinaldo = Number(item.amount) || 0
+            initialMods.aguinaldo = (initialMods.aguinaldo || 0) + (Number(item.amount) || 0)
           }
         } else if (item.type === 'other_deduction') {
           if (item.category === 'prestamos') {
-            initialMods.loans = Number(item.amount) || 0
+            initialMods.loans = (initialMods.loans || 0) + (Number(item.amount) || 0)
           } else if (item.category === 'anticipos') {
-            initialMods.advances = Number(item.amount) || 0
+            initialMods.advances = (initialMods.advances || 0) + (Number(item.amount) || 0)
           }
         }
       }
