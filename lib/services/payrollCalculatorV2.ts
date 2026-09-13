@@ -226,7 +226,11 @@ async function calculateAFPRegimeLegacy(
   // 1. HABERES IMPONIBLES
   const baseSalaryProportional = Math.ceil((baseSalary / 30) * daysWorked)
   
+  // Base para gratificacion: remuneraciones imponibles sin gratificacion (sueldo + bonos + horas extras + vacaciones)
+  const taxableEarningsBeforeGratification = baseSalaryProportional + Math.ceil(bonuses) + Math.ceil(overtime) + Math.ceil(vacation) + Math.ceil(otherTaxableEarnings)
+  
   // Gratificación mensual - depende del tipo configurado
+  // Art. 50: 25% de las remuneraciones imponibles (no solo sueldo base)
   let monthlyGratification = 0
   const gratificationType = input.gratificationType ?? 'LEGAL_ARTICLE_50'
   
@@ -237,11 +241,11 @@ async function calculateAFPRegimeLegacy(
     // Gratificación pactada contractualmente
     monthlyGratification = Math.ceil(input.gratificationAmount)
   } else if (gratificationType === 'LEGAL_ARTICLE_47') {
-    // Art. 47: 25% SIN tope
-    const gratificacion25Porciento = baseSalary * 0.25
+    // Art. 47: 25% SIN tope - sobre remuneraciones imponibles
+    const gratificacion25Porciento = taxableEarningsBeforeGratification * 0.25
     monthlyGratification = Math.ceil((gratificacion25Porciento / 30) * daysWorked)
   } else {
-    // LEGAL_ARTICLE_50 (default): 25% con tope legal
+    // LEGAL_ARTICLE_50 (default): 25% con tope legal - sobre remuneraciones imponibles
     if (previredIndicators?.RMITrabDepeInd) {
       const parseChileanNumber = (str: string): number => {
         if (!str) return 0
@@ -249,11 +253,11 @@ async function calculateAFPRegimeLegacy(
       }
       const ingresoMinimo = parseChileanNumber(previredIndicators.RMITrabDepeInd)
       const topeGratificacion = (4.75 * ingresoMinimo) / 12
-      const gratificacion25Porciento = baseSalary * 0.25
+      const gratificacion25Porciento = taxableEarningsBeforeGratification * 0.25
       const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
       monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
     } else {
-      monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+      monthlyGratification = Math.ceil((taxableEarningsBeforeGratification * 0.25 / 30) * daysWorked)
     }
   }
   
@@ -482,7 +486,11 @@ async function calculateOtherRegimeLegacy(
   // 1. HABERES IMPONIBLES
   const baseSalaryProportional = Math.ceil((baseSalary / 30) * daysWorked)
   
+  // Base para gratificacion: remuneraciones imponibles sin gratificacion (sueldo + bonos + horas extras + vacaciones)
+  const taxableEarningsBeforeGratification = baseSalaryProportional + Math.ceil(bonuses) + Math.ceil(overtime) + Math.ceil(vacation) + Math.ceil(otherTaxableEarnings)
+  
   // Gratificación - depende del tipo configurado
+  // Art. 50: 25% de las remuneraciones imponibles (no solo sueldo base)
   let monthlyGratification = 0
   const gratificationType = input.gratificationType ?? 'LEGAL_ARTICLE_50'
   
@@ -491,10 +499,10 @@ async function calculateOtherRegimeLegacy(
   } else if (gratificationType === 'CONTRACTUAL' && input.gratificationAmount) {
     monthlyGratification = Math.ceil(input.gratificationAmount)
   } else if (gratificationType === 'LEGAL_ARTICLE_47') {
-    const gratificacion25Porciento = baseSalary * 0.25
+    const gratificacion25Porciento = taxableEarningsBeforeGratification * 0.25
     monthlyGratification = Math.ceil((gratificacion25Porciento / 30) * daysWorked)
   } else {
-    // LEGAL_ARTICLE_50: 25% con tope legal
+    // LEGAL_ARTICLE_50: 25% con tope legal - sobre remuneraciones imponibles
     if (indicators?.RMITrabDepeInd) {
       const parseChileanNumber = (str: string): number => {
         if (!str) return 0
@@ -502,11 +510,11 @@ async function calculateOtherRegimeLegacy(
       }
       const ingresoMinimo = parseChileanNumber(indicators.RMITrabDepeInd)
       const topeGratificacion = (4.75 * ingresoMinimo) / 12
-      const gratificacion25Porciento = baseSalary * 0.25
+      const gratificacion25Porciento = taxableEarningsBeforeGratification * 0.25
       const gratificacionMensual = Math.min(topeGratificacion, gratificacion25Porciento)
       monthlyGratification = Math.ceil((gratificacionMensual / 30) * daysWorked)
     } else {
-      monthlyGratification = Math.ceil((baseSalary * 0.25 / 30) * daysWorked)
+      monthlyGratification = Math.ceil((taxableEarningsBeforeGratification * 0.25 / 30) * daysWorked)
     }
   }
   
