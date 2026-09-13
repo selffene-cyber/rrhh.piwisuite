@@ -130,16 +130,17 @@ export interface PayrollCalculationResultV2 {
 // ============================================
 
 export async function calculatePayrollV2(
-  input: PayrollCalculationInputV2
+  input: PayrollCalculationInputV2,
+  supabaseOverride?: any
 ): Promise<PayrollCalculationResultV2> {
   
   const { employee } = input
   
   // Determinar qué flujo usar
   if (employee.previsional_regime === 'AFP') {
-    return calculateAFPRegime(input)
+    return calculateAFPRegime(input, supabaseOverride)
   } else {
-    return calculateOtherRegime(input)
+    return calculateOtherRegime(input, supabaseOverride)
   }
 }
 
@@ -148,14 +149,15 @@ export async function calculatePayrollV2(
 // ============================================
 
 async function calculateAFPRegime(
-  input: PayrollCalculationInputV2
+  input: PayrollCalculationInputV2,
+  supabaseOverride?: any
 ): Promise<PayrollCalculationResultV2> {
   
   // FASE 4: Intentar delegar al motor central previsional
   // REGLA: Si faltan tasas validated, se BLOQUEA el calculo (no fallback silencioso).
   // Solo se cae al legacy por errores tecnicos inesperados.
   try {
-    const adapterResult = await calculatePrevisionalFromV2(input)
+    const adapterResult = await calculatePrevisionalFromV2(input, supabaseOverride)
     
     if (adapterResult.usedNewEngine && adapterResult.previsionalResult) {
       // Motor central exitoso: calcular la parte no-previsional con V2 legacy
@@ -421,13 +423,14 @@ async function calculateAFPRegimeLegacy(
 // ============================================
 
 async function calculateOtherRegime(
-  input: PayrollCalculationInputV2
+  input: PayrollCalculationInputV2,
+  supabaseOverride?: any
 ): Promise<PayrollCalculationResultV2> {
   
   // FASE 4: Intentar delegar al motor central previsional
   // REGLA: Si faltan tasas validated, se BLOQUEA el calculo (no fallback silencioso).
   try {
-    const adapterResult = await calculatePrevisionalFromV2(input)
+    const adapterResult = await calculatePrevisionalFromV2(input, supabaseOverride)
     
     if (adapterResult.usedNewEngine && adapterResult.previsionalResult) {
       const legacyResult = await calculateOtherRegimeLegacy(input)
