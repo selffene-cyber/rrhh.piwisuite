@@ -167,18 +167,16 @@ async function calculateAFPRegime(
       return mergedResult
     }
     
-    // Si el motor central bloqueo por falta de tasas validated, propagar error
+    // Si el motor central bloqueo por falta de tasas, usar legacy como fallback
+    // en vez de bloquear completamente. Esto permite calcular con tasas pending.
     if (adapterResult.blockedConcepts && adapterResult.blockedConcepts.length > 0) {
-      throw new Error(
-        `Calculo bloqueado: faltan tasas previsionales validadas para [${adapterResult.blockedConcepts.join(', ')}] ` +
-        `en ${input.month}/${input.year}. Valide las tasas en la tabla prevision_rates antes de calcular.`
+      console.warn(
+        `[payrollCalculatorV2] Motor previsional bloqueado por: [${adapterResult.blockedConcepts.join(', ')}] ` +
+        `en ${input.month}/${input.year}. Usando calculo legacy como fallback.`
       )
+      // Caer al calculo legacy en vez de bloquear
     }
   } catch (error) {
-    // Si es un error de bloqueo de tasas, propagarlo (no hacer fallback)
-    if (error instanceof Error && error.message.startsWith('Calculo bloqueado')) {
-      throw error
-    }
     // Error tecnico inesperado: caer al legacy
     console.warn('[payrollCalculatorV2] Error tecnico en motor central, usando calculo legacy:', error)
   }
@@ -444,16 +442,14 @@ async function calculateOtherRegime(
       return mergedResult
     }
     
+    // Si el motor central bloqueo por falta de tasas, usar legacy como fallback
     if (adapterResult.blockedConcepts && adapterResult.blockedConcepts.length > 0) {
-      throw new Error(
-        `Calculo bloqueado: faltan tasas previsionales validadas para [${adapterResult.blockedConcepts.join(', ')}] ` +
-        `en ${input.month}/${input.year}. Valide las tasas en la tabla prevision_rates antes de calcular.`
+      console.warn(
+        `[payrollCalculatorV2] Motor previsional bloqueado por: [${adapterResult.blockedConcepts.join(', ')}] ` +
+        `en ${input.month}/${input.year}. Usando calculo legacy como fallback.`
       )
     }
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Calculo bloqueado')) {
-      throw error
-    }
     console.warn('[payrollCalculatorV2] Error tecnico en motor central (otro regimen), usando calculo legacy:', error)
   }
   

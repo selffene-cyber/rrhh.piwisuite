@@ -86,12 +86,15 @@ export async function calculatePrevisionalFromV2(
     const result = await calculatePrevisional(context)
 
     if (result.blocked && result.blockedConcepts.length > 0) {
-      // BLOQUEO: Faltan tasas validadas. NO hacer fallback silencioso.
-      // Propagar la informacion de bloqueo para que el llamador decida.
+      // Log detallado para diagnostico
       console.error(
-        `[previsionalAdapter] BLOQUEADO: Faltan tasas validadas para ${result.blockedConcepts.join(', ')} ` +
-        `en ${month}/${year}. El calculo NO puede continuar con el motor legacy.`
+        `[previsionalAdapter] BLOQUEADO: Faltan tasas/topes para [${result.blockedConcepts.join(', ')}] ` +
+        `en ${month}/${year}. Detalle de warnings: ${result.warnings?.join('; ') || 'sin warnings'}. ` +
+        `El motor previsional no pudo encontrar datos validated ni pending en la BD.`
       )
+      console.error('[previsionalAdapter] Esto puede significar que: (1) la migracion 140 no se ejecuto, ' +
+        '(2) hay un problema de RLS con el cliente Supabase, o (3) no hay datos para este periodo.')
+      // Propagar la informacion de bloqueo para que el llamador decida.
       return {
         previsionalResult: null,
         usedNewEngine: false,
