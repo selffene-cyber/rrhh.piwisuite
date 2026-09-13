@@ -359,9 +359,18 @@ export default function LRESection({ employeeId, formData, onChange }: LRESectio
         {formData.indemnizacion_a_todo_evento === 1 && (
           <div className="form-group">
             <label>Tasa indemnización (%) <span style={{color:'red'}}>*</span></label>
-            <input type="number" step="0.01" min="4.11" value={formData.tasa_indemnizacion ?? ''} onChange={e => onChange('tasa_indemnizacion', parseFloat(e.target.value) || null)} placeholder="Mínimo 4.11%" />
-            {formData.tasa_indemnizacion && formData.tasa_indemnizacion < 4.11 && (
-              <small style={{ color: '#dc2626' }}>La tasa mínima legal es 4.11%</small>
+            <input
+              type="number"
+              step="0.01"
+              min={formData.worker_type === 'DOMESTIC_WORKER' ? 1.11 : 4.11}
+              value={formData.tasa_indemnizacion ?? ''}
+              onChange={e => onChange('tasa_indemnizacion', parseFloat(e.target.value) || null)}
+              placeholder={formData.worker_type === 'DOMESTIC_WORKER' ? 'Mínimo 1.11%' : 'Mínimo 4.11%'}
+            />
+            {formData.tasa_indemnizacion && formData.tasa_indemnizacion < (formData.worker_type === 'DOMESTIC_WORKER' ? 1.11 : 4.11) && (
+              <small style={{ color: '#dc2626' }}>
+                La tasa mínima legal es {formData.worker_type === 'DOMESTIC_WORKER' ? '1.11%' : '4.11%'}
+              </small>
             )}
           </div>
         )}
