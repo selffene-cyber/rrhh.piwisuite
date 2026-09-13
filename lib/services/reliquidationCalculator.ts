@@ -151,7 +151,8 @@ export async function calculateReliquidation(
 
   // Calcular liquidacion corregida usando V2 (que delega al motor central)
   // Si faltan tasas validated, V2 lanza Error con mensaje "Calculo bloqueado"
-  const correctedResultV2 = await calculatePayrollV2(correctedInputV2)
+  // Pasar supabase client para que el motor central pueda consultar tasas con la sesion correcta
+  const correctedResultV2 = await calculatePayrollV2(correctedInputV2, supabase)
 
   // Mapear resultado V2 a V1 para compatibilidad con el delta
   const correctedResult = mapV2ToV1Result(correctedResultV2)
