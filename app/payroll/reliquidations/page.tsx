@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatMonthYear, MONTHS } from '@/lib/utils/date'
-import { FaEye, FaPlus, FaRedo } from 'react-icons/fa'
+import { FaEye, FaPlus, FaRedo, FaTrash, FaEdit } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { PayrollReliquidationWithDetails } from '@/types'
 
@@ -149,6 +149,25 @@ export default function ReliquidationsPage() {
 
   const getTypeLabel = (type: string) => {
     return type === 'rectificatoria' ? 'Rectificatoria' : 'Complementaria'
+  }
+
+  const handleDelete = async (id: string, status: string) => {
+    if (status === 'issued' || status === 'paid') {
+      alert('No se pueden eliminar reliquidaciones emitidas o pagadas.')
+      return
+    }
+    if (!confirm('¿Estás seguro de que deseas eliminar esta reliquidación?')) return
+
+    try {
+      const response = await fetch(`/api/payroll/reliquidations/${id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Error al eliminar')
+      }
+      setReliquidations(prev => prev.filter(r => r.id !== id))
+    } catch (error: any) {
+      alert('Error al eliminar: ' + error.message)
+    }
   }
 
   const currentYear = new Date().getFullYear()
@@ -338,25 +357,64 @@ export default function ReliquidationsPage() {
                             {getStatusLabel(rel.status)}
                           </span>
                         </td>
-                        <td>
-                          <Link href={`/payroll/reliquidations/${rel.id}`}>
-                            <button 
-                              style={{ 
-                                padding: '6px 10px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                border: '1px solid #d1d5db',
-                                background: '#fff',
-                                borderRadius: '4px'
-                              }}
-                              title="Ver"
-                            >
-                              <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
-                            </button>
-                          </Link>
-                        </td>
+                         <td>
+                           <div style={{ display: 'flex', gap: '4px' }}>
+                             <Link href={`/payroll/reliquidations/${rel.id}`}>
+                               <button 
+                                 style={{ 
+                                   padding: '6px 10px', 
+                                   display: 'flex', 
+                                   alignItems: 'center', 
+                                   justifyContent: 'center',
+                                   cursor: 'pointer',
+                                   border: '1px solid #d1d5db',
+                                   background: '#fff',
+                                   borderRadius: '4px'
+                                 }}
+                                 title="Ver"
+                               >
+                                 <FaEye style={{ fontSize: '14px', color: '#3b82f6' }} />
+                               </button>
+                             </Link>
+                             {rel.status === 'draft' && (
+                               <Link href={`/payroll/${rel.reference_payroll_slip_id}/reliquidate?edit=${rel.id}`}>
+                                 <button 
+                                   style={{ 
+                                     padding: '6px 10px', 
+                                     display: 'flex', 
+                                     alignItems: 'center', 
+                                     justifyContent: 'center',
+                                     cursor: 'pointer',
+                                     border: '1px solid #d1d5db',
+                                     background: '#fff',
+                                     borderRadius: '4px'
+                                   }}
+                                   title="Editar"
+                                 >
+                                   <FaEdit style={{ fontSize: '14px', color: '#f59e0b' }} />
+                                 </button>
+                               </Link>
+                             )}
+                             {(rel.status === 'draft' || rel.status === 'approved') && (
+                               <button 
+                                 onClick={() => handleDelete(rel.id, rel.status)}
+                                 style={{ 
+                                   padding: '6px 10px', 
+                                   display: 'flex', 
+                                   alignItems: 'center', 
+                                   justifyContent: 'center',
+                                   cursor: 'pointer',
+                                   border: '1px solid #fecaca',
+                                   background: '#fff',
+                                   borderRadius: '4px'
+                                 }}
+                                 title="Eliminar"
+                               >
+                                 <FaTrash style={{ fontSize: '14px', color: '#dc2626' }} />
+                               </button>
+                             )}
+                           </div>
+                         </td>
                       </tr>
                     ))}
                   </tbody>
@@ -421,6 +479,22 @@ export default function ReliquidationsPage() {
                         Ver
                       </button>
                     </Link>
+                    {rel.status === 'draft' && (
+                      <Link href={`/payroll/${rel.reference_payroll_slip_id}/reliquidate?edit=${rel.id}`} style={{ flex: 1 }}>
+                        <button className="secondary" style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+                          <FaEdit style={{ marginRight: '6px' }} />
+                          Editar
+                        </button>
+                      </Link>
+                    )}
+                    {(rel.status === 'draft' || rel.status === 'approved') && (
+                      <button 
+                        onClick={() => handleDelete(rel.id, rel.status)}
+                        style={{ padding: '8px', fontSize: '14px', border: '1px solid #fecaca', background: '#fff', borderRadius: '4px' }}
+                      >
+                        <FaTrash style={{ color: '#dc2626' }} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

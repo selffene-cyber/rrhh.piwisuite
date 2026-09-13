@@ -129,6 +129,17 @@ export async function calculateReliquidation(
   }
 
   // Preparar input para V2
+  // Obtener valores originales de los items para fallback
+  const originalItems = originalSlip.payroll_items || []
+  const originalBonuses = originalItems.filter((i: any) => i.type === 'taxable_earning' && i.category === 'bonos').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalOvertime = originalItems.filter((i: any) => i.type === 'taxable_earning' && i.category === 'horas_extras').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalVacation = originalItems.filter((i: any) => i.type === 'taxable_earning' && i.category === 'vacaciones').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalTransportation = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'movilizacion').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalMealAllowance = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'colacion').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalAguinaldo = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'aguinaldo').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalLoans = originalItems.filter((i: any) => i.type === 'other_deduction' && i.category === 'prestamos').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalAdvances = originalItems.filter((i: any) => i.type === 'other_deduction' && i.category === 'anticipos').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+
   const correctedInputV2: PayrollCalculationInputV2 = {
     employee: employeeWithPrevision,
     year: period.year,
@@ -136,15 +147,15 @@ export async function calculateReliquidation(
     daysWorked: modifications.days_worked ?? originalSlip.days_worked,
     daysLeave: modifications.days_leave ?? originalSlip.days_leave ?? 0,
     baseSalary: modifications.base_salary ?? originalSlip.base_salary,
-    bonuses: modifications.bonuses ?? 0,
-    overtime: modifications.overtime ?? 0,
-    vacation: modifications.vacation ?? 0,
+    bonuses: modifications.bonuses ?? originalBonuses,
+    overtime: modifications.overtime ?? originalOvertime,
+    vacation: modifications.vacation ?? originalVacation,
     otherTaxableEarnings: modifications.other_taxable_earnings ?? 0,
-    transportation: modifications.transportation ?? 0,
-    mealAllowance: modifications.meal_allowance ?? 0,
-    aguinaldo: modifications.aguinaldo ?? 0,
-    loans: modifications.loans ?? 0,
-    advances: modifications.advances ?? 0,
+    transportation: modifications.transportation ?? originalTransportation,
+    mealAllowance: modifications.meal_allowance ?? originalMealAllowance,
+    aguinaldo: modifications.aguinaldo ?? originalAguinaldo,
+    loans: modifications.loans ?? originalLoans,
+    advances: modifications.advances ?? originalAdvances,
     permissionDiscount: modifications.permission_discount ?? 0,
     indicators,
   }
@@ -222,8 +233,6 @@ export async function calculateReliquidation(
   // Crear items de reliquidacion (deltas por concepto)
   const items: Omit<PayrollReliquidationItem, 'id' | 'reliquidation_id' | 'created_at'>[] = []
 
-  const originalItems = originalSlip.payroll_items || []
-
   // Haberes imponibles
   const originalBaseSalary = originalItems
     .filter(i => i.type === 'taxable_earning' && i.category === 'sueldo_base')
@@ -244,18 +253,18 @@ export async function calculateReliquidation(
     })
   }
 
-  const originalBonuses = originalItems
+  const origBonuses = originalItems
     .filter(i => i.type === 'taxable_earning' && i.category === 'bonos')
     .reduce((sum, i) => sum + Number(i.amount), 0)
-  if (originalBonuses !== correctedInputV2.bonuses || modifications.bonuses !== undefined) {
+  if (origBonuses !== correctedInputV2.bonuses || modifications.bonuses !== undefined) {
     items.push({
       original_item_id: originalItems.find(i => i.type === 'taxable_earning' && i.category === 'bonos')?.id || null,
       type: 'taxable_earning',
       category: 'bonos',
       description: 'Bonos',
-      original_amount: originalBonuses,
+      original_amount: origBonuses,
       corrected_amount: correctedInputV2.bonuses || 0,
-      difference: (correctedInputV2.bonuses || 0) - originalBonuses,
+      difference: (correctedInputV2.bonuses || 0) - origBonuses,
       is_taxable: true,
       is_tributable: true,
       affects_deductions: true,
@@ -263,18 +272,18 @@ export async function calculateReliquidation(
     })
   }
 
-  const originalOvertime = originalItems
+  const origOvertime = originalItems
     .filter(i => i.type === 'taxable_earning' && i.category === 'horas_extras')
     .reduce((sum, i) => sum + Number(i.amount), 0)
-  if (originalOvertime !== correctedInputV2.overtime || modifications.overtime !== undefined) {
+  if (origOvertime !== correctedInputV2.overtime || modifications.overtime !== undefined) {
     items.push({
       original_item_id: originalItems.find(i => i.type === 'taxable_earning' && i.category === 'horas_extras')?.id || null,
       type: 'taxable_earning',
       category: 'horas_extras',
       description: 'Horas Extras',
-      original_amount: originalOvertime,
+      original_amount: origOvertime,
       corrected_amount: correctedInputV2.overtime || 0,
-      difference: (correctedInputV2.overtime || 0) - originalOvertime,
+      difference: (correctedInputV2.overtime || 0) - origOvertime,
       is_taxable: true,
       is_tributable: true,
       affects_deductions: true,
@@ -282,18 +291,18 @@ export async function calculateReliquidation(
     })
   }
 
-  const originalVacation = originalItems
+  const origVacation = originalItems
     .filter(i => i.type === 'taxable_earning' && i.category === 'vacaciones')
     .reduce((sum, i) => sum + Number(i.amount), 0)
-  if (originalVacation !== correctedInputV2.vacation || modifications.vacation !== undefined) {
+  if (origVacation !== correctedInputV2.vacation || modifications.vacation !== undefined) {
     items.push({
       original_item_id: originalItems.find(i => i.type === 'taxable_earning' && i.category === 'vacaciones')?.id || null,
       type: 'taxable_earning',
       category: 'vacaciones',
       description: 'Vacaciones',
-      original_amount: originalVacation,
+      original_amount: origVacation,
       corrected_amount: correctedInputV2.vacation || 0,
-      difference: (correctedInputV2.vacation || 0) - originalVacation,
+      difference: (correctedInputV2.vacation || 0) - origVacation,
       is_taxable: true,
       is_tributable: true,
       affects_deductions: true,
