@@ -176,8 +176,8 @@ export function shouldCalculateAFC(employee: EmployeeWithPrevision): boolean {
     return false
   }
   
-  // AFP: depende del flag afc_applicable
-  return employee.afc_applicable
+  // AFP: depende del flag afc_applicable (default true para trabajadores regulares)
+  return employee.afc_applicable !== false
 }
 
 
