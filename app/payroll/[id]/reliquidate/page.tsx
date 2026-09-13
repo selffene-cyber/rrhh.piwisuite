@@ -169,6 +169,10 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
     return items.reduce((sum, i) => sum + i.amount, 0)
   }
 
+  const recalcNonTaxableFromItems = (items: ItemEntry[]): number => {
+    return items.reduce((sum, i) => sum + i.amount, 0)
+  }
+
   const updateBonusItem = (index: number, field: 'name' | 'amount', value: string | number) => {
     const updated = [...bonusItems]
     if (field === 'name') {
@@ -233,7 +237,7 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
     try {
       setCalculating(true)
 
-      const modsToSend = { ...modifications, bonuses: recalcBonusesFromItems(bonusItems) }
+      const modsToSend = { ...modifications, bonuses: recalcBonusesFromItems(bonusItems), other_non_taxable_earnings: recalcNonTaxableFromItems(nonTaxableItems) }
 
       const response = await fetch('/api/payroll/reliquidations/calculate', {
         method: 'POST',
@@ -273,7 +277,7 @@ export default function CreateReliquidationPage({ params }: { params: { id: stri
     try {
       setSaving(true)
 
-      const modsToSend = { ...modifications, bonuses: recalcBonusesFromItems(bonusItems) }
+      const modsToSend = { ...modifications, bonuses: recalcBonusesFromItems(bonusItems), other_non_taxable_earnings: recalcNonTaxableFromItems(nonTaxableItems) }
 
       const response = await fetch('/api/payroll/reliquidations', {
         method: 'POST',

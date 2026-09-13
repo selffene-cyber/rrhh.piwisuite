@@ -19,6 +19,7 @@ export type ReliquidationModifications = {
   transportation?: number
   meal_allowance?: number
   aguinaldo?: number
+  other_non_taxable_earnings?: number
   loans?: number
   advances?: number
   permission_discount?: number
@@ -137,6 +138,7 @@ export async function calculateReliquidation(
   const originalTransportation = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'movilizacion').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalMealAllowance = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'colacion').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalAguinaldo = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && i.category === 'aguinaldo').reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
+  const originalOtherNonTaxable = originalItems.filter((i: any) => i.type === 'non_taxable_earning' && !['movilizacion', 'colacion', 'aguinaldo'].includes(i.category)).reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalLoans = originalItems.filter((i: any) => i.type === 'other_deduction' && (i.category === 'prestamos' || i.category === 'otros_prestamos')).reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
   const originalAdvances = originalItems.filter((i: any) => i.type === 'other_deduction' && (i.category === 'anticipos' || i.category === 'anticipo')).reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0)
 
@@ -154,6 +156,7 @@ export async function calculateReliquidation(
     transportation: modifications.transportation ?? originalTransportation,
     mealAllowance: modifications.meal_allowance ?? originalMealAllowance,
     aguinaldo: modifications.aguinaldo ?? originalAguinaldo,
+    otherNonTaxableEarnings: modifications.other_non_taxable_earnings ?? originalOtherNonTaxable,
     loans: modifications.loans ?? originalLoans,
     advances: modifications.advances ?? originalAdvances,
     permissionDiscount: modifications.permission_discount ?? 0,
@@ -307,6 +310,84 @@ export async function calculateReliquidation(
       is_tributable: true,
       affects_deductions: true,
       affects_gratification: true,
+    })
+  }
+
+  // Haberes no imponibles
+  const origTransportation = originalItems
+    .filter(i => i.type === 'non_taxable_earning' && i.category === 'movilizacion')
+    .reduce((sum, i) => sum + Number(i.amount), 0)
+  if (origTransportation !== (correctedInputV2.transportation ?? 0) || modifications.transportation !== undefined) {
+    items.push({
+      original_item_id: originalItems.find(i => i.type === 'non_taxable_earning' && i.category === 'movilizacion')?.id || null,
+      type: 'non_taxable_earning',
+      category: 'movilizacion',
+      description: 'Movilizacion',
+      original_amount: origTransportation,
+      corrected_amount: correctedInputV2.transportation ?? 0,
+      difference: (correctedInputV2.transportation ?? 0) - origTransportation,
+      is_taxable: false,
+      is_tributable: false,
+      affects_deductions: false,
+      affects_gratification: false,
+    })
+  }
+
+  const origMealAllowance = originalItems
+    .filter(i => i.type === 'non_taxable_earning' && i.category === 'colacion')
+    .reduce((sum, i) => sum + Number(i.amount), 0)
+  if (origMealAllowance !== (correctedInputV2.mealAllowance ?? 0) || modifications.meal_allowance !== undefined) {
+    items.push({
+      original_item_id: originalItems.find(i => i.type === 'non_taxable_earning' && i.category === 'colacion')?.id || null,
+      type: 'non_taxable_earning',
+      category: 'colacion',
+      description: 'Colacion',
+      original_amount: origMealAllowance,
+      corrected_amount: correctedInputV2.mealAllowance ?? 0,
+      difference: (correctedInputV2.mealAllowance ?? 0) - origMealAllowance,
+      is_taxable: false,
+      is_tributable: false,
+      affects_deductions: false,
+      affects_gratification: false,
+    })
+  }
+
+  const origAguinaldo = originalItems
+    .filter(i => i.type === 'non_taxable_earning' && i.category === 'aguinaldo')
+    .reduce((sum, i) => sum + Number(i.amount), 0)
+  if (origAguinaldo !== (correctedInputV2.aguinaldo ?? 0) || modifications.aguinaldo !== undefined) {
+    items.push({
+      original_item_id: originalItems.find(i => i.type === 'non_taxable_earning' && i.category === 'aguinaldo')?.id || null,
+      type: 'non_taxable_earning',
+      category: 'aguinaldo',
+      description: 'Aguinaldo',
+      original_amount: origAguinaldo,
+      corrected_amount: correctedInputV2.aguinaldo ?? 0,
+      difference: (correctedInputV2.aguinaldo ?? 0) - origAguinaldo,
+      is_taxable: false,
+      is_tributable: false,
+      affects_deductions: false,
+      affects_gratification: false,
+    })
+  }
+
+  const origOtherNonTaxable = originalItems
+    .filter(i => i.type === 'non_taxable_earning' && !['movilizacion', 'colacion', 'aguinaldo'].includes(i.category))
+    .reduce((sum, i) => sum + Number(i.amount), 0)
+  const correctedOtherNonTaxable = correctedInputV2.otherNonTaxableEarnings ?? 0
+  if (origOtherNonTaxable !== correctedOtherNonTaxable || modifications.other_non_taxable_earnings !== undefined) {
+    items.push({
+      original_item_id: null,
+      type: 'non_taxable_earning',
+      category: 'otro_no_imponible',
+      description: 'Otros Haberes No Imponibles',
+      original_amount: origOtherNonTaxable,
+      corrected_amount: correctedOtherNonTaxable,
+      difference: correctedOtherNonTaxable - origOtherNonTaxable,
+      is_taxable: false,
+      is_tributable: false,
+      affects_deductions: false,
+      affects_gratification: false,
     })
   }
 
