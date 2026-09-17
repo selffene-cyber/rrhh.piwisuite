@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/utils/date'
+import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 import { FaCalendarAlt, FaUser, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaTrash, FaCheckCircle, FaClock, FaTimesCircle, FaFilePdf } from 'react-icons/fa'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -60,6 +61,7 @@ interface EmployeePermissionData {
 
 export default function PermissionsDashboardPage() {
   const { company: currentCompany } = useCurrentCompany()
+  const { isActing, errorMessage, executeAction } = useActionOverlay()
   const [loading, setLoading] = useState(true)
   const [employees, setEmployees] = useState<EmployeePermissionData[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null)
@@ -84,11 +86,11 @@ export default function PermissionsDashboardPage() {
     }
   }, [currentCompany, filterStatus, filterType])
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (!currentCompany) return
 
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
 
       // Obtener todos los permisos de la empresa
       const response = await fetch(
@@ -268,7 +270,7 @@ export default function PermissionsDashboardPage() {
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -309,6 +311,8 @@ export default function PermissionsDashboardPage() {
   }
 
   return (
+    <>
+    <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div>
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Dashboard de Permisos</h1>
@@ -674,17 +678,14 @@ export default function PermissionsDashboardPage() {
                                 fontSize: '12px',
                               }}
                               onClick={async () => {
-                                try {
+                                await executeAction(async () => {
                                   const response = await fetch(`/api/permissions/${perm.id}/approve`, {
                                     method: 'POST',
                                   })
                                   const result = await response.json()
                                   if (!response.ok) throw new Error(result.error || 'Error al aprobar')
-                                  alert('Permiso aprobado exitosamente')
-                                  loadData()
-                                } catch (error: any) {
-                                  alert(error.message)
-                                }
+                                  await loadData(true)
+                                }, 'Aprobando permiso...')
                               }}
                             >
                               Aprobar
@@ -702,7 +703,7 @@ export default function PermissionsDashboardPage() {
                               onClick={async () => {
                                 const reason = prompt('Ingrese el motivo del rechazo:')
                                 if (!reason || !reason.trim()) return
-                                try {
+                                await executeAction(async () => {
                                   const response = await fetch(`/api/permissions/${perm.id}/reject`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -710,11 +711,8 @@ export default function PermissionsDashboardPage() {
                                   })
                                   const result = await response.json()
                                   if (!response.ok) throw new Error(result.error || 'Error al rechazar')
-                                  alert('Permiso rechazado')
-                                  loadData()
-                                } catch (error: any) {
-                                  alert('Error: ' + error.message)
-                                }
+                                  await loadData(true)
+                                }, 'Rechazando permiso...')
                               }}
                             >
                               Rechazar
@@ -751,6 +749,7 @@ export default function PermissionsDashboardPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
 

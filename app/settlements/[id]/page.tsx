@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import SettlementPDF from '@/components/SettlementPDF'
+import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 import { formatDate } from '@/lib/utils/date'
 import { formatCurrency } from '@/lib/services/payrollCalculator'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
@@ -16,14 +17,15 @@ export default function SettlementDetailPage() {
   const [company, setCompany] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showPDF, setShowPDF] = useState(false)
+  const { isActing, errorMessage, executeAction } = useActionOverlay()
 
   useEffect(() => {
     loadData()
   }, [params.id])
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       
       // Cargar finiquito
       const settlementResponse = await fetch(`/api/settlements/${params.id}`)
@@ -40,67 +42,46 @@ export default function SettlementDetailPage() {
         alert('Error al cargar finiquito: ' + settlementData.error)
       }
     } catch (error: any) {
-      alert('Error: ' + error.message)
+      if (!silent) alert('Error: ' + error.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
   const handleApprove = async () => {
     if (!confirm('¿Está seguro de aprobar este finiquito?')) return
-
-    try {
-      const response = await fetch(`/api/settlements/${params.id}/approve`, {
-        method: 'POST'
-      })
-
-      if (response.ok) {
-        loadData()
-      } else {
+    await executeAction(async () => {
+      const response = await fetch(`/api/settlements/${params.id}/approve`, { method: 'POST' })
+      if (!response.ok) {
         const data = await response.json()
-        alert('Error al aprobar: ' + data.error)
+        throw new Error(data.error || 'Error al aprobar')
       }
-    } catch (error: any) {
-      alert('Error: ' + error.message)
-    }
+      await loadData(true)
+    }, 'Aprobando finiquito...')
   }
 
   const handleSign = async () => {
     if (!confirm('¿Marcar finiquito como firmado?')) return
-
-    try {
-      const response = await fetch(`/api/settlements/${params.id}/sign`, {
-        method: 'POST'
-      })
-
-      if (response.ok) {
-        loadData()
-      } else {
+    await executeAction(async () => {
+      const response = await fetch(`/api/settlements/${params.id}/sign`, { method: 'POST' })
+      if (!response.ok) {
         const data = await response.json()
-        alert('Error: ' + data.error)
+        throw new Error(data.error || 'Error al firmar')
       }
-    } catch (error: any) {
-      alert('Error: ' + error.message)
-    }
+      await loadData(true)
+    }, 'Firmando finiquito...')
   }
 
   const handlePay = async () => {
     if (!confirm('¿Marcar finiquito como pagado?')) return
-
-    try {
-      const response = await fetch(`/api/settlements/${params.id}/pay`, {
-        method: 'POST'
-      })
-
-      if (response.ok) {
-        loadData()
-      } else {
+    await executeAction(async () => {
+      const response = await fetch(`/api/settlements/${params.id}/pay`, { method: 'POST' })
+      if (!response.ok) {
         const data = await response.json()
-        alert('Error: ' + data.error)
+        throw new Error(data.error || 'Error al marcar como pagado')
       }
-    } catch (error: any) {
-      alert('Error: ' + error.message)
-    }
+      await loadData(true)
+    }, 'Procesando pago...')
   }
 
   if (loading) {
@@ -151,6 +132,8 @@ export default function SettlementDetailPage() {
   }
 
   return (
+    <>
+    <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div style={{ maxWidth: '1000px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h1>Finiquito {settlement.settlement_number || ''}</h1>
@@ -378,6 +361,7 @@ export default function SettlementDetailPage() {
           </button>
         </div>
       </div>
+    </>
   )
 }
 

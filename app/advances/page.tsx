@@ -7,10 +7,12 @@ import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatMonthYear } from '@/lib/utils/date'
 import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaTimes, FaMoneyBillWave, FaTrash, FaChartLine } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
+import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 
 export default function AdvancesPage() {
   const { companyId } = useCurrentCompany()
   const router = useRouter()
+  const { isActing, errorMessage, executeAction } = useActionOverlay()
   const [loading, setLoading] = useState(true)
   const [advances, setAdvances] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
@@ -95,9 +97,9 @@ export default function AdvancesPage() {
     }
   }
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
 
       if (!companyId) return
 
@@ -145,38 +147,42 @@ export default function AdvancesPage() {
       setAdvances(data || [])
 
       // Cargar estadísticas
-      await loadStats()
+      await loadStats(employeeIds)
     } catch (error: any) {
       console.error('Error al cargar anticipos:', error)
-      alert('Error al cargar anticipos: ' + error.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
-  const loadStats = async () => {
+  const loadStats = async (employeeIds?: string[]) => {
     try {
+      if (!companyId) return
+      const ids = employeeIds || employees.map((e: any) => e.id)
+      if (ids.length === 0) {
+        setStats({ totalPeriodAmount: 0, projectedNextMonth: 0, pendingCount: 0 })
+        return
+      }
+
       const now = new Date()
       const currentYear = now.getFullYear()
       const currentMonth = now.getMonth() + 1
       const currentPeriod = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
 
-      // Calcular mes siguiente
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
       const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear
       const nextPeriod = `${nextYear}-${String(nextMonth).padStart(2, '0')}`
 
-      // 1. Suma total de anticipos a pagar en el período actual (firmados/pagados, no descontados)
       const { data: periodAdvances } = await supabase
         .from('advances')
         .select('amount')
         .eq('period', currentPeriod)
         .in('status', ['firmado', 'pagado'])
         .is('payroll_slip_id', null)
+        .in('employee_id', ids)
 
       const totalPeriodAmount = periodAdvances?.reduce((sum: number, adv: { amount: number | null }) => sum + Number(adv.amount || 0), 0) || 0
 
-      // 2. Promedio proyectado del mes siguiente basado en últimos 3 meses
       const last3Months: string[] = []
       for (let i = 1; i <= 3; i++) {
         const date = new Date(currentYear, currentMonth - i, 1)
@@ -190,6 +196,7 @@ export default function AdvancesPage() {
         .select('amount, period')
         .in('period', last3Months)
         .in('status', ['pagado', 'descontado'])
+        .in('employee_id', ids)
 
       let totalLast3Months = 0
       if (last3MonthsAdvances) {
@@ -197,12 +204,12 @@ export default function AdvancesPage() {
       }
       const projectedNextMonth = Math.ceil(totalLast3Months / 3)
 
-      // 3. Cantidad de anticipos pendientes (firmados/pagados no descontados)
       const { data: pendingAdvances } = await supabase
         .from('advances')
         .select('id')
         .in('status', ['firmado', 'pagado'])
         .is('payroll_slip_id', null)
+        .in('employee_id', ids)
 
       const pendingCount = pendingAdvances?.length || 0
 
@@ -217,7 +224,7 @@ export default function AdvancesPage() {
   }
 
   const handleStatusChange = async (advanceId: string, newStatus: string) => {
-    try {
+    await executeAction(async () => {
       const updateData: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
@@ -237,11 +244,8 @@ export default function AdvancesPage() {
         .eq('id', advanceId)
 
       if (error) throw error
-
-      loadData()
-    } catch (error: any) {
-      alert('Error al actualizar estado: ' + error.message)
-    }
+      await loadData(true)
+    }, 'Actualizando estado...')
   }
 
   const handleDelete = async (advanceId: string, employeeName: string, amount: number) => {
@@ -249,19 +253,15 @@ export default function AdvancesPage() {
       return
     }
 
-    try {
+    await executeAction(async () => {
       const { error } = await supabase
         .from('advances')
         .delete()
         .eq('id', advanceId)
 
       if (error) throw error
-
-      alert('Anticipo eliminado correctamente')
-      loadData()
-    } catch (error: any) {
-      alert('Error al eliminar anticipo: ' + error.message)
-    }
+      await loadData(true)
+    }, 'Eliminando anticipo...')
   }
 
   const getStatusBadge = (status: string) => {
@@ -307,6 +307,8 @@ export default function AdvancesPage() {
   }
 
   return (
+    <>
+    <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -540,9 +542,8 @@ export default function AdvancesPage() {
                                 .single()
 
                               if (!payrollExists) {
-                                // La liquidación no existe, restaurar el anticipo
                                 if (confirm('La liquidación vinculada no existe. ¿Restaurar este anticipo?')) {
-                                  try {
+                                  await executeAction(async () => {
                                     const { error } = await supabase
                                       .from('advances')
                                       .update({
@@ -554,19 +555,15 @@ export default function AdvancesPage() {
                                       .eq('id', advance.id)
 
                                     if (error) throw error
-                                    alert('Anticipo restaurado correctamente')
-                                    loadData()
-                                  } catch (error: any) {
-                                    alert('Error al restaurar anticipo: ' + error.message)
-                                  }
+                                    await loadData(true)
+                                  }, 'Restaurando anticipo...')
                                 }
                               } else {
-                                alert('Este anticipo está vinculado a una liquidación existente. No se puede restaurar.')
+                                throw new Error('Este anticipo está vinculado a una liquidación existente. No se puede restaurar.')
                               }
                             } else {
-                              // No tiene liquidación vinculada, restaurar directamente
                               if (confirm('¿Restaurar este anticipo?')) {
-                                try {
+                                await executeAction(async () => {
                                   const { error } = await supabase
                                     .from('advances')
                                     .update({
@@ -576,11 +573,8 @@ export default function AdvancesPage() {
                                     .eq('id', advance.id)
 
                                   if (error) throw error
-                                  alert('Anticipo restaurado correctamente')
-                                  loadData()
-                                } catch (error: any) {
-                                  alert('Error al restaurar anticipo: ' + error.message)
-                                }
+                                  await loadData(true)
+                                }, 'Restaurando anticipo...')
                               }
                             }
                           }}
@@ -616,6 +610,7 @@ export default function AdvancesPage() {
         )}
       </div>
     </div>
+    </>
   )
 }
 

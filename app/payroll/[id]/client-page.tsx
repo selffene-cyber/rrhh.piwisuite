@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
@@ -8,6 +8,7 @@ import { formatCurrency, numberToWords } from '@/lib/services/payrollCalculator'
 import { useRouter, usePathname } from 'next/navigation'
 import { pdf } from '@react-pdf/renderer'
 import { PayrollDocument } from '@/components/PayrollDocument'
+import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 import React from 'react'
 import dynamic from 'next/dynamic'
 
@@ -25,70 +26,64 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
   const [currentLoanPayments, setCurrentLoanPayments] = useState(loanPayments || [])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  const { isActing, errorMessage, executeAction } = useActionOverlay()
 
-  // Recargar datos del servidor al montar el componente y cuando cambia la ruta
-  useEffect(() => {
-    const loadSlip = async () => {
-      try {
-        const { data: slipData, error } = await supabase
-          .from('payroll_slips')
+  const loadSlip = useCallback(async () => {
+    try {
+      const { data: slipData, error } = await supabase
+        .from('payroll_slips')
+        .select(`
+          *,
+          employees (*),
+          payroll_periods (*),
+          payroll_items (*)
+        `)
+        .eq('id', initialSlip.id)
+        .single()
+
+      if (error) {
+        console.error('Error al cargar liquidación:', error)
+        return
+      }
+
+      if (slipData) {
+        setSlip(slipData)
+
+        const { data: advancesData, error: advancesError } = await supabase
+          .from('advances')
+          .select('*')
+          .eq('payroll_slip_id', slipData.id)
+          .order('advance_date', { ascending: true })
+
+        if (advancesError) {
+          console.error('Error al cargar anticipos:', advancesError)
+        } else {
+          setCurrentAdvances(advancesData || [])
+        }
+
+        const { data: loanPaymentsData, error: loanPaymentsError } = await supabase
+          .from('loan_payments')
           .select(`
             *,
-            employees (*),
-            payroll_periods (*),
-            payroll_items (*)
+            loans (*)
           `)
-          .eq('id', initialSlip.id)
-          .single()
+          .eq('payroll_slip_id', slipData.id)
+          .order('installment_number', { ascending: true })
 
-        if (error) {
-          console.error('Error al cargar liquidación:', error)
-          return
+        if (loanPaymentsError) {
+          console.error('Error al cargar préstamos:', loanPaymentsError)
+        } else {
+          setCurrentLoanPayments(loanPaymentsData || [])
         }
-
-        if (slipData) {
-          // Siempre actualizar con los datos más recientes del servidor
-          if (slipData.status !== initialSlip.status) {
-            console.log('Estado actualizado detectado:', slipData.status, 'anterior:', initialSlip.status)
-          }
-          setSlip(slipData)
-
-          // Recargar anticipos
-          const { data: advancesData, error: advancesError } = await supabase
-            .from('advances')
-            .select('*')
-            .eq('payroll_slip_id', slipData.id)
-            .order('advance_date', { ascending: true })
-
-          if (advancesError) {
-            console.error('Error al cargar anticipos:', advancesError)
-          } else {
-            setCurrentAdvances(advancesData || [])
-          }
-
-          // Recargar préstamos
-          const { data: loanPaymentsData, error: loanPaymentsError } = await supabase
-            .from('loan_payments')
-            .select(`
-              *,
-              loans (*)
-            `)
-            .eq('payroll_slip_id', slipData.id)
-            .order('installment_number', { ascending: true })
-
-          if (loanPaymentsError) {
-            console.error('Error al cargar préstamos:', loanPaymentsError)
-          } else {
-            setCurrentLoanPayments(loanPaymentsData || [])
-          }
-        }
-      } catch (error) {
-        console.error('Error al recargar liquidación:', error)
       }
+    } catch (error) {
+      console.error('Error al recargar liquidación:', error)
     }
+  }, [initialSlip.id])
 
+  useEffect(() => {
     loadSlip()
-  }, [pathname, initialSlip.id, initialSlip.status]) // Recargar cuando cambia la ruta, ID o estado inicial
+  }, [pathname, initialSlip.id, initialSlip.status, loadSlip])
 
   const taxableItems = slip.payroll_items?.filter((item: any) => item.type === 'taxable_earning') || []
   const nonTaxableItems = slip.payroll_items?.filter((item: any) => item.type === 'non_taxable_earning') || []
@@ -138,8 +133,7 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
       return
     }
 
-    setLoading(true)
-    try {
+    await executeAction(async () => {
       const { error } = await supabase
         .from('payroll_slips')
         .update({
@@ -320,8 +314,6 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
           if (!pdfResponse.ok) {
             const errorData = await pdfResponse.json()
             console.error('[handleIssue] Error al guardar PDF:', errorData)
-            // No fallar la emisión si falla el guardado del PDF
-            alert(`Error al guardar PDF: ${errorData.error || 'Error desconocido'}. Revisa la consola para más detalles.`)
           } else {
             const responseData = await pdfResponse.json()
             console.log('[handleIssue] Respuesta completa:', responseData)
@@ -329,8 +321,6 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
             
             if (!pdf_url) {
               console.error('[handleIssue] No se recibió pdf_url en la respuesta')
-              alert('Error: No se recibió la URL del PDF guardado. Revisa la consola.')
-              return
             }
 
             console.log('[handleIssue] PDF guardado correctamente, URL:', pdf_url)
@@ -343,7 +333,6 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
 
             if (updateError) {
               console.error('[handleIssue] Error al actualizar pdf_url en BD:', updateError)
-              alert(`PDF guardado en storage pero error al actualizar BD: ${updateError.message}`)
             } else {
               console.log('[handleIssue] pdf_url actualizado correctamente en BD')
             }
@@ -351,28 +340,17 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
         } catch (pdfError: any) {
           console.error('[handleIssue] Error al generar/guardar PDF:', pdfError)
           console.error('[handleIssue] Error stack:', pdfError.stack)
-          // No fallar la emisión si falla la generación del PDF
-          alert(`Error al generar PDF: ${pdfError.message || 'Error desconocido'}. Revisa la consola para más detalles.`)
         }
 
-        alert('Liquidación emitida correctamente')
-        // Recargar la página para asegurar que se vea el cambio actualizado
-        window.location.reload()
+        await loadSlip()
       } else {
-        // Si no se obtuvo el slip actualizado, recargar desde el servidor
-        alert('Liquidación emitida correctamente. Recargando...')
-        window.location.reload()
+        await loadSlip()
       }
-    } catch (error: any) {
-      alert('Error al emitir liquidación: ' + error.message)
-    } finally {
-      setLoading(false)
-    }
+    }, 'Emitiendo liquidación...')
   }
 
   const handleSendEmail = async () => {
     if (!slip.employees?.email) {
-      alert('El trabajador no tiene correo electrónico registrado')
       return
     }
 
@@ -380,10 +358,7 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
       return
     }
 
-    setSending(true)
-    try {
-      // TODO: Implementar envío de correo
-      // Por ahora solo actualizamos el estado
+    await executeAction(async () => {
       const { error } = await supabase
         .from('payroll_slips')
         .update({
@@ -394,33 +369,13 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
 
       if (error) throw error
 
-      // Recargar los datos
-      const { data: updatedSlip } = await supabase
-        .from('payroll_slips')
-        .select(`
-          *,
-          employees (*),
-          payroll_periods (*),
-          payroll_items (*)
-        `)
-        .eq('id', slip.id)
-        .single()
-
-      if (updatedSlip) {
-        setSlip(updatedSlip)
-      }
-
-      alert('Liquidación marcada como enviada. (Funcionalidad de envío por correo pendiente de implementar)')
-      // Recargar la página para asegurar que se vea el cambio actualizado
-      window.location.reload()
-    } catch (error: any) {
-      alert('Error al marcar como enviada: ' + error.message)
-    } finally {
-      setSending(false)
-    }
+      await loadSlip()
+    }, 'Enviando liquidación...')
   }
 
   return (
+    <>
+    <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Liquidación de Sueldo</h1>
@@ -761,6 +716,7 @@ export default function PayrollDetailClient({ initialSlip, company, vacations, a
         </div>
       </div>
     </div>
+    </>
   )
 }
 
