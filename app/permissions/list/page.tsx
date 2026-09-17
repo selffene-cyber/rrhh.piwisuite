@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/utils/date'
+import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 import { FaArrowLeft, FaEye, FaFilePdf, FaFilter, FaTrash } from 'react-icons/fa'
 import { useCompanyPermissions } from '@/lib/hooks/useCompanyPermissions'
 
@@ -32,6 +33,7 @@ export default function PermissionsListPage() {
   const searchParams = useSearchParams()
   const { company: currentCompany } = useCurrentCompany()
   const { isSuperAdmin, companyRole } = useCompanyPermissions()
+  const { isActing, errorMessage, executeAction } = useActionOverlay()
   const [loading, setLoading] = useState(true)
   const [permissions, setPermissions] = useState<any[]>([])
   
@@ -60,11 +62,11 @@ export default function PermissionsListPage() {
     router.replace(`/permissions/list${queryString ? `?${queryString}` : ''}`, { scroll: false })
   }, [filterStatus, filterType, router])
 
-  const loadPermissions = async () => {
+  const loadPermissions = async (silent = false) => {
     if (!currentCompany) return
 
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       
       // Construir query params para la API
       const params = new URLSearchParams()
@@ -135,7 +137,7 @@ export default function PermissionsListPage() {
     } catch (error) {
       console.error('Error al cargar permisos:', error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -157,7 +159,7 @@ export default function PermissionsListPage() {
       return
     }
 
-    try {
+    await executeAction(async () => {
       const response = await fetch(`/api/permissions/${permissionId}`, {
         method: 'DELETE',
       })
@@ -167,11 +169,8 @@ export default function PermissionsListPage() {
         throw new Error(error.error || 'Error al eliminar permiso')
       }
 
-      alert('Permiso eliminado correctamente')
-      loadPermissions() // Recargar la lista
-    } catch (error: any) {
-      alert('Error al eliminar permiso: ' + error.message)
-    }
+      await loadPermissions(true)
+    }, 'Eliminando permiso...')
   }
 
   if (!currentCompany) {
@@ -193,6 +192,8 @@ export default function PermissionsListPage() {
   }
 
   return (
+    <>
+    <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div>
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -368,6 +369,7 @@ export default function PermissionsListPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

@@ -6,10 +6,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
 import { FaFilePdf, FaEdit, FaCheck, FaTimes } from 'react-icons/fa'
+import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 
 export default function AdvanceDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { isActing, errorMessage, executeAction } = useActionOverlay()
   const [loading, setLoading] = useState(true)
   const [advance, setAdvance] = useState<any>(null)
 
@@ -17,8 +19,9 @@ export default function AdvanceDetailPage() {
     loadAdvance()
   }, [params.id])
 
-  const loadAdvance = async () => {
+  const loadAdvance = async (silent = false) => {
     try {
+      if (!silent) setLoading(true)
       const { data, error } = await supabase
         .from('advances')
         .select(`
@@ -33,14 +36,13 @@ export default function AdvanceDetailPage() {
       setAdvance(data)
     } catch (error: any) {
       console.error('Error al cargar anticipo:', error)
-      alert('Error al cargar anticipo: ' + error.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
   const handleStatusChange = async (newStatus: string) => {
-    try {
+    await executeAction(async () => {
       const updateData: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
@@ -60,11 +62,8 @@ export default function AdvanceDetailPage() {
         .eq('id', params.id)
 
       if (error) throw error
-
-      loadAdvance()
-    } catch (error: any) {
-      alert('Error al actualizar estado: ' + error.message)
-    }
+      await loadAdvance(true)
+    }, 'Actualizando estado...')
   }
 
   if (loading) {
@@ -100,6 +99,8 @@ export default function AdvanceDetailPage() {
   }
 
   return (
+    <>
+    <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Detalle del Anticipo</h1>
@@ -214,6 +215,7 @@ export default function AdvanceDetailPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
 
