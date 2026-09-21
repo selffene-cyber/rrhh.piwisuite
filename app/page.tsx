@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock, FaStethoscope } from 'react-icons/fa'
+import { FaUsers, FaFileInvoiceDollar, FaUserPlus, FaCog, FaChartLine, FaSort, FaFileAlt, FaSortUp, FaSortDown, FaUmbrellaBeach, FaMoneyBillWave, FaHandHoldingUsd, FaExclamationTriangle, FaCalendarCheck, FaFolderOpen, FaClock, FaStethoscope, FaBirthdayCake, FaCalendarTimes } from 'react-icons/fa'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { MONTHS } from '@/lib/utils/date'
 import { calculatePayroll } from '@/lib/services/payrollCalculator'
@@ -20,6 +20,8 @@ const formatDataDate = (year: number, month: number): string => {
   return `${day}/${monthNames[month - 1]}/${year}`
 }
 
+const SHORT_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
 export default function HomePage() {
   const { companyId } = useCurrentCompany()
   const searchParams = useSearchParams()
@@ -29,6 +31,8 @@ export default function HomePage() {
   const [permissionEmployeesCount, setPermissionEmployeesCount] = useState(0)
   const [pendingPayrollCount, setPendingPayrollCount] = useState(0)
   const [confirmedPayrollCount, setConfirmedPayrollCount] = useState(0)
+  const [birthdaysThisMonth, setBirthdaysThisMonth] = useState<any[]>([])
+  const [birthdaysNextMonth, setBirthdaysNextMonth] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [monthlyDetailedData, setMonthlyDetailedData] = useState<any[]>([])
@@ -276,6 +280,59 @@ export default function HomePage() {
       } else {
         setPendingPayrollCount(0)
         setConfirmedPayrollCount(0)
+      }
+
+      // Cargar cumpleaños de este mes y próximo mes
+      try {
+        const now = new Date()
+        const thisMonth = now.getMonth() + 1
+        const thisDay = now.getDate()
+        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+        const nextMonth = nextMonthDate.getMonth() + 1
+        const nextMonthYear = nextMonthDate.getFullYear()
+
+        const { data: birthdayEmployees } = await supabase
+          .from('employees')
+          .select('id, full_name, birth_date')
+          .eq('company_id', companyId)
+          .in('status', ['active', 'licencia_medica'])
+          .not('birth_date', 'is', null)
+
+        if (birthdayEmployees && birthdayEmployees.length > 0) {
+          const thisMonthBirthdays = birthdayEmployees
+            .filter((emp: any) => {
+              if (!emp.birth_date) return false
+              const bd = new Date(emp.birth_date)
+              return bd.getMonth() + 1 === thisMonth
+            })
+            .map((emp: any) => {
+              const bd = new Date(emp.birth_date)
+              return { ...emp, birthdayDay: bd.getDate(), birthdayMonth: bd.getMonth() + 1 }
+            })
+            .sort((a: any, b: any) => a.birthdayDay - b.birthdayDay)
+
+          const nextMonthBirthdays = birthdayEmployees
+            .filter((emp: any) => {
+              if (!emp.birth_date) return false
+              const bd = new Date(emp.birth_date)
+              return bd.getMonth() + 1 === nextMonth
+            })
+            .map((emp: any) => {
+              const bd = new Date(emp.birth_date)
+              return { ...emp, birthdayDay: bd.getDate(), birthdayMonth: bd.getMonth() + 1 }
+            })
+            .sort((a: any, b: any) => a.birthdayDay - b.birthdayDay)
+
+          setBirthdaysThisMonth(thisMonthBirthdays)
+          setBirthdaysNextMonth(nextMonthBirthdays)
+        } else {
+          setBirthdaysThisMonth([])
+          setBirthdaysNextMonth([])
+        }
+      } catch (error) {
+        console.error('Error al cargar cumpleaños:', error)
+        setBirthdaysThisMonth([])
+        setBirthdaysNextMonth([])
       }
     } catch (error) {
       console.error('Error al cargar estadísticas:', error)
@@ -969,6 +1026,7 @@ export default function HomePage() {
       }}
       className="stats-grid"
       >
+        {/* Card 1: Trabajadores Activos */}
         <div className="card" style={{ padding: 0 }}>
           <div style={{
             padding: '20px',
@@ -1001,7 +1059,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Card 2: Trabajadores con Licencia Médica */}
+        {/* Card 2: Ausencias (Licencia Médica + Permiso Laboral) */}
         <div className="card" style={{ padding: 0 }}>
           <div style={{
             padding: '20px',
@@ -1009,125 +1067,143 @@ export default function HomePage() {
             borderRadius: '12px',
             border: '2px solid #f59e0b'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px', fontWeight: '500' }}>
-                  CON LICENCIA MÉDICA
-                </p>
-                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>
-                  {medicalLeaveEmployeesCount || 0}
-                </p>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <p style={{ fontSize: '12px', color: '#92400e', fontWeight: '500', margin: 0 }}>AUSENCIAS</p>
               <div style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: '12px', 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '10px', 
                 background: 'rgba(255, 255, 255, 0.5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#92400e'
               }}>
-                <FaStethoscope size={24} />
+                <FaCalendarTimes size={20} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '24px' }}>
+              <div>
+                <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>{medicalLeaveEmployeesCount || 0}</p>
+                <p style={{ fontSize: '11px', color: '#92400e', margin: '2px 0 0' }}>Licencia médica</p>
+              </div>
+              <div>
+                <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#78350f', margin: 0 }}>{permissionEmployeesCount || 0}</p>
+                <p style={{ fontSize: '11px', color: '#92400e', margin: '2px 0 0' }}>Permiso laboral</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Trabajadores con Permiso Laboral */}
+        {/* Card 3: Liquidaciones (Pendientes + Confirmadas) */}
         <div className="card" style={{ padding: 0 }}>
           <div style={{
             padding: '20px',
-            background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)',
+            background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
             borderRadius: '12px',
-            border: '2px solid #6366f1'
+            border: '2px solid #6b7280'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#4338ca', marginBottom: '8px', fontWeight: '500' }}>
-                  CON PERMISO LABORAL
-                </p>
-                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#312e81', margin: 0 }}>
-                  {permissionEmployeesCount || 0}
-                </p>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <p style={{ fontSize: '12px', color: '#374151', fontWeight: '500', margin: 0 }}>LIQUIDACIONES</p>
               <div style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: '12px', 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '10px', 
                 background: 'rgba(255, 255, 255, 0.5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#4338ca'
+                color: '#374151'
               }}>
-                <FaCalendarCheck size={24} />
+                <FaFileInvoiceDollar size={20} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '24px' }}>
+              <div>
+                <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#991b1b', margin: 0 }}>{pendingPayrollCount || 0}</p>
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>Pendientes</p>
+              </div>
+              <div>
+                <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#065f46', margin: 0 }}>{confirmedPayrollCount || 0}</p>
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>Confirmadas</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Liquidaciones Pendientes */}
-        <div className="card" style={{ padding: 0 }}>
+        {/* Card 4: Cumpleaños */}
+        <div className="card" style={{ padding: 0, gridColumn: 'span 2' }}>
           <div style={{
             padding: '20px',
-            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+            background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
             borderRadius: '12px',
-            border: '2px solid #ef4444'
+            border: '2px solid #ec4899'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#991b1b', marginBottom: '8px', fontWeight: '500' }}>
-                  LIQUIDACIONES PENDIENTES
-                </p>
-                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#7f1d1d', margin: 0 }}>
-                  {pendingPayrollCount || 0}
-                </p>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <p style={{ fontSize: '12px', color: '#9d174d', fontWeight: '500', margin: 0 }}>CUMPLEAÑOS</p>
               <div style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: '12px', 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '10px', 
                 background: 'rgba(255, 255, 255, 0.5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#991b1b'
+                color: '#9d174d'
               }}>
-                <FaClock size={24} />
+                <FaBirthdayCake size={20} />
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Card 5: Liquidaciones Confirmadas */}
-        <div className="card" style={{ padding: 0 }}>
-          <div style={{
-            padding: '20px',
-            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
-            borderRadius: '12px',
-            border: '2px solid #10b981'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#065f46', marginBottom: '8px', fontWeight: '500' }}>
-                  LIQUIDACIONES CONFIRMADAS
-                </p>
-                <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#064e3b', margin: 0 }}>
-                  {confirmedPayrollCount || 0}
-                </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: '#9d174d', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase' }}>Este mes</p>
+                {birthdaysThisMonth.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {birthdaysThisMonth.map((emp: any) => (
+                      <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ 
+                          width: '28px', height: '28px', borderRadius: '50%', 
+                          background: 'rgba(255,255,255,0.7)', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '11px', fontWeight: '600', color: '#9d174d', flexShrink: 0
+                        }}>
+                          {emp.full_name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: '12px', color: '#831843', margin: 0, fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.full_name}</p>
+                        </div>
+                        <p style={{ fontSize: '11px', color: '#be185d', margin: 0, flexShrink: 0 }}>{emp.birthdayDay} {SHORT_MONTHS[emp.birthdayMonth - 1]}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '12px', color: '#be185d', margin: 0, fontStyle: 'italic' }}>Sin cumpleaños este mes</p>
+                )}
               </div>
-              <div style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: '12px', 
-                background: 'rgba(255, 255, 255, 0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#065f46'
-              }}>
-                <FaFileInvoiceDollar size={24} />
+              <div>
+                <p style={{ fontSize: '11px', color: '#9d174d', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase' }}>Próximo mes</p>
+                {birthdaysNextMonth.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {birthdaysNextMonth.map((emp: any) => (
+                      <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ 
+                          width: '28px', height: '28px', borderRadius: '50%', 
+                          background: 'rgba(255,255,255,0.7)', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '11px', fontWeight: '600', color: '#9d174d', flexShrink: 0
+                        }}>
+                          {emp.full_name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: '12px', color: '#831843', margin: 0, fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.full_name}</p>
+                        </div>
+                        <p style={{ fontSize: '11px', color: '#be185d', margin: 0, flexShrink: 0 }}>{emp.birthdayDay} {SHORT_MONTHS[emp.birthdayMonth - 1]}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '12px', color: '#be185d', margin: 0, fontStyle: 'italic' }}>Sin cumpleaños el próximo mes</p>
+                )}
               </div>
             </div>
           </div>
