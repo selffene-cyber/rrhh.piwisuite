@@ -1,45 +1,59 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { formatDate, formatMonthYear } from '@/lib/utils/date'
-import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaTimes, FaMoneyBillWave, FaTrash, FaChartLine } from 'react-icons/fa'
+import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
+import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaMoneyBillWave, FaTrash, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
+const PAGE_SIZE = 15
 
 export default function AdvancesPage() {
   const { companyId } = useCurrentCompany()
-  const router = useRouter()
   const { isActing, errorMessage, executeAction } = useActionOverlay()
   const [loading, setLoading] = useState(true)
+  const [loadingCards, setLoadingCards] = useState(false)
+  const [loadingChart, setLoadingChart] = useState(false)
   const [advances, setAdvances] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [filterEmployee, setFilterEmployee] = useState<string>('')
-  const [filterPeriod, setFilterPeriod] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
+  const now = new Date()
+  const [filterYear, setFilterYear] = useState<number>(now.getFullYear())
+  const [filterMonth, setFilterMonth] = useState<number>(now.getMonth() + 1)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [chartData, setChartData] = useState<any[]>([])
+
   const [stats, setStats] = useState({
     totalPeriodAmount: 0,
     projectedNextMonth: 0,
-    pendingCount: 0
+    pendingCount: 0,
+    discountedCount: 0,
+    totalDiscountedAmount: 0
   })
 
   useEffect(() => {
     if (companyId) {
       loadData()
-      // Verificar y corregir anticipos huérfanos (descontados sin liquidación válida)
       checkAndFixOrphanedAdvances()
     } else {
       setEmployees([])
       setAdvances([])
       setLoading(false)
     }
-  }, [filterEmployee, filterPeriod, filterStatus, companyId])
+  }, [filterEmployee, filterYear, filterMonth, filterStatus, companyId])
+
+  useEffect(() => {
+    if (companyId) {
+      loadChartData()
+    }
+  }, [companyId])
 
   const checkAndFixOrphanedAdvances = async () => {
     try {
-      // Buscar anticipos descontados que no tienen liquidación válida
       const { data: orphanedAdvances, error } = await supabase
         .from('advances')
         .select('id, payroll_slip_id')
@@ -55,7 +69,6 @@ export default function AdvancesPage() {
         return
       }
 
-      // Verificar cuáles liquidaciones existen
       const payrollIds = orphanedAdvances.map((adv: { id: string; payroll_slip_id: string | null }) => adv.payroll_slip_id).filter(Boolean)
       if (payrollIds.length === 0) return
 
@@ -66,14 +79,12 @@ export default function AdvancesPage() {
 
       const existingPayrollIds = new Set(existingPayrolls?.map((p: { id: string }) => p.id) || [])
 
-      // Encontrar anticipos cuya liquidación no existe
-      const toFix = orphanedAdvances.filter((adv: { id: string; payroll_slip_id: string | null }) => 
+      const toFix = orphanedAdvances.filter((adv: { id: string; payroll_slip_id: string | null }) =>
         adv.payroll_slip_id && !existingPayrollIds.has(adv.payroll_slip_id)
       )
 
       if (toFix.length > 0) {
         const idsToFix = toFix.map((adv: { id: string; payroll_slip_id: string | null }) => adv.id)
-        // Restaurar estos anticipos
         const { error: updateError } = await supabase
           .from('advances')
           .update({
@@ -88,7 +99,6 @@ export default function AdvancesPage() {
           console.error('Error al restaurar anticipos huérfanos:', updateError)
         } else {
           console.log(`${toFix.length} anticipo(s) huérfano(s) restaurado(s) automáticamente`)
-          // Recargar datos si se corrigieron
           loadData()
         }
       }
@@ -103,7 +113,6 @@ export default function AdvancesPage() {
 
       if (!companyId) return
 
-      // Cargar empleados de la empresa
       const { data: employeesData } = await supabase
         .from('employees')
         .select('id, full_name, rut')
@@ -115,10 +124,10 @@ export default function AdvancesPage() {
         setEmployees(employeesData)
       }
 
-      // Cargar anticipos de empleados de la empresa
-      // Primero obtener IDs de empleados de la empresa
       const employeeIds = employeesData?.map((emp: { id: string; full_name: string; rut: string }) => emp.id) || []
-      
+
+      const currentPeriod = `${filterYear}-${String(filterMonth).padStart(2, '0')}`
+
       let query = supabase
         .from('advances')
         .select(`
@@ -127,14 +136,11 @@ export default function AdvancesPage() {
           payroll_slips (id, payroll_periods (year, month))
         `)
         .in('employee_id', employeeIds.length > 0 ? employeeIds : ['00000000-0000-0000-0000-000000000000'])
+        .eq('period', currentPeriod)
         .order('advance_date', { ascending: false })
 
       if (filterEmployee) {
         query = query.eq('employee_id', filterEmployee)
-      }
-
-      if (filterPeriod) {
-        query = query.eq('period', filterPeriod)
       }
 
       if (filterStatus) {
@@ -145,8 +151,8 @@ export default function AdvancesPage() {
 
       if (error) throw error
       setAdvances(data || [])
+      setCurrentPage(1)
 
-      // Cargar estadísticas
       await loadStats(employeeIds)
     } catch (error: any) {
       console.error('Error al cargar anticipos:', error)
@@ -157,21 +163,17 @@ export default function AdvancesPage() {
 
   const loadStats = async (employeeIds?: string[]) => {
     try {
+      setLoadingCards(true)
       if (!companyId) return
       const ids = employeeIds || employees.map((e: any) => e.id)
       if (ids.length === 0) {
-        setStats({ totalPeriodAmount: 0, projectedNextMonth: 0, pendingCount: 0 })
+        setStats({ totalPeriodAmount: 0, projectedNextMonth: 0, pendingCount: 0, discountedCount: 0, totalDiscountedAmount: 0 })
         return
       }
 
-      const now = new Date()
       const currentYear = now.getFullYear()
       const currentMonth = now.getMonth() + 1
       const currentPeriod = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
-
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
-      const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear
-      const nextPeriod = `${nextYear}-${String(nextMonth).padStart(2, '0')}`
 
       const { data: periodAdvances } = await supabase
         .from('advances')
@@ -213,13 +215,94 @@ export default function AdvancesPage() {
 
       const pendingCount = pendingAdvances?.length || 0
 
+      const { data: discountedAdvances } = await supabase
+        .from('advances')
+        .select('id, amount')
+        .eq('period', currentPeriod)
+        .eq('status', 'descontado')
+        .in('employee_id', ids)
+
+      const discountedCount = discountedAdvances?.length || 0
+      const totalDiscountedAmount = discountedAdvances?.reduce((sum: number, adv: { id: string; amount: number | null }) => sum + Number(adv.amount || 0), 0) || 0
+
       setStats({
         totalPeriodAmount,
         projectedNextMonth,
-        pendingCount
+        pendingCount,
+        discountedCount,
+        totalDiscountedAmount
       })
     } catch (error: any) {
       console.error('Error al cargar estadísticas:', error)
+    } finally {
+      setLoadingCards(false)
+    }
+  }
+
+  const loadChartData = async () => {
+    if (!companyId) return
+    try {
+      setLoadingChart(true)
+      const { data: employeesData } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('company_id', companyId)
+
+      if (!employeesData || employeesData.length === 0) {
+        setChartData([])
+        setLoadingChart(false)
+        return
+      }
+
+      const employeeIds = employeesData.map((e: { id: string }) => e.id)
+
+      const monthsToShow = 12
+      const monthData = new Map<string, { totalAmount: number; count: number }>()
+      const chartLabels: string[] = []
+
+      for (let i = monthsToShow - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        monthData.set(key, { totalAmount: 0, count: 0 })
+        chartLabels.push(key)
+      }
+
+      const { data, error } = await supabase
+        .from('advances')
+        .select('amount, period, status')
+        .in('employee_id', employeeIds)
+        .in('status', ['pagado', 'descontado', 'firmado'])
+        .order('advance_date', { ascending: true })
+
+      if (error) throw error
+
+      if (data) {
+        for (const adv of data) {
+          const key = adv.period
+          if (monthData.has(key)) {
+            const info = monthData.get(key)!
+            info.totalAmount += Number(adv.amount) || 0
+            info.count += 1
+          }
+        }
+      }
+
+      const chartDataArray = chartLabels.map(key => {
+        const d = monthData.get(key)!
+        const [year, month] = key.split('-').map(Number)
+        return {
+          periodo: `${MONTHS[month - 1].substring(0, 3)} ${year}`,
+          'Monto Total': Math.round(d.totalAmount),
+          'Cantidad': d.count,
+        }
+      })
+
+      setChartData(chartDataArray)
+    } catch (error) {
+      console.error('Error al cargar gráfico:', error)
+      setChartData([])
+    } finally {
+      setLoadingChart(false)
     }
   }
 
@@ -264,6 +347,15 @@ export default function AdvancesPage() {
     }, 'Eliminando anticipo...')
   }
 
+  const navigateMonth = (direction: number) => {
+    let newMonth = filterMonth + direction
+    let newYear = filterYear
+    if (newMonth < 1) { newMonth = 12; newYear-- }
+    if (newMonth > 12) { newMonth = 1; newYear++ }
+    setFilterMonth(newMonth)
+    setFilterYear(newYear)
+  }
+
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; color: string }> = {
       borrador: { label: 'Borrador', color: '#6b7280' },
@@ -275,167 +367,151 @@ export default function AdvancesPage() {
     const badge = badges[status] || { label: status, color: '#6b7280' }
     return (
       <span style={{
-        padding: '4px 12px',
+        padding: '2px 10px',
         borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: '600',
+        fontSize: '11px',
+        fontWeight: '500',
         background: badge.color + '20',
         color: badge.color,
-        border: `1px solid ${badge.color}40`
       }}>
         {badge.label}
       </span>
     )
   }
 
-  // Generar opciones de período (últimos 12 meses)
-  const generatePeriodOptions = () => {
-    const options = []
-    const now = new Date()
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const period = `${year}-${month}`
-      options.push({ value: period, label: formatMonthYear(year, parseInt(month)) })
-    }
-    return options
+  const totalPages = Math.ceil(advances.length / PAGE_SIZE)
+  const paginatedAdvances = advances.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const groupedAdvances = paginatedAdvances.reduce((groups: Record<string, any[]>, adv: any) => {
+    const key = adv.period
+      ? `${MONTHS[parseInt(adv.period.split('-')[1]) - 1]} ${adv.period.split('-')[0]}`
+      : 'Sin Período'
+    if (!groups[key]) groups[key] = []
+    groups[key].push(adv)
+    return groups
+  }, {})
+
+  const periodLabel = filterMonth && filterYear ? `${MONTHS[filterMonth - 1]} ${filterYear}` : ''
+
+  if (!companyId) {
+    return (
+      <div>
+        <h1>Anticipos de Remuneración</h1>
+        <div className="card">
+          <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
+            Seleccione una empresa para ver los anticipos.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
-    return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando...</div>
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h1>Anticipos de Remuneración</h1>
+        </div>
+        <div className="card"><p>Cargando anticipos...</p></div>
+      </div>
+    )
   }
 
   return (
     <>
     <ActionOverlay isVisible={isActing} errorMessage={errorMessage} message="Procesando..." />
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <FaMoneyBillWave size={28} color="#f59e0b" />
-          Anticipos de Remuneración
-        </h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <h1>Anticipos de Remuneración</h1>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Link href="/advances/bulk">
-            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f59e0b', color: 'white' }}>
-              <FaPlus size={16} />
-              Anticipos Masivos
+            <button style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="secondary">
+              <FaPlus size={16} /> Anticipos Masivos
             </button>
           </Link>
           <Link href="/advances/new">
             <button style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FaPlus size={16} />
-              Nuevo Anticipo
+              <FaPlus size={16} /> Nuevo Anticipo
             </button>
           </Link>
         </div>
       </div>
 
-      {/* Cards de Estadísticas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {/* Card 1: Total a Pagar en Período */}
-        <div style={{
-          padding: '20px',
-          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-          borderRadius: '12px',
-          border: '2px solid #f59e0b'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <FaMoneyBillWave size={24} color="#f59e0b" />
-            <h3 style={{ margin: 0, fontSize: '14px', color: '#92400e', fontWeight: '600' }}>
-              Total a Pagar (Período Actual)
-            </h3>
-          </div>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#92400e', margin: '8px 0' }}>
-            ${stats.totalPeriodAmount.toLocaleString('es-CL')}
-          </p>
-          <p style={{ fontSize: '11px', color: '#92400e', margin: 0, opacity: 0.8 }}>
-            Anticipos firmados/pagados pendientes de descuento
-          </p>
+      {/* Cards de Resumen */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        <div className="card" style={{ padding: '16px', borderLeft: '4px solid #f59e0b' }}>
+          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500', display: 'block', marginBottom: '4px' }}>
+            Total a Pagar
+          </span>
+          <span style={{ fontSize: '22px', fontWeight: '700', color: '#f59e0b', display: 'block' }}>
+            {loadingCards ? '...' : `$${stats.totalPeriodAmount.toLocaleString('es-CL')}`}
+          </span>
+          <span style={{ fontSize: '11px', color: '#9ca3af' }}>Pendientes de descuento</span>
         </div>
-
-        {/* Card 2: Proyección Mes Siguiente */}
-        <div style={{
-          padding: '20px',
-          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-          borderRadius: '12px',
-          border: '2px solid #3b82f6'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <FaChartLine size={24} color="#3b82f6" />
-            <h3 style={{ margin: 0, fontSize: '14px', color: '#1e40af', fontWeight: '600' }}>
-              Proyección Mes Siguiente
-            </h3>
-          </div>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#1e40af', margin: '8px 0' }}>
-            ${stats.projectedNextMonth.toLocaleString('es-CL')}
-          </p>
-          <p style={{ fontSize: '11px', color: '#1e40af', margin: 0, opacity: 0.8 }}>
-            Promedio basado en últimos 3 meses
-          </p>
+        <div className="card" style={{ padding: '16px', borderLeft: '4px solid #3b82f6' }}>
+          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500', display: 'block', marginBottom: '4px' }}>
+            Proyección Próx. Mes
+          </span>
+          <span style={{ fontSize: '22px', fontWeight: '700', color: '#3b82f6', display: 'block' }}>
+            {loadingCards ? '...' : `$${stats.projectedNextMonth.toLocaleString('es-CL')}`}
+          </span>
+          <span style={{ fontSize: '11px', color: '#9ca3af' }}>Promedio últimos 3 meses</span>
         </div>
-
-        {/* Card 3: Anticipos Pendientes */}
-        <div style={{
-          padding: '20px',
-          background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
-          borderRadius: '12px',
-          border: '2px solid #ec4899'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <FaMoneyBillWave size={24} color="#ec4899" />
-            <h3 style={{ margin: 0, fontSize: '14px', color: '#9f1239', fontWeight: '600' }}>
-              Anticipos Pendientes
-            </h3>
-          </div>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#9f1239', margin: '8px 0' }}>
-            {stats.pendingCount}
-          </p>
-          <p style={{ fontSize: '11px', color: '#9f1239', margin: 0, opacity: 0.8 }}>
-            Firmados/pagados sin descontar
-          </p>
+        <div className="card" style={{ padding: '16px', borderLeft: `4px solid ${stats.pendingCount > 0 ? '#8b5cf6' : '#059669'}` }}>
+          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500', display: 'block', marginBottom: '4px' }}>
+            Pendientes
+          </span>
+          <span style={{ fontSize: '22px', fontWeight: '700', color: stats.pendingCount > 0 ? '#8b5cf6' : '#059669', display: 'block' }}>
+            {loadingCards ? '...' : stats.pendingCount}
+          </span>
+          <span style={{ fontSize: '11px', color: '#9ca3af' }}>Sin descontar</span>
+        </div>
+        <div className="card" style={{ padding: '16px', borderLeft: '4px solid #059669' }}>
+          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500', display: 'block', marginBottom: '4px' }}>
+            Descontados
+          </span>
+          <span style={{ fontSize: '22px', fontWeight: '700', color: '#059669', display: 'block' }}>
+            {loadingCards ? '...' : stats.discountedCount}
+          </span>
+          <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+            {loadingCards ? '' : `$${stats.totalDiscountedAmount.toLocaleString('es-CL')}`} este mes
+          </span>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <h3 style={{ marginBottom: '16px' }}>Filtros</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <div className="form-group">
-            <label>Trabajador</label>
+      {/* Filtros con navegación de período */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px' }}>Período</h2>
+          <button onClick={() => loadData()} className="secondary" style={{ fontSize: '13px' }}>
+            Actualizar
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={() => navigateMonth(-1)} className="secondary" style={{ padding: '6px 10px' }}><FaChevronLeft /></button>
+            <span style={{ fontWeight: '600', fontSize: '15px', minWidth: '140px', textAlign: 'center' }}>
+              {MONTHS[filterMonth - 1]} {filterYear}
+            </span>
+            <button onClick={() => navigateMonth(1)} className="secondary" style={{ padding: '6px 10px' }}><FaChevronRight /></button>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
             <select
               value={filterEmployee}
               onChange={(e) => setFilterEmployee(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', minWidth: '180px' }}
             >
-              <option value="">Todos</option>
+              <option value="">Todos los trabajadores</option>
               {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.full_name} - {emp.rut}
-                </option>
+                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
               ))}
             </select>
-          </div>
-          <div className="form-group">
-            <label>Período</label>
-            <select
-              value={filterPeriod}
-              onChange={(e) => setFilterPeriod(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {generatePeriodOptions().map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Estado</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
             >
-              <option value="">Todos</option>
+              <option value="">Todos los estados</option>
               <option value="borrador">Borrador</option>
               <option value="emitido">Emitido</option>
               <option value="firmado">Firmado</option>
@@ -446,171 +522,272 @@ export default function AdvancesPage() {
         </div>
       </div>
 
-      {/* Tabla de anticipos */}
-      <div className="card">
-        {advances.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Trabajador</th>
-                <th>Fecha</th>
-                <th>Período</th>
-                <th>Monto</th>
-                <th>Estado</th>
-                <th>Liquidación</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {advances.map((advance) => (
-                <tr key={advance.id}>
-                  <td>
-                    <code style={{ fontSize: '11px', background: '#f3f4f6', padding: '4px 8px', borderRadius: '4px' }}>
-                      {advance.advance_number || advance.id.substring(0, 8).toUpperCase()}
-                    </code>
-                  </td>
-                  <td>
-                    <div>
-                      <strong>{advance.employees?.full_name}</strong>
-                      <br />
-                      <small style={{ color: '#6b7280' }}>{advance.employees?.rut}</small>
-                    </div>
-                  </td>
-                  <td>{formatDate(advance.advance_date)}</td>
-                  <td>{formatMonthYear(parseInt(advance.period.split('-')[0]), parseInt(advance.period.split('-')[1]))}</td>
-                  <td style={{ fontWeight: 'bold' }}>${Number(advance.amount).toLocaleString('es-CL')}</td>
-                  <td>{getStatusBadge(advance.status)}</td>
-                  <td>
-                    {advance.payroll_slip_id ? (
-                      <Link href={`/payroll/${advance.payroll_slip_id}`} style={{ color: '#2563eb' }}>
-                        Ver Liquidación
-                      </Link>
-                    ) : (
-                      <span style={{ color: '#6b7280' }}>-</span>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <Link href={`/advances/${advance.id}/pdf`} target="_blank">
-                        <button style={{ padding: '6px 12px', fontSize: '12px' }} className="secondary">
-                          <FaFilePdf size={14} /> PDF
-                        </button>
-                      </Link>
-                      {(advance.status === 'borrador' || advance.status === 'emitido') && (
-                        <Link href={`/advances/${advance.id}/edit`}>
-                          <button style={{ padding: '6px 12px', fontSize: '12px' }} className="secondary">
-                            <FaEdit size={14} />
-                          </button>
-                        </Link>
-                      )}
-                      {advance.status === 'borrador' && (
-                        <button
-                          style={{ padding: '6px 12px', fontSize: '12px', background: '#3b82f6', color: 'white' }}
-                          onClick={() => handleStatusChange(advance.id, 'emitido')}
-                        >
-                          <FaCheck size={14} /> Emitir
-                        </button>
-                      )}
-                      {advance.status === 'emitido' && (
-                        <button
-                          style={{ padding: '6px 12px', fontSize: '12px', background: '#8b5cf6', color: 'white' }}
-                          onClick={() => handleStatusChange(advance.id, 'firmado')}
-                        >
-                          <FaCheck size={14} /> Marcar Firmado
-                        </button>
-                      )}
-                      {advance.status === 'firmado' && (
-                        <button
-                          style={{ padding: '6px 12px', fontSize: '12px', background: '#10b981', color: 'white' }}
-                          onClick={() => handleStatusChange(advance.id, 'pagado')}
-                        >
-                          <FaCheck size={14} /> Marcar Pagado
-                        </button>
-                      )}
-                      {/* Botón restaurar - si está descontado pero la liquidación no existe */}
-                      {advance.status === 'descontado' && (
-                        <button
-                          style={{ padding: '6px 12px', fontSize: '12px', background: '#10b981', color: 'white' }}
-                          onClick={async () => {
-                            if (advance.payroll_slip_id) {
-                              // Verificar si la liquidación existe
-                              const { data: payrollExists } = await supabase
-                                .from('payroll_slips')
-                                .select('id')
-                                .eq('id', advance.payroll_slip_id)
-                                .single()
-
-                              if (!payrollExists) {
-                                if (confirm('La liquidación vinculada no existe. ¿Restaurar este anticipo?')) {
-                                  await executeAction(async () => {
-                                    const { error } = await supabase
-                                      .from('advances')
-                                      .update({
-                                        status: 'pagado',
-                                        payroll_slip_id: null,
-                                        discounted_at: null,
-                                        updated_at: new Date().toISOString()
-                                      })
-                                      .eq('id', advance.id)
-
-                                    if (error) throw error
-                                    await loadData(true)
-                                  }, 'Restaurando anticipo...')
-                                }
-                              } else {
-                                throw new Error('Este anticipo está vinculado a una liquidación existente. No se puede restaurar.')
-                              }
-                            } else {
-                              if (confirm('¿Restaurar este anticipo?')) {
-                                await executeAction(async () => {
-                                  const { error } = await supabase
-                                    .from('advances')
-                                    .update({
-                                      status: 'pagado',
-                                      updated_at: new Date().toISOString()
-                                    })
-                                    .eq('id', advance.id)
-
-                                  if (error) throw error
-                                  await loadData(true)
-                                }, 'Restaurando anticipo...')
-                              }
-                            }
-                          }}
-                          title="Restaurar anticipo"
-                        >
-                          <FaCheck size={14} /> Restaurar
-                        </button>
-                      )}
-                      {/* Botón eliminar - solo si no está descontado */}
-                      {advance.status !== 'descontado' && (
-                        <button
-                          style={{ padding: '6px 12px', fontSize: '12px', background: '#ef4444', color: 'white' }}
-                          onClick={() => handleDelete(advance.id, advance.employees?.full_name || 'el trabajador', Number(advance.amount))}
-                          title="Eliminar anticipo"
-                        >
-                          <FaTrash size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Gráfico Histórico Mensual */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <h2 style={{ marginBottom: '16px', fontSize: '16px' }}>Evolución Mensual — Últimos 12 Meses</h2>
+        {loadingChart ? (
+          <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>Cargando gráfico...</p>
+        ) : chartData.length === 0 || chartData.every(d => d['Monto Total'] === 0) ? (
+          <p style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
+            No hay datos históricos disponibles. El gráfico aparecerá cuando se registren anticipos.
+          </p>
         ) : (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-            <FaMoneyBillWave size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
-            <p>No hay anticipos registrados</p>
-            <Link href="/advances/new">
-              <button style={{ marginTop: '16px' }}>Crear Primer Anticipo</button>
+          <div style={{ width: '100%', height: '300px', minHeight: '250px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="periodo" stroke="#6b7280" style={{ fontSize: '11px' }} interval={0} angle={-45} textAnchor="end" height={60} />
+                <YAxis yAxisId="left" stroke="#6b7280" style={{ fontSize: '11px' }} tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`} />
+                <YAxis yAxisId="right" orientation="right" stroke="#8b5cf6" style={{ fontSize: '11px' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}
+                  formatter={(value: number | undefined, name: string | undefined) => {
+                    if (name === 'Monto Total') return value ? `$${value.toLocaleString('es-CL')}` : '$0'
+                    return value !== undefined ? value : ''
+                  }}
+                  labelStyle={{ color: '#374151', fontWeight: '600', marginBottom: '8px' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
+                <Line yAxisId="left" type="monotone" dataKey="Monto Total" stroke="#f59e0b" strokeWidth={2.5} dot={{ fill: '#f59e0b', r: 3 }} activeDot={{ r: 5 }} name="Monto Total" />
+                <Line yAxisId="right" type="monotone" dataKey="Cantidad" stroke="#8b5cf6" strokeWidth={2.5} dot={{ fill: '#8b5cf6', r: 3 }} activeDot={{ r: 5 }} name="Cantidad" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* Lista de Anticipos */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px' }}>
+            Anticipos — {periodLabel}
+            <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#6b7280', marginLeft: '8px' }}>
+              ({advances.length} {advances.length === 1 ? 'registro' : 'registros'})
+            </span>
+          </h2>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="secondary" style={{ padding: '4px 8px' }}>
+                <FaChevronLeft size={10} />
+              </button>
+              <span>{currentPage} / {totalPages}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="secondary" style={{ padding: '4px 8px' }}>
+                <FaChevronRight size={10} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {advances.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6b7280' }}>
+            <p style={{ fontSize: '16px', marginBottom: '8px' }}>No hay anticipos para {periodLabel}</p>
+            <Link href="/advances/new" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+              Crear un nuevo anticipo
             </Link>
           </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="table-mobile-hidden">
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Trabajador</th>
+                      <th>Fecha</th>
+                      <th>Monto</th>
+                      <th>Estado</th>
+                      <th>Liquidación</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(groupedAdvances).map(([period, advs]) => (
+                      <>
+                        <tr key={`header-${period}`}>
+                          <td colSpan={6} style={{ background: '#f0f9ff', fontWeight: '600', fontSize: '13px', color: '#0369a1', padding: '8px 12px', borderBottom: '2px solid #bae6fd' }}>
+                            {period}
+                          </td>
+                        </tr>
+                        {advs.map((advance: any) => (
+                          <tr key={advance.id}>
+                            <td>
+                              <div>
+                                <strong>{advance.employees?.full_name}</strong>
+                                <br />
+                                <small style={{ color: '#6b7280' }}>{advance.employees?.rut}</small>
+                              </div>
+                            </td>
+                            <td>{formatDate(advance.advance_date)}</td>
+                            <td style={{ fontWeight: '600', color: '#f59e0b' }}>${Number(advance.amount).toLocaleString('es-CL')}</td>
+                            <td>{getStatusBadge(advance.status)}</td>
+                            <td>
+                              {advance.payroll_slip_id ? (
+                                <Link href={`/payroll/${advance.payroll_slip_id}`} style={{ color: '#2563eb', fontSize: '13px' }}>
+                                  Ver Liquidación
+                                </Link>
+                              ) : (
+                                <span style={{ color: '#6b7280', fontSize: '13px' }}>-</span>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <Link href={`/advances/${advance.id}/pdf`} target="_blank">
+                                  <button style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} title="Ver PDF">
+                                    <FaFilePdf size={12} color="#ef4444" />
+                                  </button>
+                                </Link>
+                                {(advance.status === 'borrador' || advance.status === 'emitido') && (
+                                  <Link href={`/advances/${advance.id}/edit`}>
+                                    <button style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} title="Editar">
+                                      <FaEdit size={12} color="#3b82f6" />
+                                    </button>
+                                  </Link>
+                                )}
+                                {advance.status === 'borrador' && (
+                                  <button
+                                    onClick={() => handleStatusChange(advance.id, 'emitido')}
+                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#3b82f6' }}
+                                    title="Emitir"
+                                  >
+                                    <FaCheck size={12} />
+                                  </button>
+                                )}
+                                {advance.status === 'emitido' && (
+                                  <button
+                                    onClick={() => handleStatusChange(advance.id, 'firmado')}
+                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#8b5cf6' }}
+                                    title="Marcar Firmado"
+                                  >
+                                    <FaCheck size={12} />
+                                  </button>
+                                )}
+                                {advance.status === 'firmado' && (
+                                  <button
+                                    onClick={() => handleStatusChange(advance.id, 'pagado')}
+                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#10b981' }}
+                                    title="Marcar Pagado"
+                                  >
+                                    <FaCheck size={12} />
+                                  </button>
+                                )}
+                                {advance.status === 'descontado' && (
+                                  <button
+                                    onClick={async () => {
+                                      if (advance.payroll_slip_id) {
+                                        const { data: payrollExists } = await supabase
+                                          .from('payroll_slips')
+                                          .select('id')
+                                          .eq('id', advance.payroll_slip_id)
+                                          .single()
+
+                                        if (!payrollExists) {
+                                          if (confirm('La liquidación vinculada no existe. ¿Restaurar este anticipo?')) {
+                                            await executeAction(async () => {
+                                              const { error } = await supabase
+                                                .from('advances')
+                                                .update({
+                                                  status: 'pagado',
+                                                  payroll_slip_id: null,
+                                                  discounted_at: null,
+                                                  updated_at: new Date().toISOString()
+                                                })
+                                                .eq('id', advance.id)
+                                              if (error) throw error
+                                              await loadData(true)
+                                            }, 'Restaurando anticipo...')
+                                          }
+                                        } else {
+                                          alert('Este anticipo está vinculado a una liquidación existente. No se puede restaurar.')
+                                        }
+                                      } else {
+                                        if (confirm('¿Restaurar este anticipo?')) {
+                                          await executeAction(async () => {
+                                            const { error } = await supabase
+                                              .from('advances')
+                                              .update({
+                                                status: 'pagado',
+                                                updated_at: new Date().toISOString()
+                                              })
+                                              .eq('id', advance.id)
+                                            if (error) throw error
+                                            await loadData(true)
+                                          }, 'Restaurando anticipo...')
+                                        }
+                                      }
+                                    }}
+                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#059669' }}
+                                    title="Restaurar anticipo"
+                                  >
+                                    <FaCheck size={12} />
+                                  </button>
+                                )}
+                                {advance.status !== 'descontado' && (
+                                  <button
+                                    onClick={() => handleDelete(advance.id, advance.employees?.full_name || 'el trabajador', Number(advance.amount))}
+                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}
+                                    title="Eliminar"
+                                  >
+                                    <FaTrash size={12} color="#ef4444" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="table-mobile-card">
+              {Object.entries(groupedAdvances).map(([period, advs]) => (
+                <div key={period} style={{ marginBottom: '16px' }}>
+                  <div style={{ background: '#f0f9ff', padding: '8px 12px', borderRadius: '6px', fontWeight: '600', fontSize: '13px', color: '#0369a1', marginBottom: '8px' }}>
+                    {period}
+                  </div>
+                  {advs.map((advance: any) => (
+                    <div key={advance.id} className="mobile-card" style={{ padding: '12px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <strong>{advance.employees?.full_name || '-'}</strong>
+                        {getStatusBadge(advance.status)}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '13px' }}>
+                        <div><span style={{ color: '#6b7280' }}>Fecha:</span><br />{formatDate(advance.advance_date)}</div>
+                        <div><span style={{ color: '#6b7280' }}>Monto:</span><br /><span style={{ fontWeight: '600', color: '#f59e0b' }}>${Number(advance.amount).toLocaleString('es-CL')}</span></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <Link href={`/advances/${advance.id}/pdf`} target="_blank" style={{ flex: 1 }}><button style={{ width: '100%', padding: '6px', fontSize: '13px' }}><FaFilePdf /> PDF</button></Link>
+                        {(advance.status === 'borrador' || advance.status === 'emitido') && (
+                          <Link href={`/advances/${advance.id}/edit`} style={{ flex: 1 }}><button style={{ width: '100%', padding: '6px', fontSize: '13px' }}><FaEdit /> Editar</button></Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', padding: '12px 0', borderTop: '1px solid #e5e7eb' }}>
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="secondary" style={{ padding: '6px 12px' }}>
+                  Anterior
+                </button>
+                <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="secondary" style={{ padding: '6px 12px' }}>
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
     </>
   )
 }
-
