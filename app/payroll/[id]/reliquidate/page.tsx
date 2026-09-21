@@ -10,6 +10,8 @@ import { PayrollSlipWithDetails, RELIQUIDATION_REASON_CATEGORIES } from '@/types
 import { ReliquidationModifications } from '@/lib/services/reliquidationCalculator'
 
 const BONUS_OPTIONS = [
+  'Factor Recarga',
+  'Bono Feriado',
   'Bono de Producción',
   'Bono de Cumplimiento de Metas / KPI',
   'Bono de Desempeño',

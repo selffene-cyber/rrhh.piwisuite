@@ -309,10 +309,14 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                   {taxableItems.length > 0 ? (
                     taxableItems.map((item: any) => {
                       const description = item.description.toUpperCase()
+                      const isFactorRecarga = item.category === 'factor_recarga' && item.quantity
+                      const displayDescription = isFactorRecarga
+                        ? `${description} (${item.quantity} UND)`
+                        : description
                       // Para descripciones largas, dividir inteligentemente sin cortar palabras
                       const maxLength = 20 // Aproximadamente el ancho disponible en la columna
-                      if (description.length > maxLength) {
-                        const parts = splitLongText(description, maxLength)
+                      if (displayDescription.length > maxLength) {
+                        const parts = splitLongText(displayDescription, maxLength)
                         if (parts.length === 2) {
                           return (
                             <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
@@ -328,8 +332,8 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                       
                       return (
                         <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
-                          <Text style={{ width: '55%', fontSize: 7 }}>{description}:</Text>
-                          <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
+                            <Text style={{ width: '55%', fontSize: 7 }}>{displayDescription}:</Text>
+                            <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
                         </View>
                       )
                     })
@@ -356,10 +360,14 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                   <Text style={{ fontFamily: 'Helvetica-Bold', marginTop: 5, fontSize: 8 }}>HABERES NO IMPONIBLES</Text>
                   {nonTaxableItems.map((item: any) => {
                     const description = item.description.toUpperCase()
+                    const isQtyBased = (item.category === 'factor_recarga' || item.category === 'bono_feriado') && item.quantity
+                    const displayDescription = isQtyBased
+                      ? `${description} (${item.quantity} UND)`
+                      : description
                     // Para descripciones largas, dividir inteligentemente sin cortar palabras
-                    const maxLength = 20 // Aproximadamente el ancho disponible en la columna
-                    if (description.length > maxLength) {
-                      const parts = splitLongText(description, maxLength)
+                    const maxLength = 20
+                    if (displayDescription.length > maxLength) {
+                      const parts = splitLongText(displayDescription, maxLength)
                       if (parts.length === 2) {
                         return (
                           <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
@@ -375,7 +383,7 @@ export const PayrollDocument = ({ slip, company, vacations, loanPayments, advanc
                     
                     return (
                       <View key={item.id} style={[styles.row, { marginBottom: 2 }]}>
-                        <Text style={{ width: '55%', fontSize: 7 }}>{description}:</Text>
+                        <Text style={{ width: '55%', fontSize: 7 }}>{displayDescription}:</Text>
                         <Text style={{ width: '45%', textAlign: 'right', fontSize: 7 }}>{formatCurrency(item.amount)}</Text>
                       </View>
                     )
