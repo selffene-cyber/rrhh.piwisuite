@@ -21,6 +21,8 @@ const INTERNAL_CATEGORY_TO_DT: Record<PayrollItemCategory, { dtCode: number; lre
   'bono': { dtCode: 2111, lreCategory: 'haber_imp_trib' },
   'bonos_fijos': { dtCode: 2111, lreCategory: 'haber_imp_trib' },
   'bonos_variables': { dtCode: 2113, lreCategory: 'haber_imp_trib' },
+  'factor_recarga': { dtCode: 2111, lreCategory: 'haber_imp_trib' },
+  'bono_feriado': { dtCode: 2111, lreCategory: 'haber_imp_trib' },
   'beneficios_especie': { dtCode: 2115, lreCategory: 'haber_imp_trib' },
   'otros_imponibles': { dtCode: 2123, lreCategory: 'haber_imp_trib' },
   'other_taxable_earnings': { dtCode: 2123, lreCategory: 'haber_imp_trib' },

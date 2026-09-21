@@ -261,6 +261,9 @@ export type Database = {
           category: string
           description: string
           amount: number
+          quantity: number | null
+          unit_value: number | null
+          metadata: any | null
           created_at: string
         }
         Insert: {
@@ -270,6 +273,9 @@ export type Database = {
           category: string
           description: string
           amount: number
+          quantity?: number | null
+          unit_value?: number | null
+          metadata?: any | null
           created_at?: string
         }
         Update: {
@@ -279,6 +285,9 @@ export type Database = {
           category?: string
           description?: string
           amount?: number
+          quantity?: number | null
+          unit_value?: number | null
+          metadata?: any | null
           created_at?: string
         }
       }

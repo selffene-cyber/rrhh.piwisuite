@@ -46,8 +46,9 @@ export default function NewPayrollPage() {
     loans: 0,
     advances: 0,
   })
-  const [bonuses, setBonuses] = useState<Array<{ id: string, name: string, amount: number }>>([])
-  const [nonTaxableEarnings, setNonTaxableEarnings] = useState<Array<{ id: string, name: string, amount: number }>>([])
+  const [bonuses, setBonuses] = useState<Array<{ id: string, name: string, amount: number, quantity?: number, unit_value?: number }>>([])
+  const [nonTaxableEarnings, setNonTaxableEarnings] = useState<Array<{ id: string, name: string, amount: number, quantity?: number, unit_value?: number }>>([])
+  const BONUS_QTY_BASED = ['Factor Recarga', 'Bono Feriado']
   const [defaultValuesLoaded, setDefaultValuesLoaded] = useState(false)
   const [copyingLastPayroll, setCopyingLastPayroll] = useState(false)
   const [calculation, setCalculation] = useState<any>(null)
@@ -256,7 +257,7 @@ export default function NewPayrollPage() {
 
               if (activeContract.other_allowances) {
               // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
-              const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
+              const bonusesFromContract: Array<{ id: string; name: string; amount: number; quantity?: number; unit_value?: number }> = []
               const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
               
               bonusStrings.forEach((bonusStr: string, idx: number) => {
@@ -336,7 +337,7 @@ export default function NewPayrollPage() {
 
         if (activeContract.other_allowances) {
         // Parsear bonos desde other_allowances (formato: "Bono Nombre: $Monto; Otro Bono: $Monto")
-        const bonusesFromContract: Array<{ id: string; name: string; amount: number }> = []
+        const bonusesFromContract: Array<{ id: string; name: string; amount: number; quantity?: number; unit_value?: number }> = []
         const bonusStrings = activeContract.other_allowances.split(';').map((b: string) => b.trim()).filter((b: string) => b)
         
         bonusStrings.forEach((bonusStr: string, idx: number) => {
@@ -420,7 +421,9 @@ export default function NewPayrollPage() {
         const copiedBonuses = bonusItems.map((item: any, idx: number) => ({
           id: `copied-bonus-${Date.now()}-${idx}`,
           name: item.description || 'Bono',
-          amount: Number(item.amount) || 0
+          amount: Number(item.amount) || 0,
+          quantity: item.quantity ? Number(item.quantity) : undefined,
+          unit_value: item.unit_value ? Number(item.unit_value) : undefined,
         }))
         setBonuses(copiedBonuses)
       }
@@ -430,7 +433,9 @@ export default function NewPayrollPage() {
         const copiedNonTaxable = nonTaxableItems.map((item: any, idx: number) => ({
           id: `copied-nontaxable-${Date.now()}-${idx}`,
           name: item.description || 'Haber no imponible',
-          amount: Number(item.amount) || 0
+          amount: Number(item.amount) || 0,
+          quantity: item.quantity ? Number(item.quantity) : undefined,
+          unit_value: item.unit_value ? Number(item.unit_value) : undefined,
         }))
         setNonTaxableEarnings(copiedNonTaxable)
       }
@@ -1381,10 +1386,12 @@ export default function NewPayrollPage() {
         // Bonos individuales
         ...bonuses.filter(b => b.name && b.amount > 0).map(bonus => ({
           type: 'taxable_earning' as const,
-          category: 'bono',
+          category: bonus.name === 'Factor Recarga' ? 'factor_recarga' : bonus.name === 'Bono Feriado' ? 'bono_feriado' : 'bono',
           lre_dt_code: 2111,
           description: bonus.name,
           amount: bonus.amount,
+          ...(bonus.quantity ? { quantity: bonus.quantity } : {}),
+          ...(bonus.unit_value ? { unit_value: bonus.unit_value } : {}),
         })),
         { type: 'taxable_earning', category: 'horas_extras', lre_dt_code: 2102, description: `Horas Extras (${formData.overtime_hours} hora${formData.overtime_hours !== 1 ? 's' : ''})`, amount: calculation.taxableEarnings.overtime },
         // Otros haberes imponibles
@@ -1401,10 +1408,12 @@ export default function NewPayrollPage() {
         // Haberes no imponibles adicionales individuales
         ...nonTaxableEarnings.filter(e => e.name && e.amount > 0).map(earning => ({
           type: 'non_taxable_earning' as const,
-          category: 'otro_no_imponible',
+          category: earning.name === 'Factor Recarga' ? 'factor_recarga' : earning.name === 'Bono Feriado' ? 'bono_feriado' : 'otro_no_imponible',
           lre_dt_code: 2204,
           description: earning.name,
           amount: earning.amount,
+          ...(earning.quantity ? { quantity: earning.quantity } : {}),
+          ...(earning.unit_value ? { unit_value: earning.unit_value } : {}),
         })),
         { type: 'non_taxable_earning', category: 'aguinaldo', lre_dt_code: 2110, description: 'Aguinaldo', amount: formData.aguinaldo },
         // Descuentos legales
@@ -1930,6 +1939,8 @@ export default function NewPayrollPage() {
                     style={{ width: '100%' }}
                   >
                     <option value="">Seleccionar tipo de bono</option>
+                    <option value="Factor Recarga">Factor Recarga</option>
+                    <option value="Bono Feriado">Bono Feriado</option>
                     <option value="Bono de Producción">Bono de Producción</option>
                     <option value="Bono de Cumplimiento de Metas / KPI">Bono de Cumplimiento de Metas / KPI</option>
                     <option value="Bono de Desempeño">Bono de Desempeño</option>
@@ -1947,18 +1958,67 @@ export default function NewPayrollPage() {
                     <option value="Bono Vacaciones">Bono Vacaciones</option>
                   </select>
                 </div>
-                <div className="form-group" style={{ flex: '1' }}>
-                  <input
-                    type="text"
-                    value={formatNumberForInput(bonus.amount)}
-                    onChange={(e) => {
-                      const updated = [...bonuses]
-                      updated[index].amount = parseFormattedNumber(e.target.value) || 0
-                      setBonuses(updated)
-                    }}
-                    placeholder="Monto"
-                  />
-                </div>
+                {BONUS_QTY_BASED.includes(bonus.name) && (
+                  <div className="form-group" style={{ flex: '0 0 80px' }}>
+                    <label style={{ fontSize: '11px' }}>Cantidad</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={bonus.quantity || ''}
+                      onChange={(e) => {
+                        const updated = [...bonuses]
+                        updated[index].quantity = parseFloat(e.target.value) || 0
+                        updated[index].amount = (updated[index].quantity || 0) * (updated[index].unit_value || 0)
+                        setBonuses(updated)
+                      }}
+                      placeholder="Qty"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
+                {BONUS_QTY_BASED.includes(bonus.name) && (
+                  <div className="form-group" style={{ flex: '1' }}>
+                    <label style={{ fontSize: '11px' }}>Valor Unitario</label>
+                    <input
+                      type="text"
+                      value={formatNumberForInput(bonus.unit_value || 0)}
+                      onChange={(e) => {
+                        const updated = [...bonuses]
+                        updated[index].unit_value = parseFormattedNumber(e.target.value) || 0
+                        updated[index].amount = (updated[index].quantity || 0) * (updated[index].unit_value || 0)
+                        setBonuses(updated)
+                      }}
+                      placeholder="Valor unitario"
+                    />
+                  </div>
+                )}
+                {!BONUS_QTY_BASED.includes(bonus.name) && (
+                  <div className="form-group" style={{ flex: '1' }}>
+                    <input
+                      type="text"
+                      value={formatNumberForInput(bonus.amount)}
+                      onChange={(e) => {
+                        const updated = [...bonuses]
+                        updated[index].amount = parseFormattedNumber(e.target.value) || 0
+                        setBonuses(updated)
+                      }}
+                      placeholder="Monto"
+                    />
+                  </div>
+                )}
+                {BONUS_QTY_BASED.includes(bonus.name) && (
+                  <div className="form-group" style={{ flex: '1' }}>
+                    <label style={{ fontSize: '11px' }}>Total</label>
+                    <input
+                      type="text"
+                      value={formatNumberForInput(bonus.amount)}
+                      readOnly
+                      style={{ background: '#f3f4f6', cursor: 'default' }}
+                      placeholder="Calculado"
+                    />
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', marginLeft: '8px' }}>
                   <button
                     type="button"
@@ -1976,7 +2036,7 @@ export default function NewPayrollPage() {
             <button
               type="button"
               onClick={() => {
-                setBonuses([...bonuses, { id: Date.now().toString(), name: '', amount: 0 }])
+                setBonuses([...bonuses, { id: Date.now().toString(), name: '', amount: 0, quantity: undefined, unit_value: undefined }])
               }}
               style={{ marginTop: '8px', padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
             >
@@ -2229,6 +2289,8 @@ export default function NewPayrollPage() {
                     style={{ width: '100%' }}
                   >
                     <option value="">Seleccionar tipo de haber</option>
+                    <option value="Factor Recarga">Factor Recarga</option>
+                    <option value="Bono Feriado">Bono Feriado</option>
                     <option value="Viáticos">Viáticos (con respaldo y razonabilidad)</option>
                     <option value="Asignación de Pérdida de Caja">Asignación de Pérdida de Caja</option>
                     <option value="Asignación de Herramientas">Asignación de Herramientas</option>
@@ -2239,18 +2301,67 @@ export default function NewPayrollPage() {
                     <option value="Reembolso de Gastos">Reembolso de Gastos (pasajes, peajes, combustible con respaldo)</option>
                   </select>
                 </div>
-                <div className="form-group" style={{ flex: '1' }}>
-                  <input
-                    type="text"
-                    value={formatNumberForInput(earning.amount)}
-                    onChange={(e) => {
-                      const updated = [...nonTaxableEarnings]
-                      updated[index].amount = parseFormattedNumber(e.target.value) || 0
-                      setNonTaxableEarnings(updated)
-                    }}
-                    placeholder="Monto"
-                  />
-                </div>
+                {BONUS_QTY_BASED.includes(earning.name) && (
+                  <div className="form-group" style={{ flex: '0 0 80px' }}>
+                    <label style={{ fontSize: '11px' }}>Cantidad</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={earning.quantity || ''}
+                      onChange={(e) => {
+                        const updated = [...nonTaxableEarnings]
+                        updated[index].quantity = parseFloat(e.target.value) || 0
+                        updated[index].amount = (updated[index].quantity || 0) * (updated[index].unit_value || 0)
+                        setNonTaxableEarnings(updated)
+                      }}
+                      placeholder="Qty"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
+                {BONUS_QTY_BASED.includes(earning.name) && (
+                  <div className="form-group" style={{ flex: '1' }}>
+                    <label style={{ fontSize: '11px' }}>Valor Unitario</label>
+                    <input
+                      type="text"
+                      value={formatNumberForInput(earning.unit_value || 0)}
+                      onChange={(e) => {
+                        const updated = [...nonTaxableEarnings]
+                        updated[index].unit_value = parseFormattedNumber(e.target.value) || 0
+                        updated[index].amount = (updated[index].quantity || 0) * (updated[index].unit_value || 0)
+                        setNonTaxableEarnings(updated)
+                      }}
+                      placeholder="Valor unitario"
+                    />
+                  </div>
+                )}
+                {!BONUS_QTY_BASED.includes(earning.name) && (
+                  <div className="form-group" style={{ flex: '1' }}>
+                    <input
+                      type="text"
+                      value={formatNumberForInput(earning.amount)}
+                      onChange={(e) => {
+                        const updated = [...nonTaxableEarnings]
+                        updated[index].amount = parseFormattedNumber(e.target.value) || 0
+                        setNonTaxableEarnings(updated)
+                      }}
+                      placeholder="Monto"
+                    />
+                  </div>
+                )}
+                {BONUS_QTY_BASED.includes(earning.name) && (
+                  <div className="form-group" style={{ flex: '1' }}>
+                    <label style={{ fontSize: '11px' }}>Total</label>
+                    <input
+                      type="text"
+                      value={formatNumberForInput(earning.amount)}
+                      readOnly
+                      style={{ background: '#f3f4f6', cursor: 'default' }}
+                      placeholder="Calculado"
+                    />
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', marginLeft: '8px' }}>
                   <button
                     type="button"
@@ -2268,7 +2379,7 @@ export default function NewPayrollPage() {
             <button
               type="button"
               onClick={() => {
-                setNonTaxableEarnings([...nonTaxableEarnings, { id: Date.now().toString(), name: '', amount: 0 }])
+                setNonTaxableEarnings([...nonTaxableEarnings, { id: Date.now().toString(), name: '', amount: 0, quantity: undefined, unit_value: undefined }])
               }}
               style={{ marginTop: '8px', padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
             >
