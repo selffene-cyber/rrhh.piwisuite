@@ -372,6 +372,15 @@ export default function EditContractPage() {
         return
       }
 
+      // Validar que end_date > start_date en contratos a plazo fijo
+      if ((formData.contract_type === 'plazo_fijo' || formData.contract_type === 'obra_faena') && formData.end_date) {
+        if (formData.end_date < formData.start_date) {
+          alert('La fecha de término no puede ser anterior a la fecha de inicio del contrato')
+          setSaving(false)
+          return
+        }
+      }
+
       const updateData: any = {
         contract_type: formData.contract_type,
         start_date: formData.start_date,

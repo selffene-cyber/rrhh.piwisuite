@@ -6,6 +6,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { ValidationResult, allowed, denied, ValidationCodes, EmployeeStatus, ContractStatus, ContractType } from './validationTypes'
+import { getTodayString } from '@/lib/utils/contractDates'
 
 type Employee = Database['public']['Tables']['employees']['Row']
 
@@ -66,19 +67,19 @@ export class EmployeeEligibilityService {
    * - O tiene estado 'signed' y la fecha de inicio ya pasó o es hoy
    * - Y no tiene fecha de término o la fecha de término es futura
    */
-  async hasActiveContract(employeeId: string): Promise<{ hasActive: boolean; contract: Contract | null }> {
+  async hasActiveContract(employeeId: string): Promise<{ hasActive: boolean; contract: Contract | null; expiredContract?: Contract | null }> {
     const today = new Date().toISOString().split('T')[0]
     
-      // Buscar contratos que estén activos o firmados
-      // Si está 'active', se considera válido sin importar la fecha de inicio
-      // Si está 'signed', se verifica que la fecha de inicio ya haya pasado
+      // Buscar contratos que estén activos, firmados o expirados
+      // - 'active'/'signed': contrato vigente
+      // - 'expired': contrato vencido por fecha (permite crear anexos de prórroga/extensión)
       // IMPORTANTE: Usar .order() con múltiples campos para obtener el contrato más reciente
       // y asegurar que obtenemos el contrato actualizado (no caché)
       const { data, error } = await this.supabase
         .from('contracts')
         .select('*')
         .eq('employee_id', employeeId)
-        .in('status', ['active', 'signed'])
+        .in('status', ['active', 'signed', 'expired'])
         .order('updated_at', { ascending: false }) // Ordenar por updated_at para obtener el más reciente
         .order('start_date', { ascending: false })
       
@@ -112,33 +113,31 @@ export class EmployeeEligibilityService {
       
       // Si el contrato está 'active', se considera válido (confiamos en el estado)
       if (contractAny.status === 'active') {
-        // Verificar que no haya expirado (solo si NO es indefinido)
-        if (!isIndefinite && contractAny.end_date) {
-          const endDate = new Date(contractAny.end_date)
-          const todayDate = new Date(today)
-          if (endDate < todayDate) {
-            // El contrato expiró, continuar con el siguiente
-            continue
-          }
-        }
         return {
           hasActive: true,
           contract: contract as Contract,
         }
       }
       
+      // Si está 'expired' (vencido por fecha), NO es un contrato vigente,
+      // pero se retorna para que canCreateAnnex permita anexos de prórroga
+      if (contractAny.status === 'expired') {
+        return {
+          hasActive: false,
+          contract: contract as Contract,
+          expiredContract: contract as Contract,
+        }
+      }
+      
       // Si está 'signed', verificar que la fecha de inicio ya haya pasado
       if (contractAny.status === 'signed') {
-        const startDate = new Date(contractAny.start_date)
-        const todayDate = new Date(today)
-        if (startDate <= todayDate) {
+        const startDate = contractAny.start_date
+        const todayStr = getTodayString()
+        if (startDate <= todayStr) {
           // Verificar que no haya expirado (solo si NO es indefinido)
-          if (!isIndefinite && contractAny.end_date) {
-            const endDate = new Date(contractAny.end_date)
-            if (endDate < todayDate) {
-              // El contrato expiró, continuar con el siguiente
-              continue
-            }
+          if (!isIndefinite && contractAny.end_date && contractAny.end_date < todayStr) {
+            // El contrato expiró, continuar con el siguiente
+            continue
           }
           return {
             hasActive: true,
@@ -214,15 +213,26 @@ export class EmployeeEligibilityService {
       return employeeCheck
     }
 
-    // Verificar que tenga contrato activo
-    const { hasActive, contract } = await this.hasActiveContract(employeeId)
+    // Verificar que tenga contrato activo o expirado (permite anexos de prórroga sobre contratos vencidos)
+    const { hasActive, contract, expiredContract } = await this.hasActiveContract(employeeId) as any
     
-    if (!hasActive || !contract) {
+    if (!hasActive && !expiredContract) {
       return denied(
         ValidationCodes.EMPLOYEE_NO_ACTIVE_CONTRACT,
         'El trabajador no posee un contrato activo. Debe crear un contrato antes de generar anexos.',
         { suggestion: 'create_contract' }
       )
+    }
+
+    // Si el contrato está vencido, permitir el anexo (prórroga/extensión)
+    // con información adicional para la UI
+    const targetContract = contract || expiredContract
+    if (expiredContract) {
+      return allowed('El contrato está vencido. Se permite crear un anexo de prórroga/extensión.', {
+        contractId: expiredContract.id,
+        contractStatus: 'expired',
+        suggestion: 'create_extension_annex'
+      })
     }
 
     // Verificar que no tenga licencia médica activa
@@ -235,7 +245,7 @@ export class EmployeeEligibilityService {
       )
     }
 
-    return allowed('El trabajador puede recibir un anexo', { contractId: contract.id })
+    return allowed('El trabajador puede recibir un anexo', { contractId: targetContract.id })
   }
 
   /**

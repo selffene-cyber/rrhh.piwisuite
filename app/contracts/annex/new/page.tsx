@@ -145,10 +145,11 @@ export default function NewAnnexPage() {
 
   const loadData = async () => {
     try {
-      // Cargar contratos
+      // Cargar contratos (solo estados válidos para anexos: activos, firmados y vencidos para prórroga)
       const { data: contractsData } = await supabase
         .from('contracts')
         .select('*, employees (*)')
+        .in('status', ['active', 'issued', 'signed', 'expired'])
         .order('created_at', { ascending: false })
 
       setContracts(contractsData || [])
@@ -199,17 +200,25 @@ export default function NewAnnexPage() {
         .from('contracts')
         .select('*, employees (*), companies (*)')
         .eq('employee_id', employeeId)
-        .in('status', ['active', 'signed'])
+        .in('status', ['active', 'signed', 'expired'])
         .order('start_date', { ascending: false })
 
       if (contractsError) throw contractsError
 
-      // Encontrar el contrato activo vigente
+      // Encontrar el contrato activo vigente o vencido (para prórroga)
       let foundActiveContract = null
+      let isExpiredContract = false
       if (contractsData && contractsData.length > 0) {
         for (const contract of contractsData) {
           const startDate = contract.start_date
           const endDate = contract.end_date
+
+          // Contrato vencido (expired): válido para anexo de prórroga
+          if (contract.status === 'expired') {
+            foundActiveContract = contract
+            isExpiredContract = true
+            break
+          }
 
           if (contract.status === 'active') {
             if (!endDate || endDate >= today) {
@@ -278,11 +287,16 @@ export default function NewAnnexPage() {
 
           setExistingAnnexes(annexesWithVigence)
         }
+
+        if (isExpiredContract) {
+          // El contrato está vencido: se permite crear anexo de prórroga
+          console.log('Contrato vencido detectado - anexo de prórroga permitido')
+        }
       } else {
         setActiveContract(null)
         setSelectedContract(null)
         setExistingAnnexes([])
-        alert('El trabajador seleccionado no tiene un contrato activo vigente.')
+        alert('El trabajador seleccionado no tiene un contrato activo ni vencido. Debe crear un contrato primero.')
       }
     } catch (error: any) {
       console.error('Error al cargar contexto del trabajador:', error)
@@ -928,6 +942,16 @@ export default function NewAnnexPage() {
             <div style={{ marginTop: '16px', padding: '16px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px' }}>
               <p style={{ margin: 0, color: '#92400e', fontSize: '14px' }}>
                 ⚠️ El trabajador seleccionado no tiene un contrato activo vigente. Debe seleccionar un contrato directamente.
+              </p>
+            </div>
+          )}
+
+          {/* Mensaje si el contrato está vencido (se permite anexo de prórroga) */}
+          {activeContract?.status === 'expired' && (
+            <div style={{ marginTop: '16px', padding: '16px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px' }}>
+              <p style={{ margin: 0, color: '#991b1b', fontSize: '14px', fontWeight: '600' }}>
+                ⏰ Este contrato venció el {activeContract.end_date ? new Date(activeContract.end_date).toLocaleDateString('es-CL') : 'fecha desconocida'}.
+                Se permite crear un anexo para prorrogar/extender el contrato. Al activar el anexo, la fecha de término se actualizará y el contrato volverá a estar activo.
               </p>
             </div>
           )}

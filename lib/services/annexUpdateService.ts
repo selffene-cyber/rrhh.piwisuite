@@ -40,14 +40,9 @@ export class AnnexUpdateService {
       // Verificar vigencia del anexo
       const today = new Date().toISOString().split('T')[0]
       const startDate = annex.start_date
-      const endDate = annex.end_date
 
       if (startDate > today) {
         return // Aún no está vigente
-      }
-
-      if (endDate && endDate < today) {
-        return // Ya expiró
       }
 
       // Obtener conceptValues desde metadata (si existe)
@@ -61,6 +56,7 @@ export class AnnexUpdateService {
       console.log('[AnnexUpdateService] ===== INICIO ACTUALIZACIÓN CONTRATO =====')
       console.log('[AnnexUpdateService] Anexo ID:', annexId)
       console.log('[AnnexUpdateService] Anexo status:', annex.status)
+      console.log('[AnnexUpdateService] Contrato status:', contract.status)
       console.log('[AnnexUpdateService] Metadata completo del anexo:', JSON.stringify(annex.metadata, null, 2))
       console.log('[AnnexUpdateService] annexData recibido como parámetro:', JSON.stringify(annexData, null, 2))
       console.log('[AnnexUpdateService] ConceptValues extraídos:', JSON.stringify(conceptValues, null, 2))
@@ -69,6 +65,13 @@ export class AnnexUpdateService {
       console.log('[AnnexUpdateService] ===========================================')
 
       const updateFields: any = {}
+
+      // Si el contrato estaba vencido (expired) y este anexo lo extiende/prórroga,
+      // reactivar el contrato (el trigger de BD permite re-activar porque expired != active)
+      if (contract.status === 'expired') {
+        updateFields.status = 'active'
+        console.log('[AnnexUpdateService] Contrato estaba expirado - reactivando a active')
+      }
 
       // Extraer campos modificados desde conceptValues
       // NOTA: Solo actualizar campos que existen en la tabla contracts
@@ -118,6 +121,23 @@ export class AnnexUpdateService {
         }
       } else {
         console.log('[AnnexUpdateService] ⚠️ No se encontró contract_type en sourceData. Campos disponibles:', Object.keys(sourceData))
+      }
+
+      // PRÓRROGA / EXTENSIÓN: si el anexo es de tipo prórroga (o el anexo tiene end_date
+      // y el contrato sigue siendo plazo_fijo sin cambio de tipo), extender end_date del contrato
+      const isProrroga = annex.annex_type === 'prorroga'
+      if (!contractType && (isProrroga || endDateValue)) {
+        if (isProrroga) {
+          // Prórroga con end_date del anexo: extiende el contrato
+          if (endDateValue) {
+            updateFields.end_date = endDateValue
+            console.log(`[AnnexUpdateService] Prórroga: extendiendo end_date del contrato a ${endDateValue}`)
+          } else {
+            // Prórroga a indefinido: end_date null (se mostrará como "-")
+            updateFields.end_date = null
+            console.log('[AnnexUpdateService] Prórroga a indefinido: end_date = null')
+          }
+        }
       }
 
       // Solo actualizar si hay campos para actualizar
@@ -183,13 +203,8 @@ export class AnnexUpdateService {
       // Verificar vigencia del anexo
       const today = new Date().toISOString().split('T')[0]
       const startDate = annex.start_date
-      const endDate = annex.end_date
 
       if (startDate > today) {
-        return
-      }
-
-      if (endDate && endDate < today) {
         return
       }
 
@@ -221,6 +236,18 @@ export class AnnexUpdateService {
           updateFields.contract_end_date = endDateValue
         } else if (contractType === 'indefinido') {
           updateFields.contract_end_date = null
+        }
+      }
+
+      // PRÓRROGA / EXTENSIÓN: sincronizar contract_end_date del empleado
+      const isProrroga = annex.annex_type === 'prorroga'
+      if (!contractType && isProrroga) {
+        if (endDateValue) {
+          updateFields.contract_end_date = endDateValue
+          console.log(`[AnnexUpdateService] Prórroga: extendiendo contract_end_date del empleado a ${endDateValue}`)
+        } else {
+          updateFields.contract_end_date = null
+          console.log('[AnnexUpdateService] Prórroga a indefinido: contract_end_date del empleado = null')
         }
       }
 
