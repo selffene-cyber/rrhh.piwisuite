@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatMonthYear, MONTHS } from '@/lib/utils/date'
-import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaMoneyBillWave, FaTrash, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
+import { FaPlus, FaFilePdf, FaEdit, FaCheck, FaMoneyBillWave, FaTrash, FaChevronLeft, FaChevronRight, FaChevronDown } from 'react-icons/fa'
 import { useCurrentCompany } from '@/lib/hooks/useCurrentCompany'
 import ActionOverlay, { useActionOverlay } from '@/components/ActionOverlay'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
@@ -26,6 +26,7 @@ export default function AdvancesPage() {
   const [filterMonth, setFilterMonth] = useState<number>(now.getMonth() + 1)
   const [currentPage, setCurrentPage] = useState(1)
   const [chartData, setChartData] = useState<any[]>([])
+  const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set())
 
   const [stats, setStats] = useState({
     totalPeriodAmount: 0,
@@ -379,17 +380,39 @@ export default function AdvancesPage() {
     )
   }
 
-  const totalPages = Math.ceil(advances.length / PAGE_SIZE)
-  const paginatedAdvances = advances.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-
-  const groupedAdvances = paginatedAdvances.reduce((groups: Record<string, any[]>, adv: any) => {
-    const key = adv.period
-      ? `${MONTHS[parseInt(adv.period.split('-')[1]) - 1]} ${adv.period.split('-')[0]}`
-      : 'Sin Período'
+  // Agrupar TODOS los anticipos del período por trabajador
+  const advancesByEmployee = advances.reduce((groups: Record<string, any[]>, adv: any) => {
+    const key = adv.employee_id
     if (!groups[key]) groups[key] = []
     groups[key].push(adv)
     return groups
   }, {})
+
+  const allEmployeeEntries = Object.entries(advancesByEmployee).map(([employeeId, advs]) => {
+    const totalAmount = advs.reduce((sum: number, adv: any) => sum + Number(adv.amount || 0), 0)
+    const statusCounts: Record<string, number> = {}
+    for (const adv of advs) {
+      statusCounts[adv.status] = (statusCounts[adv.status] || 0) + 1
+    }
+    return { employeeId, advs, totalAmount, statusCounts }
+  })
+
+  const totalPages = Math.ceil(allEmployeeEntries.length / PAGE_SIZE)
+
+  // Paginación por trabajador
+  const paginatedEmployeeEntries = allEmployeeEntries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const toggleEmployee = (employeeId: string) => {
+    setExpandedEmployees(prev => {
+      const next = new Set(prev)
+      if (next.has(employeeId)) {
+        next.delete(employeeId)
+      } else {
+        next.add(employeeId)
+      }
+      return next
+    })
+  }
 
   const periodLabel = filterMonth && filterYear ? `${MONTHS[filterMonth - 1]} ${filterYear}` : ''
 
@@ -562,7 +585,7 @@ export default function AdvancesPage() {
           <h2 style={{ margin: 0, fontSize: '16px' }}>
             Anticipos — {periodLabel}
             <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#6b7280', marginLeft: '8px' }}>
-              ({advances.length} {advances.length === 1 ? 'registro' : 'registros'})
+              ({allEmployeeEntries.length} {allEmployeeEntries.length === 1 ? 'trabajador' : 'trabajadores'}, {advances.length} {advances.length === 1 ? 'anticipo' : 'anticipos'})
             </span>
           </h2>
           {totalPages > 1 && (
@@ -602,94 +625,153 @@ export default function AdvancesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(groupedAdvances).map(([period, advs]) => (
-                      <>
-                        <tr key={`header-${period}`}>
-                          <td colSpan={6} style={{ background: '#f0f9ff', fontWeight: '600', fontSize: '13px', color: '#0369a1', padding: '8px 12px', borderBottom: '2px solid #bae6fd' }}>
-                            {period}
-                          </td>
-                        </tr>
-                        {advs.map((advance: any) => (
-                          <tr key={advance.id}>
+                    {paginatedEmployeeEntries.map(({ employeeId, advs, totalAmount, statusCounts }) => {
+                      const isExpanded = expandedEmployees.has(employeeId)
+                      const firstAdvance = advs[0]
+                      return (
+                        <Fragment key={employeeId}>
+                          {/* Fila principal del trabajador */}
+                          <tr style={{ background: isExpanded ? '#f0f9ff' : undefined }}>
                             <td>
-                              <div>
-                                <strong>{advance.employees?.full_name}</strong>
-                                <br />
-                                <small style={{ color: '#6b7280' }}>{advance.employees?.rut}</small>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                  onClick={() => toggleEmployee(employeeId)}
+                                  style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '4px', cursor: 'pointer', padding: '2px 6px', display: 'flex', alignItems: 'center', color: '#0369a1' }}
+                                  title={isExpanded ? 'Colapsar' : 'Expandir'}
+                                >
+                                  {isExpanded ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
+                                </button>
+                                <div>
+                                  <strong>{firstAdvance.employees?.full_name}</strong>
+                                  <br />
+                                  <small style={{ color: '#6b7280' }}>{firstAdvance.employees?.rut}</small>
+                                </div>
                               </div>
                             </td>
-                            <td>{formatDate(advance.advance_date)}</td>
-                            <td style={{ fontWeight: '600', color: '#f59e0b' }}>${Number(advance.amount).toLocaleString('es-CL')}</td>
-                            <td>{getStatusBadge(advance.status)}</td>
+                            <td style={{ fontSize: '13px', color: '#6b7280' }}>
+                              {advs.length} {advs.length === 1 ? 'anticipo' : 'anticipos'}
+                            </td>
+                            <td style={{ fontWeight: '600', color: '#f59e0b', fontSize: '14px' }}>
+                              ${totalAmount.toLocaleString('es-CL')}
+                            </td>
                             <td>
-                              {advance.payroll_slip_id ? (
-                                <Link href={`/payroll/${advance.payroll_slip_id}`} style={{ color: '#2563eb', fontSize: '13px' }}>
-                                  Ver Liquidación
-                                </Link>
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                {Object.entries(statusCounts).map(([status, count]) => (
+                                  <span key={status} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                    {getStatusBadge(status)}
+                                    <small style={{ color: '#6b7280', fontWeight: '600' }}>{count}</small>
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td>
+                              {advs.some((a: any) => a.payroll_slip_id) ? (
+                                <span style={{ fontSize: '11px', color: '#2563eb' }}>
+                                  {advs.filter((a: any) => a.payroll_slip_id).length} vinculada(s)
+                                </span>
                               ) : (
                                 <span style={{ color: '#6b7280', fontSize: '13px' }}>-</span>
                               )}
                             </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <Link href={`/advances/${advance.id}/pdf`} target="_blank">
-                                  <button style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} title="Ver PDF">
-                                    <FaFilePdf size={12} color="#ef4444" />
-                                  </button>
-                                </Link>
-                                {(advance.status === 'borrador' || advance.status === 'emitido') && (
-                                  <Link href={`/advances/${advance.id}/edit`}>
-                                    <button style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} title="Editar">
-                                      <FaEdit size={12} color="#3b82f6" />
+                            <td></td>
+                          </tr>
+                          {/* Sub-filas de anticipos individuales */}
+                          {isExpanded && advs.map((advance: any) => (
+                            <tr key={advance.id} style={{ background: '#fafafa' }}>
+                              <td style={{ padding: '4px 12px 4px 48px', fontSize: '12px', color: '#6b7280', borderLeft: '2px solid #bae6fd' }}>
+                                <code style={{ fontSize: '10px', background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
+                                  {advance.advance_number || advance.id.substring(0, 8).toUpperCase()}
+                                </code>
+                              </td>
+                              <td style={{ fontSize: '12px' }}>{formatDate(advance.advance_date)}</td>
+                              <td style={{ fontWeight: '500', color: '#f59e0b', fontSize: '13px' }}>${Number(advance.amount).toLocaleString('es-CL')}</td>
+                              <td>{getStatusBadge(advance.status)}</td>
+                              <td>
+                                {advance.payroll_slip_id ? (
+                                  <Link href={`/payroll/${advance.payroll_slip_id}`} style={{ color: '#2563eb', fontSize: '12px' }}>
+                                    Ver Liquidación
+                                  </Link>
+                                ) : (
+                                  <span style={{ color: '#6b7280', fontSize: '12px' }}>-</span>
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  <Link href={`/advances/${advance.id}/pdf`} target="_blank">
+                                    <button style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} title="Ver PDF">
+                                      <FaFilePdf size={12} color="#ef4444" />
                                     </button>
                                   </Link>
-                                )}
-                                {advance.status === 'borrador' && (
-                                  <button
-                                    onClick={() => handleStatusChange(advance.id, 'emitido')}
-                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#3b82f6' }}
-                                    title="Emitir"
-                                  >
-                                    <FaCheck size={12} />
-                                  </button>
-                                )}
-                                {advance.status === 'emitido' && (
-                                  <button
-                                    onClick={() => handleStatusChange(advance.id, 'firmado')}
-                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#8b5cf6' }}
-                                    title="Marcar Firmado"
-                                  >
-                                    <FaCheck size={12} />
-                                  </button>
-                                )}
-                                {advance.status === 'firmado' && (
-                                  <button
-                                    onClick={() => handleStatusChange(advance.id, 'pagado')}
-                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#10b981' }}
-                                    title="Marcar Pagado"
-                                  >
-                                    <FaCheck size={12} />
-                                  </button>
-                                )}
-                                {advance.status === 'descontado' && (
-                                  <button
-                                    onClick={async () => {
-                                      if (advance.payroll_slip_id) {
-                                        const { data: payrollExists } = await supabase
-                                          .from('payroll_slips')
-                                          .select('id')
-                                          .eq('id', advance.payroll_slip_id)
-                                          .single()
+                                  {(advance.status === 'borrador' || advance.status === 'emitido') && (
+                                    <Link href={`/advances/${advance.id}/edit`}>
+                                      <button style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} title="Editar">
+                                        <FaEdit size={12} color="#3b82f6" />
+                                      </button>
+                                    </Link>
+                                  )}
+                                  {advance.status === 'borrador' && (
+                                    <button
+                                      onClick={() => handleStatusChange(advance.id, 'emitido')}
+                                      style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#3b82f6' }}
+                                      title="Emitir"
+                                    >
+                                      <FaCheck size={12} />
+                                    </button>
+                                  )}
+                                  {advance.status === 'emitido' && (
+                                    <button
+                                      onClick={() => handleStatusChange(advance.id, 'firmado')}
+                                      style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#8b5cf6' }}
+                                      title="Marcar Firmado"
+                                    >
+                                      <FaCheck size={12} />
+                                    </button>
+                                  )}
+                                  {advance.status === 'firmado' && (
+                                    <button
+                                      onClick={() => handleStatusChange(advance.id, 'pagado')}
+                                      style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#10b981' }}
+                                      title="Marcar Pagado"
+                                    >
+                                      <FaCheck size={12} />
+                                    </button>
+                                  )}
+                                  {advance.status === 'descontado' && (
+                                    <button
+                                      onClick={async () => {
+                                        if (advance.payroll_slip_id) {
+                                          const { data: payrollExists } = await supabase
+                                            .from('payroll_slips')
+                                            .select('id')
+                                            .eq('id', advance.payroll_slip_id)
+                                            .single()
 
-                                        if (!payrollExists) {
-                                          if (confirm('La liquidación vinculada no existe. ¿Restaurar este anticipo?')) {
+                                          if (!payrollExists) {
+                                            if (confirm('La liquidación vinculada no existe. ¿Restaurar este anticipo?')) {
+                                              await executeAction(async () => {
+                                                const { error } = await supabase
+                                                  .from('advances')
+                                                  .update({
+                                                    status: 'pagado',
+                                                    payroll_slip_id: null,
+                                                    discounted_at: null,
+                                                    updated_at: new Date().toISOString()
+                                                  })
+                                                  .eq('id', advance.id)
+                                                if (error) throw error
+                                                await loadData(true)
+                                              }, 'Restaurando anticipo...')
+                                            }
+                                          } else {
+                                            alert('Este anticipo está vinculado a una liquidación existente. No se puede restaurar.')
+                                          }
+                                        } else {
+                                          if (confirm('¿Restaurar este anticipo?')) {
                                             await executeAction(async () => {
                                               const { error } = await supabase
                                                 .from('advances')
                                                 .update({
                                                   status: 'pagado',
-                                                  payroll_slip_id: null,
-                                                  discounted_at: null,
                                                   updated_at: new Date().toISOString()
                                                 })
                                                 .eq('id', advance.id)
@@ -697,46 +779,30 @@ export default function AdvancesPage() {
                                               await loadData(true)
                                             }, 'Restaurando anticipo...')
                                           }
-                                        } else {
-                                          alert('Este anticipo está vinculado a una liquidación existente. No se puede restaurar.')
                                         }
-                                      } else {
-                                        if (confirm('¿Restaurar este anticipo?')) {
-                                          await executeAction(async () => {
-                                            const { error } = await supabase
-                                              .from('advances')
-                                              .update({
-                                                status: 'pagado',
-                                                updated_at: new Date().toISOString()
-                                              })
-                                              .eq('id', advance.id)
-                                            if (error) throw error
-                                            await loadData(true)
-                                          }, 'Restaurando anticipo...')
-                                        }
-                                      }
-                                    }}
-                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#059669' }}
-                                    title="Restaurar anticipo"
-                                  >
-                                    <FaCheck size={12} />
-                                  </button>
-                                )}
-                                {advance.status !== 'descontado' && (
-                                  <button
-                                    onClick={() => handleDelete(advance.id, advance.employees?.full_name || 'el trabajador', Number(advance.amount))}
-                                    style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}
-                                    title="Eliminar"
-                                  >
-                                    <FaTrash size={12} color="#ef4444" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    ))}
+                                      }}
+                                      style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer', color: '#059669' }}
+                                      title="Restaurar anticipo"
+                                    >
+                                      <FaCheck size={12} />
+                                    </button>
+                                  )}
+                                  {advance.status !== 'descontado' && (
+                                    <button
+                                      onClick={() => handleDelete(advance.id, advance.employees?.full_name || 'el trabajador', Number(advance.amount))}
+                                      style={{ padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', border: '1px solid #e5e7eb', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}
+                                      title="Eliminar"
+                                    >
+                                      <FaTrash size={12} color="#ef4444" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -744,31 +810,63 @@ export default function AdvancesPage() {
 
             {/* Mobile Cards */}
             <div className="table-mobile-card">
-              {Object.entries(groupedAdvances).map(([period, advs]) => (
-                <div key={period} style={{ marginBottom: '16px' }}>
-                  <div style={{ background: '#f0f9ff', padding: '8px 12px', borderRadius: '6px', fontWeight: '600', fontSize: '13px', color: '#0369a1', marginBottom: '8px' }}>
-                    {period}
-                  </div>
-                  {advs.map((advance: any) => (
-                    <div key={advance.id} className="mobile-card" style={{ padding: '12px', marginBottom: '8px' }}>
+              {paginatedEmployeeEntries.map(({ employeeId, advs, totalAmount, statusCounts }) => {
+                const isExpanded = expandedEmployees.has(employeeId)
+                const firstAdvance = advs[0]
+                return (
+                  <div key={employeeId} style={{ marginBottom: '12px' }}>
+                    <div className="mobile-card" style={{ padding: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <strong>{advance.employees?.full_name || '-'}</strong>
-                        {getStatusBadge(advance.status)}
+                        <button
+                          onClick={() => toggleEmployee(employeeId)}
+                          style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '4px', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: '#0369a1', fontSize: '13px' }}
+                        >
+                          {isExpanded ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
+                          <strong>{firstAdvance.employees?.full_name || '-'}</strong>
+                        </button>
+                        <span style={{ fontWeight: '600', color: '#f59e0b', fontSize: '14px' }}>
+                          ${totalAmount.toLocaleString('es-CL')}
+                        </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '13px' }}>
-                        <div><span style={{ color: '#6b7280' }}>Fecha:</span><br />{formatDate(advance.advance_date)}</div>
-                        <div><span style={{ color: '#6b7280' }}>Monto:</span><br /><span style={{ fontWeight: '600', color: '#f59e0b' }}>${Number(advance.amount).toLocaleString('es-CL')}</span></div>
+                        <div><span style={{ color: '#6b7280' }}>Anticipos:</span> {advs.length}</div>
+                        <div>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {Object.entries(statusCounts).map(([status, count]) => (
+                              <span key={status} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                {getStatusBadge(status)}
+                                <small style={{ color: '#6b7280', fontWeight: '600' }}>{count}</small>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                        <Link href={`/advances/${advance.id}/pdf`} target="_blank" style={{ flex: 1 }}><button style={{ width: '100%', padding: '6px', fontSize: '13px' }}><FaFilePdf /> PDF</button></Link>
-                        {(advance.status === 'borrador' || advance.status === 'emitido') && (
-                          <Link href={`/advances/${advance.id}/edit`} style={{ flex: 1 }}><button style={{ width: '100%', padding: '6px', fontSize: '13px' }}><FaEdit /> Editar</button></Link>
-                        )}
-                      </div>
+                      {isExpanded && advs.map((advance: any) => (
+                        <div key={advance.id} style={{ marginTop: '8px', padding: '8px', background: '#f9fafb', borderRadius: '6px', borderLeft: '2px solid #bae6fd' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '12px', color: '#6b7280' }}>{formatDate(advance.advance_date)}</span>
+                            {getStatusBadge(advance.status)}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '600', color: '#f59e0b', fontSize: '13px' }}>${Number(advance.amount).toLocaleString('es-CL')}</span>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <Link href={`/advances/${advance.id}/pdf`} target="_blank"><button style={{ padding: '4px 8px', fontSize: '12px' }}><FaFilePdf size={12} /></button></Link>
+                              {(advance.status === 'borrador' || advance.status === 'emitido') && (
+                                <Link href={`/advances/${advance.id}/edit`}><button style={{ padding: '4px 8px', fontSize: '12px' }}><FaEdit size={12} /></button></Link>
+                              )}
+                            </div>
+                          </div>
+                          {advance.payroll_slip_id && (
+                            <Link href={`/payroll/${advance.payroll_slip_id}`} style={{ color: '#2563eb', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                              Ver Liquidación
+                            </Link>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ))}
+                  </div>
+                )
+              })}
             </div>
 
             {totalPages > 1 && (
