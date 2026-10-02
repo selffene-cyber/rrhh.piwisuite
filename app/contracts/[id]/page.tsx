@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/date'
-import { FaEdit, FaFilePdf, FaCheck, FaTimes } from 'react-icons/fa'
+import { FaEdit, FaFilePdf, FaCheck, FaTimes, FaPlus } from 'react-icons/fa'
 import { terminateContractAndCreateSettlement, activateEmployeeOnContractActivation } from '@/lib/services/contractService'
 
 export default function ContractDetailPage({ params }: { params: { id: string } }) {
@@ -169,6 +169,7 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
       issued: { text: 'Emitido', color: '#f59e0b' },
       signed: { text: 'Firmado', color: '#10b981' },
       active: { text: 'Activo', color: '#3b82f6' },
+      expired: { text: 'Vencido', color: '#dc2626' },
       terminated: { text: 'Terminado', color: '#ef4444' },
       cancelled: { text: 'Cancelado', color: '#9ca3af' },
     }
@@ -241,6 +242,17 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
           </Link>
         </div>
       </div>
+
+      {/* Aviso de contrato vencido */}
+      {contract.status === 'expired' && (
+        <div style={{ marginBottom: '24px', padding: '16px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px' }}>
+          <p style={{ margin: 0, color: '#991b1b', fontSize: '14px', fontWeight: '600' }}>
+            ⏰ Este contrato venció el {contract.end_date ? formatDate(contract.end_date) : 'fecha desconocida'}.
+            Puedes crear un anexo de prórroga para extender la relación laboral (la fecha de término se actualizará automáticamente),
+            crear un nuevo contrato, o terminar el contrato.
+          </p>
+        </div>
+      )}
 
       {/* Información General */}
       <div className="card" style={{ marginBottom: '24px' }}>
@@ -486,7 +498,7 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
               Activar Contrato
             </button>
           )}
-          {contract.status === 'active' && (
+          {(contract.status === 'active' || contract.status === 'expired') && (
             <button 
               onClick={() => handleStatusChange('terminated')}
               style={{ background: '#ef4444', color: 'white' }}
@@ -494,6 +506,14 @@ export default function ContractDetailPage({ params }: { params: { id: string } 
               <FaTimes style={{ marginRight: '8px' }} />
               Terminar Contrato
             </button>
+          )}
+          {contract.status === 'expired' && (
+            <Link href={`/contracts/annex/new?contract_id=${contract.id}`}>
+              <button style={{ background: '#f59e0b', color: 'white' }}>
+                <FaPlus style={{ marginRight: '8px' }} />
+                Crear Anexo de Prórroga
+              </button>
+            </Link>
           )}
         </div>
       </div>

@@ -11,6 +11,10 @@
     {
       "path": "/api/medical-leaves/deactivate-expired",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/contracts/auto-expire",
+      "schedule": "30 1 * * *"
     }
   ]
 }

@@ -51,7 +51,9 @@ export class ContractValidationService {
       .from('contracts')
       .select('*')
       .eq('employee_id', employeeId)
-      .eq('status', 'active')
+      .in('status', ['active', 'expired'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (error && error.code !== 'PGRST116') {
@@ -71,7 +73,7 @@ export class ContractValidationService {
 
   /**
    * Valida si se puede terminar un contrato
-   * Regla 1.2: El contrato debe estar activo para poder terminarlo
+   * Regla 1.2: El contrato debe estar activo o vencido para poder terminarlo
    */
   async canTerminateContract(contractId: string): Promise<ValidationResult> {
     const { data: contract, error } = await this.supabase
@@ -89,10 +91,10 @@ export class ContractValidationService {
 
     const contractData = contract as any
 
-    if (contractData.status !== 'active') {
+    if (!['active', 'expired'].includes(contractData.status)) {
       return denied(
         ValidationCodes.CONTRACT_INVALID_STATUS,
-        `El contrato no está activo (estado actual: "${contractData.status}"). Solo se pueden terminar contratos activos.`,
+        `El contrato no está activo ni vencido (estado actual: "${contractData.status}"). Solo se pueden terminar contratos activos o vencidos.`,
         { currentStatus: contractData.status }
       )
     }
@@ -202,10 +204,11 @@ export class ContractValidationService {
       }
 
       // Validar que el contrato tenga un estado válido para anexos
-      if (!['active', 'signed'].includes(activeContract.status)) {
+      // 'expired' permite crear anexos de prórroga/extensión sobre contratos vencidos
+      if (!['active', 'signed', 'expired'].includes(activeContract.status)) {
         return denied(
           ValidationCodes.ANNEX_CONTRACT_INVALID_STATUS,
-          `No se pueden crear anexos sobre contratos con estado "${activeContract.status}". El contrato debe estar activo o firmado.`,
+          `No se pueden crear anexos sobre contratos con estado "${activeContract.status}". El contrato debe estar activo, firmado o vencido (para prórroga).`,
           { contractStatus: activeContract.status }
         )
       }
@@ -235,14 +238,15 @@ export class ContractValidationService {
     const contractData = contract as any
 
     // Validar estado del contrato
+    // 'expired' permite anexos de prórroga/extensión sobre contratos vencidos
     const invalidStatuses: ContractStatus[] = ['terminated', 'cancelled', 'draft']
     if (invalidStatuses.includes(contractData.status as ContractStatus)) {
       return denied(
         ValidationCodes.ANNEX_CONTRACT_INVALID_STATUS,
-        `No se pueden crear anexos sobre contratos con estado "${contractData.status}". El contrato debe estar activo, emitido o firmado.`,
+        `No se pueden crear anexos sobre contratos con estado "${contractData.status}". El contrato debe estar activo, emitido, firmado o vencido (para prórroga).`,
         { 
           contractStatus: contractData.status,
-          allowedStatuses: ['active', 'issued', 'signed']
+          allowedStatuses: ['active', 'issued', 'signed', 'expired']
         }
       )
     }
@@ -343,19 +347,21 @@ export class ContractValidationService {
     const currentStatus = contractData.status as ContractStatus
 
     // Validaciones específicas por transición de estado
-    if (newStatus === 'active' && currentStatus !== 'signed') {
+    // 'expired' -> 'active' solo ocurre automáticamente vía anexo de prórroga (annexUpdateService),
+    // no como acción directa, pero se permite la transición para ese flujo
+    if (newStatus === 'active' && !['signed', 'expired'].includes(currentStatus)) {
       return denied(
         ValidationCodes.CONTRACT_INVALID_STATUS,
-        `Un contrato solo puede activarse si está en estado "signed". Estado actual: "${currentStatus}".`,
-        { currentStatus, requiredStatus: 'signed' }
+        `Un contrato solo puede activarse si está en estado "signed" o "expired". Estado actual: "${currentStatus}".`,
+        { currentStatus, requiredStatus: 'signed, expired' }
       )
     }
 
-    if (newStatus === 'terminated' && currentStatus !== 'active') {
+    if (newStatus === 'terminated' && !['active', 'expired'].includes(currentStatus)) {
       return denied(
         ValidationCodes.CONTRACT_INVALID_STATUS,
-        `Solo se pueden terminar contratos activos. Estado actual: "${currentStatus}".`,
-        { currentStatus, requiredStatus: 'active' }
+        `Solo se pueden terminar contratos activos o vencidos. Estado actual: "${currentStatus}".`,
+        { currentStatus, requiredStatus: 'active, expired' }
       )
     }
 
