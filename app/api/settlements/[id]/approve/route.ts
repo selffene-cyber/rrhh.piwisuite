@@ -20,8 +20,33 @@ export async function POST(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { notes } = body
+    const rawBody = await request.text()
+    let notes: string | undefined
+    if (rawBody !== '') {
+      let body: unknown
+      try {
+        body = JSON.parse(rawBody)
+      } catch {
+        return NextResponse.json(
+          { error: 'El cuerpo de la solicitud no contiene JSON válido' },
+          { status: 400 }
+        )
+      }
+
+      if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+        return NextResponse.json(
+          { error: 'El cuerpo de la solicitud debe ser un objeto JSON' },
+          { status: 400 }
+        )
+      }
+
+      if ('notes' in body) {
+        if (typeof body.notes !== 'string') {
+          return NextResponse.json({ error: 'Las notas deben ser texto' }, { status: 400 })
+        }
+        notes = body.notes
+      }
+    }
 
     const settlement = await updateSettlementStatus(
       params.id,
@@ -32,10 +57,13 @@ export async function POST(
     )
 
     return NextResponse.json({ settlement })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error al aprobar finiquito:', error)
+    const message = error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : ''
     return NextResponse.json(
-      { error: error.message || 'Error al aprobar finiquito' },
+      { error: message || 'Error al aprobar finiquito' },
       { status: 500 }
     )
   }
