@@ -9,6 +9,10 @@
       "schedule": "0 0 * * *"
     },
     {
+      "path": "/api/previsional/sync-sis",
+      "schedule": "0 12 * * *"
+    },
+    {
       "path": "/api/medical-leaves/deactivate-expired",
       "schedule": "0 1 * * *"
     },

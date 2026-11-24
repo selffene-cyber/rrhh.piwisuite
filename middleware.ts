@@ -5,6 +5,9 @@ import { hasSupabasePublicEnv } from '@/lib/supabase/env'
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Esta tarea autentica al programador con CRON_SECRET, sin sesión de usuario.
+  if (pathname === '/api/previsional/sync-sis') return NextResponse.next()
+
   // Si Supabase no está configurado en local, redirigir a una página de setup
   // (evita que el middleware crashee y guía al usuario).
   if (!hasSupabasePublicEnv()) {

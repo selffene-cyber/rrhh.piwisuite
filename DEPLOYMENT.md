@@ -128,6 +128,14 @@ Easypanel debería detectar automáticamente:
 
 ## Configuración Adicional en Supabase
 
+### Sincronización del SIS de Previred
+
+1. Aplica `supabase/migrations/147_sync_monthly_sis.sql` antes de habilitar el job. Corrige las vigencias confirmadas de agosto a noviembre de 2026 sin recalcular nóminas. Si el estado de las tasas no coincide con el esperado, la migración se revierte para revisión manual.
+2. Configura `CRON_SECRET` como secreto de servidor. En Vercel, `vercel.json` programa la consulta diaria. En EasyPanel, configura un programador externo diario que envíe `GET /api/previsional/sync-sis` al dominio de RH Piwi con `Authorization: Bearer <CRON_SECRET>`. No pongas el secreto en la URL ni en el repositorio.
+3. Configura el programador para alertar por respuestas no exitosas. `502` indica indicadores ausentes o inconsistentes; `409`, una vigencia existente que requiere revisión; `500`, fallo de escritura o migración pendiente. Una respuesta exitosa indica `inserted`, `updated` o `unchanged`.
+
+El job verifica el mes calendario de Chile y consulta la API sin caché. Comprueba el desglose SIS + Expectativa de Vida (2,50 %); si cambia ese total, se requiere revisión. Solo sincroniza SIS. No cambia la fórmula de otros aportes ni recalcula períodos cerrados. Una corrección del proveedor no sustituye automáticamente una tasa mensual existente si el período ya fue cerrado por alguna empresa.
+
 ### URLs Permitidas para Autenticación
 1. Ve a Supabase Dashboard → Authentication → URL Configuration
 2. Agrega a **Redirect URLs**:
